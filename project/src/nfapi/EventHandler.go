@@ -142,6 +142,9 @@ func getIPV6Lan() string {
 
 // 实现 tcpConnectRequest 函数，用于处理 TCP 连接请求
 func tcpConnectRequest(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
+	if pConnInfo == nil {
+		return
+	}
 	// 如果 ProcessPortInt 等于 0，则直接返回
 	if ProcessPortInt == 0 {
 		return
@@ -210,6 +213,9 @@ func tcpConnected(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 }
 
 func tcpClosed(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
+	if pConnInfo == nil {
+		return
+	}
 	proxyLock.Lock()
 	delete(proxy, pConnInfo.LocalAddress.GetPort())
 	proxyLock.Unlock()
@@ -217,13 +223,12 @@ func tcpClosed(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 }
 
 func tcpReceive(id uint64, buf *byte, len int32) {
-	_, _ = Api.NfTcpPostReceive(id, buf, len)
+	//_, _ = Api.NfTcpPostReceive(id, buf, len)
 	return
 }
 
 func tcpSend(id uint64, buf *byte, len int32) {
-
-	_, _ = Api.NfTcpPostSend(id, buf, len)
+	//_, _ = Api.NfTcpPostSend(id, buf, len)
 	return
 }
 
@@ -271,14 +276,14 @@ func isEmpower(id uint64) (bool, SockaddrInx, uint32, NF_UDP_CONN_INFO) {
 }
 
 func udpCreated(id uint64, pConnInfo *NF_UDP_CONN_INFO) {
-
 }
 func udpConnectRequest(id uint64, pConnReq *NF_UDP_CONN_REQUEST) {
-
-	return
 }
 
 func udpClosed(id uint64, pConnInfo *NF_UDP_CONN_INFO) {
+	if pConnInfo == nil {
+		return
+	}
 	tid := NfIdGetTid(id)
 	if tid < 1 {
 		return
@@ -294,12 +299,38 @@ func udpClosed(id uint64, pConnInfo *NF_UDP_CONN_INFO) {
 }
 
 func udpReceive(id uint64, RemoteAddress *SockaddrInx, buf []byte, options *NF_UDP_OPTIONS) {
-	Api.NfUdpPostReceive(id, RemoteAddress, buf, options)
+	if RemoteAddress == nil {
+		return
+	}
+	if UdpSendReceiveFunc == nil {
+		_, _ = Api.NfUdpDisableFiltering(id)
+		_, _ = Api.NfUdpPostReceive(id, RemoteAddress, buf, options)
+		return
+	}
+	_, LocalAddress, Pid, pConnInfo := isEmpower(id)
+	k := pConnInfo.LocalAddress.String() + RemoteAddress.String()
+	o := UdpSenders.GetObj(k)
+	if o == nil {
+		_, _ = Api.NfUdpPostReceive(id, RemoteAddress, buf, options)
+		return
+	}
+	UdpLock.Lock()
+	if o.Receive == nil {
+		o.Receive = &NfSend{Id: id, RemoteAddress: RemoteAddress.Clone(), options: options.Clone()}
+	}
+	UdpLock.Unlock()
+	bs := UdpSendReceiveFunc(public.SunnyNetUDPTypeReceive, o.Theoni, Pid, LocalAddress.String(), RemoteAddress.String(), buf)
+	if len(bs) > 0 {
+		_, _ = Api.NfUdpPostReceive(id, RemoteAddress, bs, options)
+	}
 	return
 }
 
 // 实现 udpSend 函数，用于发送 UDP 数据
 func udpSend(id uint64, RemoteAddress *SockaddrInx, buf []byte, options *NF_UDP_OPTIONS) {
+	if RemoteAddress == nil {
+		return
+	}
 	if UdpSendReceiveFunc == nil {
 		Api.NfUdpPostSend(id, RemoteAddress, buf, options)
 		return
@@ -348,11 +379,9 @@ func udpSend(id uint64, RemoteAddress *SockaddrInx, buf []byte, options *NF_UDP_
 }
 
 func udpCanReceive(id uint64) {
-
 	return
 }
 
 func udpCanSend(id uint64) {
-
 	return
 }

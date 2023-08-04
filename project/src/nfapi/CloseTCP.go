@@ -10,18 +10,18 @@ import (
 )
 
 // ClosePidTCP 关闭指定进程的所有TCP连接
-func ClosePidTCP(PID int) bool {
-	ok1 := iphlpapi.CloseCurrentSocket(PID, AF_INET)
-	ok2 := iphlpapi.CloseCurrentSocket(PID, AF_INET6)
-	return ok1 != nil || ok2 != nil
+func ClosePidTCP(PID int) {
+	iphlpapi.CloseCurrentSocket(PID, AF_INET)
+	iphlpapi.CloseCurrentSocket(PID, AF_INET6)
+
 }
 
 // CloseNameTCP 关闭指定进程的所有TCP连接
 func CloseNameTCP(processName string) {
 	a := GetPIDByName(processName)
 	for i := 0; i < len(a); i++ {
-		_ = iphlpapi.CloseCurrentSocket(a[i], AF_INET)
-		_ = iphlpapi.CloseCurrentSocket(a[i], AF_INET6)
+		iphlpapi.CloseCurrentSocket(a[i], AF_INET)
+		iphlpapi.CloseCurrentSocket(a[i], AF_INET6)
 	}
 }
 

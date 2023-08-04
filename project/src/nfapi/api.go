@@ -55,10 +55,10 @@ func MessageBox(caption, text string, style uintptr) (result int) {
 	user32, _ := syscall.LoadLibrary("user32.dll")
 	messageBox, _ := syscall.GetProcAddress(user32, "MessageBoxW")
 	ret, _, callErr := syscall.SyscallN(messageBox, 4,
-		0, // hwnd
+		0,                                                          // hwnd
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(text))),    // Text
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(caption))), // Caption
-		style, // type
+		style,                                                      // type
 		0,
 		0)
 	if callErr != 0 {
@@ -97,11 +97,22 @@ func ApiInit() bool {
 		}
 		_, er = AddRule(false, IPPROTO_TCP, 0, D_OUT, 0, 0, AF_INET, "", "", "", "", NF_INDICATE_CONNECT_REQUESTS)  //TCP
 		_, er = AddRule(false, IPPROTO_TCP, 0, D_OUT, 0, 0, AF_INET6, "", "", "", "", NF_INDICATE_CONNECT_REQUESTS) //TCP
-		//_, er = AddRule(false, IPPROTO_UDP, 0, D_OUT, 0, 0, AF_INET, "", "", "", "", NF_FILTER)                     //UDP
-		//_, er = AddRule(false, IPPROTO_UDP, 0, D_OUT, 0, 0, AF_INET6, "", "", "", "", NF_FILTER)                    //UDP
-		_, er = AddRule(false, IPPROTO_UDP, 0, 0, 0, 0, 0, "", "", "", "", NF_FILTER) //UDP
-		//_, er = AddRule(false, IPPROTO_UDP, 0, D_IN, 0, 0, AF_INET, "", "", "", "", NF_FILTER)                      //UDP
-		//_, er = AddRule(true, IPPROTO_UDP, 0, D_IN, 0, 0, AF_INET6, "", "", "", "", NF_FILTER)                      //UDP
+
+		_, er = AddRule(false, IPPROTO_UDP, 0, D_OUT, 0, 0, AF_INET, "", "", "", "", NF_FILTER)  //UDP
+		_, er = AddRule(false, IPPROTO_UDP, 0, D_OUT, 0, 0, AF_INET6, "", "", "", "", NF_FILTER) //UDP
+
+		_, er = AddRule(false, IPPROTO_UDP, 0, D_IN, 0, 0, AF_INET, "", "", "", "", NF_FILTER)  //UDP
+		_, er = AddRule(false, IPPROTO_UDP, 0, D_IN, 0, 0, AF_INET6, "", "", "", "", NF_FILTER) //UDP
+
+		//_, er = AddRule(false, IPPROTO_UDP, 0, 0, 0, 0, 0, "", "", "", "", NF_FILTER)                               //UDP
+		/*
+			_, er = AddRule(false, IPPROTO_UDP, 0, D_OUT, 0, 0, AF_INET, "", "", "", "", NF_FILTER)                     //UDP
+			_, er = AddRule(false, IPPROTO_UDP, 0, D_OUT, 0, 0, AF_INET6, "", "", "", "", NF_FILTER)                    //UDP
+			_, er = AddRule(false, IPPROTO_UDP, 0, D_IN, 0, 0, AF_INET, "", "", "", "", NF_FILTER)                      //UDP
+			_, er = AddRule(false, IPPROTO_UDP, 0, D_IN, 0, 0, AF_INET6, "", "", "", "", NF_FILTER)                     //UDP
+			_, er = AddRule(true, IPPROTO_UDP, 0, 0, 0, 0, AF_INET6, "", "", "", "", NF_PEND_CONNECT_REQUEST)           //UDP
+			_, er = AddRule(true, IPPROTO_UDP, 0, 0, 0, 0, AF_INET, "", "", "", "", NF_PEND_CONNECT_REQUEST)            //UDP
+		*/
 		if er != nil {
 			return false
 		}

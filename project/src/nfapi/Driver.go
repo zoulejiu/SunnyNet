@@ -21,18 +21,27 @@ func go_threadEnd() {
 
 //export go_tcpConnectRequest
 func go_tcpConnectRequest(id C.ulonglong, pConnInfo uintptr) {
+	if pConnInfo == 0 {
+		return
+	}
 	A := (*NF_TCP_CONN_INFO)(unsafe.Pointer(pConnInfo))
 	tcpConnectRequest(uint64(id), A)
 }
 
 //export go_tcpConnected
 func go_tcpConnected(id C.ulonglong, pConnInfo uintptr) {
+	if pConnInfo == 0 {
+		return
+	}
 	A := (*NF_TCP_CONN_INFO)(unsafe.Pointer(pConnInfo))
 	tcpConnected(uint64(id), A)
 }
 
 //export go_tcpClosed
 func go_tcpClosed(id C.ulonglong, pConnInfo uintptr) {
+	if pConnInfo == 0 {
+		return
+	}
 	A := (*NF_TCP_CONN_INFO)(unsafe.Pointer(pConnInfo))
 	tcpClosed(uint64(id), A)
 }
@@ -59,18 +68,27 @@ func go_tcpCanSend(id C.ulonglong) {
 
 //export go_udpCreated
 func go_udpCreated(id C.ulonglong, pConnInfo uintptr) {
+	if pConnInfo == 0 {
+		return
+	}
 	A := (*NF_UDP_CONN_INFO)(unsafe.Pointer(pConnInfo))
 	udpCreated(uint64(id), A)
 }
 
 //export go_udpConnectRequest
 func go_udpConnectRequest(id C.ulonglong, pConnReq uintptr) {
+	if pConnReq == 0 {
+		return
+	}
 	A := (*NF_UDP_CONN_REQUEST)(unsafe.Pointer(pConnReq))
 	udpConnectRequest(uint64(id), A)
 }
 
 //export go_udpClosed
 func go_udpClosed(id C.ulonglong, pConnInfo uintptr) {
+	if pConnInfo == 0 {
+		return
+	}
 	A := (*NF_UDP_CONN_INFO)(unsafe.Pointer(pConnInfo))
 	udpClosed(uint64(id), A)
 }
@@ -78,6 +96,9 @@ func go_udpClosed(id C.ulonglong, pConnInfo uintptr) {
 //export go_udpReceive
 func go_udpReceive(id C.ENDPOINT_ID, remoteAddress uintptr, buf uintptr, length C.int, options uintptr) {
 	bs := public.CStringToBytes(buf, int(length))
+	if remoteAddress == 0 || options == 0 {
+		return
+	}
 	A := (*SockaddrInx)(unsafe.Pointer(remoteAddress))
 	B := (*NF_UDP_OPTIONS)(unsafe.Pointer(options))
 	udpReceive(uint64(id), A, bs, B)
@@ -86,6 +107,9 @@ func go_udpReceive(id C.ENDPOINT_ID, remoteAddress uintptr, buf uintptr, length 
 //export go_udpSend
 func go_udpSend(id C.ENDPOINT_ID, remoteAddress uintptr, buf uintptr, length C.int, options uintptr) {
 	bs := public.CStringToBytes(buf, int(length))
+	if remoteAddress == 0 || options == 0 {
+		return
+	}
 	A := (*SockaddrInx)(unsafe.Pointer(remoteAddress))
 	B := (*NF_UDP_OPTIONS)(unsafe.Pointer(options))
 	udpSend(uint64(id), A, bs, B)

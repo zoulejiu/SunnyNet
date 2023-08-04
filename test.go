@@ -10,6 +10,7 @@ import (
 )
 
 func Test() {
+
 	s := SunnyNet.NewSunny()
 
 	i := CreateCertificate()
@@ -26,12 +27,19 @@ func Test() {
 	//s.SetIeProxy(false)
 	//s.MustTcp(true)
 	Port := 2022
+
 	s = s.SetPort(Port).Start()
-	//fmt.Println(s.StartProcess())
-	//s.ProcessALLName(true)
-	//s.ProcessAddName("sunny.exe")
-	//s.ProcessAddName("sunny1.exe")
-	//s.ProcessAddName("111.exe")
+
+	// fmt.Println(s.StartProcess())
+
+	// 请注意GoLang调试时候，请不要使用此(ProcessALLName)命令，因为不管开启或关闭，都会将当前所有TCP链接断开一次
+	// 因为如果不断开的一次的话,已经建立的TCP链接无法抓包。
+	// Go程序调试，是通过TCP连接的，若使用此命令将无法调试。
+	// s.ProcessALLName(true)
+
+	// s.ProcessAddName("sunny.exe")
+	// s.ProcessAddName("sunny1.exe")
+	// s.ProcessAddName("go_build_p.exe")
 	err := s.Error
 	if err != nil {
 		panic(err)
@@ -56,5 +64,14 @@ func TcpCallback(Conn *SunnyNet.TcpConn) {
 	//fmt.Println(Conn.Pid, Conn.LocalAddr, Conn.RemoteAddr, Conn.Type, Conn.GetBodyLen())
 }
 func UdpCallback(Conn *SunnyNet.UDPConn) {
-	//fmt.Println(Conn.Type, Conn.Data)
+	if public.SunnyNetUDPTypeReceive == Conn.Type {
+		fmt.Println("接收UDP", Conn.LocalAddress, Conn.RemoteAddress, len(Conn.Data))
+	}
+	if public.SunnyNetUDPTypeSend == Conn.Type {
+		fmt.Println("发送UDP", Conn.LocalAddress, Conn.RemoteAddress, len(Conn.Data))
+	}
+	if public.SunnyNetUDPTypeClosed == Conn.Type {
+		fmt.Println("关闭UDP", Conn.LocalAddress, Conn.RemoteAddress)
+	}
+
 }

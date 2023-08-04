@@ -552,7 +552,7 @@ func (a NFApi) NfAddBindingRule(prule *NF_BINDING_RULE, toHead bool) (NF_STATUS,
 	if toHead {
 		t = 1
 	}
-	return ret(a.nf_getUDPStat.Call(uintptr(unsafe.Pointer(prule)), uintptr(t)))
+	return ret(a.nf_addBindingRule.Call(uintptr(unsafe.Pointer(prule)), uintptr(t)))
 }
 func (a NFApi) NfDeleteBindingRules() (NF_STATUS, error) {
 	return ret(a.nf_deleteBindingRules.Call())
