@@ -75,6 +75,10 @@ extern "C" {
 #endif
 
 
+// 获取SunnyNet版本
+//
+extern __declspec(dllexport) GoUintptr GetSunnyVersion();
+
 // 释放指针
 //
 extern __declspec(dllexport) void Free(GoUintptr ptr);

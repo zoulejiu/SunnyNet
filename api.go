@@ -9,6 +9,13 @@ import (
 	"SunnyNet/project/public"
 )
 
+// 获取SunnyNet版本
+//
+//export GetSunnyVersion
+func GetSunnyVersion() uintptr {
+	return Api.GetSunnyVersion()
+}
+
 // 释放指针
 //
 //export Free

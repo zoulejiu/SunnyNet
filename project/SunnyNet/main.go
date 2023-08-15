@@ -784,7 +784,7 @@ func (s *ProxyRequest) httpProcessing(aheadData []byte, DefaultPort, Tag string)
 	ReadData, WhetherExceedsLength := s.ConnRead(aheadData, false)
 	//从字节流中取出HOST
 	host := public.GetHost(string(ReadData))
-	if host != public.NULL {
+	if host != public.NULL && host != s.Target.Host {
 		s.Target.Parse(host, DefaultPort)
 	}
 	//提交数据是否超过 public.MaxUploadLength 字节，若是超过  public.MaxUploadLength  设定的最大字节数，改请求将转为TCP方式请求

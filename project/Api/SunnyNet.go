@@ -14,6 +14,11 @@ import (
 	"time"
 )
 
+// GetSunnyVersion 获取SunnyNet版本
+func GetSunnyVersion() uintptr {
+	return public.PointerPtr(public.SunnyVersion)
+}
+
 // SetRequestHeader 设置HTTP/S请求体中的协议头
 func SetRequestHeader(MessageId int, name, val string) {
 	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)

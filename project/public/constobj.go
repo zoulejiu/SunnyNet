@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+const SunnyVersion = "2023-08-14"
+
 // TCP请求相关
 const (
 	SunnyNetMsgTypeTCPAboutToConnect = 4 //TCP即将开始连接

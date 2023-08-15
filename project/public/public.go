@@ -40,7 +40,23 @@ func GetHost(s string) string {
 	if len(s) < 11 {
 		return NULL
 	}
-	host := NULL
+	QUrl := NULL //Url请求中的HOST
+	if QUrl == NULL {
+		QUrl = SubString(s, "://", "/")
+	}
+	if QUrl == NULL {
+		QUrl = SubString(s, "://", "?")
+	}
+	if QUrl == NULL {
+		QUrl = SubString(strings.ToLower(s), "connect ", " ")
+	}
+	if QUrl == NULL {
+		QUrl = SubString(s+"/", "://", "/")
+	}
+	if QUrl == NULL {
+		QUrl = SubString(s+"/", "://", "?")
+	}
+	HHost := NULL //协议头中的HOST
 	//有些API接口 区分HOST的大小写
 	//找到协议头host的位置
 	index := strings.Index(strings.ToLower(s), "host: ")
@@ -53,22 +69,34 @@ func GetHost(s string) string {
 				if sml >= out+index {
 					if index+6 <= out+index {
 						//取出Host 是大写就是大写。小写就是小写
-						host = CopyString(s[index+6 : out+index])
+						HHost = CopyString(s[index+6 : out+index])
 					}
 				}
 			}
 		}
 	}
-	if host == NULL {
-		host = SubString(s, "://", "/")
+	if HHost == NULL {
+		HHost = SubString(s, "://", "/")
 	}
-	if host == NULL {
-		host = SubString(strings.ToLower(s), "connect ", " ")
+	if HHost == QUrl || QUrl == "" {
+		//如果协议头中的HOST等于URL中的HOST 或者URL中没有HOST 直接返回协议头中的HOST
+		return HHost
 	}
-	if host == NULL {
-		host = SubString(s+"/", "://", "/")
+	if HHost == "" {
+		return QUrl
 	}
-	return host
+	//将URL中的HOST分割一下 区分出HOST 和端口
+	//例如URL中HOST为 1.2.3.4:8000 协议头中HOST为1.2.3.4没有端口
+	ar := strings.Split(QUrl, ":")
+	if len(ar) == 2 {
+		//如果URL的HOST去除端口和协议头中的HOST相等那么返回URL中的HOST
+		//因为协议头中的HOST不带端口号，所以按照协议头中的HOST为准
+		if ar[0] == HHost {
+			return QUrl
+		}
+	}
+	//如果URL中的HOST和协议头中的HOST不一致以协议头中为准
+	return HHost
 }
 
 // RemoveFile 删除文件
