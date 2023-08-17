@@ -259,6 +259,10 @@ extern __declspec(dllexport) GoUintptr GetResponseBody(GoInt MessageId);
 //
 extern __declspec(dllexport) GoInt GetWebsocketBodyLen(GoInt MessageId);
 
+// 主动关闭Websocket
+//
+extern __declspec(dllexport) GoUint8 CloseWebsocket(GoInt Theology);
+
 // 获取 WebSocket消息 返回数据指针
 //
 extern __declspec(dllexport) GoUintptr GetWebsocketBody(GoInt MessageId);
@@ -269,11 +273,11 @@ extern __declspec(dllexport) GoUint8 SetWebsocketBody(GoInt MessageId, GoUintptr
 
 // 主动向Websocket服务器发送消息 MessageType=WS消息类型 data=数据指针  dataLen=数据长度
 //
-extern __declspec(dllexport) GoUint8 SendWebsocketBody(GoInt MessageId, GoInt MessageType, GoUintptr data, GoInt dataLen);
+extern __declspec(dllexport) GoUint8 SendWebsocketBody(GoInt Theology, GoInt MessageType, GoUintptr data, GoInt dataLen);
 
 // SendWebsocketClientBody 主动向Websocket客户端发送消息 MessageType=WS消息类型 data=数据指针  dataLen=数据长度
 //
-extern __declspec(dllexport) GoUint8 SendWebsocketClientBody(GoInt MessageId, GoInt MessageType, GoUintptr data, GoInt dataLen);
+extern __declspec(dllexport) GoUint8 SendWebsocketClientBody(GoInt Theology, GoInt MessageType, GoUintptr data, GoInt dataLen);
 
 // 修改 TCP消息数据 MsgType=1 发送的消息 MsgType=2 接收的消息 如果 MsgType和MessageId不匹配，将不会执行操作  data=数据指针  dataLen=数据长度
 //

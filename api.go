@@ -331,6 +331,13 @@ func GetWebsocketBodyLen(MessageId int) int {
 	return Api.GetWebsocketBodyLen(MessageId)
 }
 
+// 主动关闭Websocket
+//
+//export CloseWebsocket
+func CloseWebsocket(Theology int) bool {
+	return Api.CloseWebsocket(Theology)
+}
+
 // 获取 WebSocket消息 返回数据指针
 //
 //export GetWebsocketBody
@@ -348,15 +355,15 @@ func SetWebsocketBody(MessageId int, data uintptr, dataLen int) bool {
 // 主动向Websocket服务器发送消息 MessageType=WS消息类型 data=数据指针  dataLen=数据长度
 //
 //export SendWebsocketBody
-func SendWebsocketBody(MessageId, MessageType int, data uintptr, dataLen int) bool {
-	return Api.SendWebsocketBody(MessageId, MessageType, data, dataLen)
+func SendWebsocketBody(Theology, MessageType int, data uintptr, dataLen int) bool {
+	return Api.SendWebsocketBody(Theology, MessageType, data, dataLen)
 }
 
 // SendWebsocketClientBody 主动向Websocket客户端发送消息 MessageType=WS消息类型 data=数据指针  dataLen=数据长度
 //
 //export SendWebsocketClientBody
-func SendWebsocketClientBody(MessageId, MessageType int, data uintptr, dataLen int) bool {
-	return Api.SendWebsocketClientBody(MessageId, MessageType, data, dataLen)
+func SendWebsocketClientBody(Theology, MessageType int, data uintptr, dataLen int) bool {
+	return Api.SendWebsocketClientBody(Theology, MessageType, data, dataLen)
 }
 
 // 修改 TCP消息数据 MsgType=1 发送的消息 MsgType=2 接收的消息 如果 MsgType和MessageId不匹配，将不会执行操作  data=数据指针  dataLen=数据长度

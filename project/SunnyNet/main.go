@@ -165,6 +165,7 @@ type ProxyRequest struct {
 	Response   *http.Response       //HTTP响应体
 	IsReturn   bool                 //是否不发送直接响应 Response 中的内容
 	TCP        public.TCP           //TCP收发数据
+	Websocket  *public.WebsocketMsg //Websocket会话
 	Proxy      *GoWinHttp.Proxy     //设置指定代理
 	HttpCall   int                  //http 请求回调地址
 	TcpCall    int                  //TCP请求回调地址
@@ -502,6 +503,7 @@ func (s *ProxyRequest) MustTcpProcessing(aheadData []byte, Tag string) {
 		Portly = nil
 		aheadData = make([]byte, 0)
 		aheadData = nil
+		s.releaseTcp()
 	}()
 	var RemoteTCP net.Conn
 	if Portly.S5TypeProxy {
@@ -537,58 +539,56 @@ func (s *ProxyRequest) MustTcpProcessing(aheadData []byte, Tag string) {
 		RemoteTCP = tlsConn
 	}
 	if err == nil && RemoteTCP != nil {
+		tw := public.NewReadWriteObject(RemoteTCP)
+		{
+			//构造结构体数据,主动发送，关闭等操作时需要用
+			if s.TCP.Send == nil {
+				s.TCP.Send = &public.TcpMsg{}
+			}
+			if s.TCP.Receive == nil {
+				s.TCP.Receive = &public.TcpMsg{}
+			}
+			s.TCP.SendBw = s.RwObj.Writer
+			s.TCP.ReceiveBw = tw.Writer
+			s.TCP.ConnSend = s.Conn
+			s.TCP.ConnServer = RemoteTCP
+			TcpSceneLock.Lock()
+			TcpStorage[s.Theology] = &s.TCP
+			TcpSceneLock.Unlock()
+		}
 		s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPConnectOK, nil)
 		if len(aheadData) > 0 {
 			as.Data.Reset()
 			as.Data.Write(aheadData)
 			s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClientSend, as)
 			_, _ = RemoteTCP.Write(as.Data.Bytes())
+			if as != nil {
+				as.Data.Reset()
+			}
+			as = nil
+			aheadData = make([]byte, 0)
+			aheadData = nil
 		}
-		isClose = s.TcpCallback(&RemoteTCP, Tag)
+		isClose = s.TcpCallback(&RemoteTCP, Tag, tw)
+	} else {
+		_ = s.Conn.Close()
 	}
 
 	return
 }
 
-// TcpCallback TCP消息处理 返回 是否已经调用 通知 回调函数 TCP已经关闭
-func (s *ProxyRequest) TcpCallback(RemoteTCP *net.Conn, Tag string) bool {
-	if RemoteTCP == nil {
-		return false
-	}
-	if (*RemoteTCP) == nil {
-		return false
-	}
-	tw := public.NewReadWriteObject(*RemoteTCP)
-	if s.TCP.Send == nil {
-		s.TCP.Send = &public.TcpMsg{}
-	}
-	if s.TCP.Receive == nil {
-		s.TCP.Receive = &public.TcpMsg{}
-	}
-	s.TCP.SendBw = s.RwObj.Writer
-	s.TCP.ReceiveBw = tw.Writer
-	s.TCP.ConnSend = s.Conn
-	s.TCP.ConnServer = *RemoteTCP
-
-	TcpSceneLock.Lock()
-	TcpStorage[s.Theology] = &s.TCP
-	TcpSceneLock.Unlock()
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	CorrectHttpReq := false //是否纠正HTTP请求，可能由于某些原因 客户端发送数据不及时判断为了TCP请求，后续TCP处理时纠正为HTTP请求
-	//读取客户端消息转发给服务端
-	go func() {
-		s.SocketForward(*tw.Writer, s.RwObj, public.SunnyNetMsgTypeTCPClientSend, s.Conn, *RemoteTCP, &s.TCP, &CorrectHttpReq)
-		wg.Done()
-	}()
-	//读取服务器消息转发给客户端
-	s.SocketForward(*s.RwObj.Writer, tw, public.SunnyNetMsgTypeTCPClientReceive, *RemoteTCP, s.Conn, &s.TCP, &CorrectHttpReq)
-	wg.Wait()
-
+// 释放tcp关联的数据
+func (s *ProxyRequest) releaseTcp() {
 	//================================================================================================================================
-	s.TCP.Send.Data.Reset()
-	s.TCP.Receive.Data.Reset()
+	if s == nil {
+		return
+	}
+	if s.TCP.Send != nil {
+		s.TCP.Send.Data.Reset()
+	}
+	if s.TCP.Receive != nil {
+		s.TCP.Receive.Data.Reset()
+	}
 	s.TCP.Send = nil
 	s.TCP.SendBw = nil
 	s.TCP.ConnSend = nil //=========================  释放相关数据
@@ -600,7 +600,30 @@ func (s *ProxyRequest) TcpCallback(RemoteTCP *net.Conn, Tag string) bool {
 	delete(TcpStorage, s.Theology)
 	TcpSceneLock.Unlock()
 	//================================================================================================================================
-	if CorrectHttpReq {
+}
+
+// TcpCallback TCP消息处理 返回 是否已经调用 通知 回调函数 TCP已经关闭
+func (s *ProxyRequest) TcpCallback(RemoteTCP *net.Conn, Tag string, tw *public.ReadWriteObject) bool {
+	if RemoteTCP == nil {
+		return false
+	}
+	if *RemoteTCP == nil {
+		return false
+	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	isHttpReq := false //是否纠正HTTP请求，可能由于某些原因 客户端发送数据不及时判断为了TCP请求，后续TCP处理时纠正为HTTP请求
+	//读取客户端消息转发给服务端
+	go func() {
+		s.SocketForward(*tw.Writer, s.RwObj, public.SunnyNetMsgTypeTCPClientSend, s.Conn, *RemoteTCP, &s.TCP, &isHttpReq)
+		wg.Done()
+	}()
+	//读取服务器消息转发给客户端
+	s.SocketForward(*s.RwObj.Writer, tw, public.SunnyNetMsgTypeTCPClientReceive, *RemoteTCP, s.Conn, &s.TCP, &isHttpReq)
+	wg.Wait()
+	s.releaseTcp()
+	if isHttpReq {
+		//可能由于某些原因 客户端发送数据不及时判断为了TCP请求,此时纠正为HTTP请求
 		s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil)
 		s.Theology = int(atomic.AddInt64(&public.Theology, 1))
 		//如果之前是HTTP请求识别错误 这里转由HTTP请求处理函数继续处理
@@ -1164,14 +1187,31 @@ func (s *ProxyRequest) handleWss() bool {
 		var sc sync.Mutex
 		var wg sync.WaitGroup
 		wg.Add(1)
+
+		s.Websocket = &public.WebsocketMsg{Mt: 255, Server: Server, Client: Client, Sync: &sc}
+		messageIdLock.Lock()
+		httpStorage[s.Theology] = s
+		messageIdLock.Unlock()
 		//开始转发消息
 		receive := func() {
 			as := &public.WebsocketMsg{Mt: 255, Server: Server, Client: Client, Sync: &sc}
-			MessageId := NewMessageId()
-			messageIdLock.Lock()
-			wsStorage[MessageId] = as
-			messageIdLock.Unlock()
+			MessageId := 0
 			for {
+				{
+					//清除上次的 MessageId
+					messageIdLock.Lock()
+					wsStorage[MessageId] = nil
+					delete(wsStorage, MessageId)
+					messageIdLock.Unlock()
+
+					//构造一个新的MessageId
+					MessageId = NewMessageId()
+
+					//储存对象
+					messageIdLock.Lock()
+					wsStorage[MessageId] = as
+					messageIdLock.Unlock()
+				}
 				as.Data.Reset()
 				mt, message, err := Server.ReadMessage()
 				if err != nil {
@@ -1203,6 +1243,21 @@ func (s *ProxyRequest) handleWss() bool {
 		s.CallbackWssRequest(public.WebsocketConnectionOK, Method, Url, as, MessageId)
 		go receive()
 		for {
+			{
+				//清除上次的 MessageId
+				messageIdLock.Lock()
+				wsStorage[MessageId] = nil
+				delete(wsStorage, MessageId)
+				messageIdLock.Unlock()
+
+				//构造一个新的MessageId
+				MessageId = NewMessageId()
+
+				//储存对象
+				messageIdLock.Lock()
+				wsStorage[MessageId] = as
+				messageIdLock.Unlock()
+			}
 			as.Data.Reset()
 			mt, message1, err := Client.ReadMessage()
 			as.Data.Write(message1)
@@ -1226,6 +1281,8 @@ func (s *ProxyRequest) handleWss() bool {
 		messageIdLock.Lock()
 		wsStorage[MessageId] = nil
 		delete(wsStorage, MessageId)
+		httpStorage[s.Theology] = nil
+		delete(httpStorage, s.Theology)
 		messageIdLock.Unlock()
 		return true
 	}

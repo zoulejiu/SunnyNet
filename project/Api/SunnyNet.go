@@ -810,6 +810,30 @@ func TcpSendMsgClient(theology int, data uintptr, dataLen int) int {
 	return 0
 }
 
+// CloseWebsocket 主动关闭Websocket
+func CloseWebsocket(Theology int) bool {
+	m, ok := SunnyNet.GetSceneProxyRequest(Theology)
+	if ok == false {
+		return false
+	}
+	if m == nil {
+		return false
+	}
+	k := m.Websocket
+	if k == nil {
+		return false
+	}
+	k.Sync.Lock()
+	if k.Server != nil {
+		_ = k.Server.Close()
+	}
+	if k.Client != nil {
+		_ = k.Client.Close()
+	}
+	k.Sync.Unlock()
+	return true
+}
+
 // GetWebsocketBodyLen 获取 WebSocket消息长度
 func GetWebsocketBodyLen(MessageId int) int {
 	k, ok := SunnyNet.GetSceneWebSocketMsg(MessageId)
@@ -856,18 +880,27 @@ func SetWebsocketBody(MessageId int, data uintptr, dataLen int) bool {
 }
 
 // SendWebsocketBody 主动向Websocket服务器发送消息 MessageType=WS消息类型 data=数据指针  dataLen=数据长度
-func SendWebsocketBody(MessageId, MessageType int, data uintptr, dataLen int) bool {
-	n := public.CStringToBytes(data, dataLen)
-	k, ok := SunnyNet.GetSceneWebSocketMsg(MessageId)
+func SendWebsocketBody(Theology, MessageType int, data uintptr, dataLen int) bool {
+	bs := public.CStringToBytes(data, dataLen)
+	m, ok := SunnyNet.GetSceneProxyRequest(Theology)
 	if ok == false {
 		return false
 	}
-	if k == nil {
+	if m == nil {
 		return false
 	}
-	k.Sync.Lock()
-	e := k.Server.WriteMessage(MessageType, n)
-	k.Sync.Unlock()
+	if m.Websocket == nil {
+		return false
+	}
+	if m.Websocket.Sync == nil {
+		return false
+	}
+	if m.Websocket.Server == nil {
+		return false
+	}
+	m.Websocket.Sync.Lock()
+	e := m.Websocket.Server.WriteMessage(MessageType, bs)
+	m.Websocket.Sync.Unlock()
 	if e != nil {
 		return false
 	}
@@ -875,18 +908,27 @@ func SendWebsocketBody(MessageId, MessageType int, data uintptr, dataLen int) bo
 }
 
 // SendWebsocketClientBody 主动向Websocket客户端发送消息 MessageType=WS消息类型 data=数据指针  dataLen=数据长度
-func SendWebsocketClientBody(MessageId, MessageType int, data uintptr, dataLen int) bool {
-	n := public.CStringToBytes(data, dataLen)
-	k, ok := SunnyNet.GetSceneWebSocketMsg(MessageId)
+func SendWebsocketClientBody(Theology, MessageType int, data uintptr, dataLen int) bool {
+	bs := public.CStringToBytes(data, dataLen)
+	m, ok := SunnyNet.GetSceneProxyRequest(Theology)
 	if ok == false {
 		return false
 	}
-	if k == nil {
+	if m == nil {
 		return false
 	}
-	k.Sync.Lock()
-	e := k.Client.WriteMessage(MessageType, n)
-	k.Sync.Unlock()
+	if m.Websocket == nil {
+		return false
+	}
+	if m.Websocket.Sync == nil {
+		return false
+	}
+	if m.Websocket.Client == nil {
+		return false
+	}
+	m.Websocket.Sync.Lock()
+	e := m.Websocket.Client.WriteMessage(MessageType, bs)
+	m.Websocket.Sync.Unlock()
 	if e != nil {
 		return false
 	}

@@ -59,7 +59,7 @@ func GetHost(s string) string {
 	HHost := NULL //协议头中的HOST
 	//有些API接口 区分HOST的大小写
 	//找到协议头host的位置
-	index := strings.Index(strings.ToLower(s), "host: ")
+	index := strings.Index(strings.ToLower(s), "\nhost:")
 	if index != -1 {
 		sml := len(s)
 		//找到 换行的位置
@@ -69,7 +69,7 @@ func GetHost(s string) string {
 				if sml >= out+index {
 					if index+6 <= out+index {
 						//取出Host 是大写就是大写。小写就是小写
-						HHost = CopyString(s[index+6 : out+index])
+						HHost = strings.TrimSpace(CopyString(s[index+6 : out+index]))
 					}
 				}
 			}
@@ -643,17 +643,18 @@ func BuildRequest(RawData []byte, host, source, DefaultPort string, setProxyHost
 	var HeadArr []string
 	for index := 0; index < len(arr); index++ {
 		if index != 0 {
-			HeadArr = strings.Split(arr[index], ": ")
+			HeadArr = strings.Split(arr[index], ":")
 			if len(HeadArr) > 1 {
 				Name := strings.TrimSpace(strings.ReplaceAll(CopyString(HeadArr[0]), ":", NULL))
 				value := ""
-				for _, v := range HeadArr[1:] {
-					if value == "" {
-						value += strings.TrimSpace(CopyString(v))
+				for i, v := range HeadArr[1:] {
+					if i == 0 {
+						value = CopyString(v)
 					} else {
-						value += ": " + strings.TrimSpace(CopyString(v))
+						value += ":" + CopyString(v)
 					}
 				}
+				value = strings.TrimSpace(value)
 				if strings.ToLower(Name) == "transfer-encoding" {
 					TransferEncoding = true
 					continue
