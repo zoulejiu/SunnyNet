@@ -23,6 +23,7 @@ type CertManager struct {
 	Tls          *tls.Config
 	PrivateKey   string
 	Certificates string
+	Cert         string
 }
 
 var Lock sync.Mutex
@@ -57,26 +58,73 @@ func LoadCertificateContext(Context int) *CertManager {
 	return s
 }
 
+func (c *CertManager) setCert(obj any, obj2 ...any) bool {
+	isCert := func(o []byte) bool {
+		block, _ := pem.Decode(o)
+		if block != nil {
+			private, e := x509.ParsePKCS1PrivateKey(block.Bytes)
+			if e != nil {
+				privateKey1, er := x509.ParsePKCS8PrivateKey(block.Bytes)
+				if er != nil {
+					return false
+				}
+				private, _ = privateKey1.(*rsa.PrivateKey)
+			}
+			if private == nil {
+				return false
+			}
+			return true
+		}
+		return false
+	}
+	switch v := obj.(type) {
+	case string:
+		if isCert([]byte(v)) {
+			c.Cert = v
+			return true
+		}
+		return false
+	case []byte:
+		if len(obj2) >= 1 {
+			Block1, E1 := pem.Decode(v)
+			m2 := obj2[0].([]byte)
+			if m2 == nil {
+				return false
+			}
+			Block2, E2 := pem.Decode(m2)
+			if E1 != nil && E2 != nil {
+				pemData := pem.EncodeToMemory(Block1)
+				pemData = append(pemData, pem.EncodeToMemory(Block2)...)
+				if isCert(pemData) {
+					c.Cert = string(pemData)
+					return true
+				}
+			}
+			return false
+		}
+		if isCert(v) {
+			c.Cert = string(v)
+			return true
+		}
+		return false
+	}
+	return false
+}
+
 // LoadP12Certificate 证书管理器 载入p12证书
 func (c *CertManager) LoadP12Certificate(Name, Password string) bool {
 	if c.Tls == nil {
 		return false
 	}
-	p, Certificates, private, e := c.AddP12Certificate(Name, Password)
+	p, Certificates, private, pemData, e := AddP12Certificate(Name, Password)
 	if e != nil {
 		return false
 	}
 	c.PrivateKey = private
 	c.Certificates = Certificates
 	c.Tls.Certificates = []tls.Certificate{*p}
+	c.setCert(pemData)
 	return true
-}
-
-func (c *CertManager) AddP12Certificate(privateKeyName, privatePassword string) (*tls.Certificate, string, string, error) {
-	if c.Tls == nil {
-		return nil, public.NULL, public.NULL, errors.New("CertManagerOBJ=Null")
-	}
-	return AddP12Certificate(privateKeyName, privatePassword)
 }
 
 func (c *CertManager) LoadX509KeyPair(capath, keyPath string) bool {
@@ -98,6 +146,7 @@ func (c *CertManager) LoadX509KeyPair(capath, keyPath string) bool {
 		return false
 	}
 	c.Tls.Certificates = []tls.Certificate{a}
+	c.setCert(CaPEMBlock, keyPEMBlock)
 	return true
 }
 
@@ -125,6 +174,7 @@ func (c *CertManager) LoadX509Certificate(host string, ca, key string) bool {
 		return false
 	}
 	c.Tls.Certificates = []tls.Certificate{cer}
+	c.setCert(a, b)
 	return true
 }
 
@@ -161,13 +211,13 @@ func (c *CertManager) AddCertPoolPath(path string) bool {
 	if c.Tls == nil {
 		return false
 	}
-	if c.Tls.ClientCAs == nil {
-		c.Tls.ClientCAs = x509.NewCertPool()
-	}
 
 	aCrt, err := ioutil.ReadFile(path)
 	if err != nil {
 		return false
+	}
+	if c.Tls.ClientCAs == nil {
+		c.Tls.ClientCAs = x509.NewCertPool()
 	}
 	if !c.Tls.ClientCAs.AppendCertsFromPEM(aCrt) {
 		cert, err := x509.ParseCertificate(aCrt)
@@ -181,6 +231,7 @@ func (c *CertManager) AddCertPoolPath(path string) bool {
 		})
 		return c.Tls.ClientCAs.AppendCertsFromPEM(pemBytes)
 	}
+	c.setCert(aCrt)
 	return true
 }
 
@@ -207,6 +258,7 @@ func (c *CertManager) AddCertPoolText(cer string) bool {
 		})
 		return c.Tls.ClientCAs.AppendCertsFromPEM(pemBytes)
 	}
+	c.setCert(cer)
 	return true
 }
 
@@ -360,6 +412,7 @@ func (c *CertManager) CreateCA(Country, Organization, OrganizationalUnit, Provin
 	}
 	c.PrivateKey = string(rootKey)
 	c.Certificates = string(rootCert)
+	c.setCert(rootKey, rootCert)
 	_ = c.LoadX509Certificate(CommonName, string(rootCert), string(rootKey))
 	return true
 }

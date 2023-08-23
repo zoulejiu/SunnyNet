@@ -14,19 +14,19 @@ func Test() {
 	s := SunnyNet.NewSunny()
 
 	i := CreateCertificate()
-	//LoadP12Certificate(i, C.CString("C:\\Users\\qinka\\Desktop\\certificate\\49D4E174.p12"), C.CString("xysj2017"))
-	//LoadP12Certificate(i, C.CString("C:\\Users\\qinka\\Desktop\\certificate\\8F9AB6DF.p12"), C.CString("xysj2017"))
-	LoadP12Certificate(i, C.CString("C:\\Users\\qinka\\Desktop\\certificate\\F8EF901E.p12"), C.CString("xysj2017"))
+	ok := LoadP12Certificate(i, C.CString("C:\\Users\\qinka\\Desktop\\74fe394a37757545d8cfbd2ea264c7c3.p12"), C.CString("qyrhudhZ"))
+	//ok := AddCertPoolPath(i, C.CString("C:\\Users\\qinka\\Desktop\\P12\\certificate.pem"))
+	fmt.Println("载入P12:", ok)
 	c := Certificate.LoadCertificateContext(i)
-	fmt.Println(c.GetServerName())
-	AddHttpCertificate(C.CString("ccpay.cib.com.cn"), i, 1)
+	fmt.Println("证书名称：", c.GetCommonName())
+	AddHttpCertificate(C.CString("ws-gateway-odis.volkswagenag.com"), i, 1)
 
 	//s.SetGlobalProxy("http://192.168.31.173:8888")
 	//如果在Go中使用 设置Go的回调地址
 	s.SetGoCallback(HttpCallback, TcpCallback, WSCallback, UdpCallback)
 	//s.SetIeProxy(false)
 	//s.MustTcp(true)
-	Port := 2022
+	Port := 2023
 
 	s = s.SetPort(Port).Start()
 

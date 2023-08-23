@@ -1,4 +1,4 @@
-//Applicable to unaligned structures
+// Applicable to unaligned structures
 package basetype
 
 import (
@@ -32,7 +32,7 @@ func printAsBinary(bytes []byte) {
 
 type INT16 [2]byte
 
-//Get by hostByteOrder
+// Get by hostByteOrder
 func (i *INT16) Get() int16 {
 	return int16(hostByteOrder.Uint16(i[:]))
 }
@@ -54,7 +54,7 @@ func (i *INT16) BigEndianSet(in int16) {
 
 type INT32 [4]byte
 
-//Get by hostByteOrder
+// Get by hostByteOrder
 func (i *INT32) Get() int32 {
 	return int32(hostByteOrder.Uint32(i[:]))
 }
@@ -76,7 +76,7 @@ func (i *INT32) BigEndianSet(in int32) {
 
 type UINT16 [2]byte
 
-//Get by hostByteOrder
+// Get by hostByteOrder
 func (i *UINT16) Get() uint16 {
 	return hostByteOrder.Uint16(i[:])
 }
@@ -98,7 +98,7 @@ func (i *UINT16) BigEndianSet(in uint16) {
 
 type UINT32 [4]byte
 
-//Get by hostByteOrder
+// Get by hostByteOrder
 func (i *UINT32) Get() uint32 {
 	return hostByteOrder.Uint32(i[:])
 }
@@ -122,7 +122,7 @@ func (i *UINT32) BigEndianSet(in uint32) {
 
 type UINT64 [8]byte
 
-//Get by hostByteOrder
+// Get by hostByteOrder
 func (i *UINT64) Get() uint64 {
 	return hostByteOrder.Uint64(i[:])
 }

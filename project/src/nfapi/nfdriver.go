@@ -1,3 +1,6 @@
+//go:build windows
+// +build windows
+
 package NFapi
 
 import (
@@ -82,15 +85,6 @@ const (
 	NF_REDIRECT                    FILTERING_FLAG = 1024 // Redirect the outgoing TCP connections to address specified in redirectTo
 )
 
-const (
-	MAX_ADDRESS_LENGTH    = 28
-	MAX_IP_ADDRESS_LENGTH = 16
-	AF_INET               = 2
-	AF_INET6              = 23
-	IPPROTO_UDP           = 17
-	IPPROTO_TCP           = 6
-)
-
 // NF_RULE
 type NF_RULE struct {
 	Protocol            INT32
@@ -137,27 +131,6 @@ func (n *NF_RULE_EX) SetProcessName(s string) {
 }
 
 /**
-*	TCP connection properties UNALIGNED
-**/
-type NF_TCP_CONN_INFO struct {
-	FilteringFlag UINT32
-	ProcessId     UINT32
-	Direction     uint8
-	IpFamily      UINT16
-	LocalAddress  SockaddrInx
-	RemoteAddress SockaddrInx
-}
-
-/**
-*	UDP endpoint properties UNALIGNED
-**/
-type NF_UDP_CONN_INFO struct {
-	ProcessId    UINT32
-	IpFamily     UINT16
-	LocalAddress SockaddrInx
-}
-
-/**
 *	UDP TDI_CONNECT request properties UNALIGNED
 **/
 type NF_UDP_CONN_REQUEST struct {
@@ -166,15 +139,6 @@ type NF_UDP_CONN_REQUEST struct {
 	IpFamily      UINT16
 	LocalAddress  SockaddrInx
 	RemoteAddress SockaddrInx
-}
-
-/**
-*	UDP options UNALIGNED
-**/
-type NF_UDP_OPTIONS struct {
-	Flags         UINT32
-	OptionsLength INT32
-	Options       [2048]byte //Options of variable size
 }
 
 func (op NF_UDP_OPTIONS) Clone() *NF_UDP_OPTIONS {

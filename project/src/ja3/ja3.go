@@ -1,5 +1,6 @@
 package ja3
 
+//这个文件现在没有被使用
 import (
 	c "crypto/tls"
 	"fmt"

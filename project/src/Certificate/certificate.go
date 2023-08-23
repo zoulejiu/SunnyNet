@@ -1,6 +1,7 @@
 package Certificate
 
 import (
+	"SunnyNet/project/public"
 	"SunnyNet/project/src/crypto/pkcs"
 	"crypto/tls"
 	"encoding/pem"
@@ -11,12 +12,12 @@ import (
 	"sync"
 )
 
-func AddP12Certificate(privateKeyName, privatePassword string) (*tls.Certificate, string, string, error) {
+func AddP12Certificate(privateKeyName, privatePassword string) (*tls.Certificate, string, string, string, error) {
 	PRIVATE := ""
 	Certificates := ""
 	k, e := getPrivateKey(privateKeyName, privatePassword)
 	if k == nil {
-		return nil, Certificates, PRIVATE, errors.New("Loading P12 Error  :" + e.Error())
+		return nil, Certificates, PRIVATE, public.NULL, errors.New("Loading P12 Error  :" + e.Error())
 	}
 	var pemData []byte
 	for _, b := range k {
@@ -29,10 +30,10 @@ func AddP12Certificate(privateKeyName, privatePassword string) (*tls.Certificate
 	}
 	ce, err := tls.X509KeyPair(pemData, pemData)
 	if err != nil {
-		return nil, Certificates, PRIVATE, errors.New("Loading P12 Error  :" + err.Error())
+		return nil, Certificates, PRIVATE, public.NULL, errors.New("Loading P12 Error  :" + err.Error())
 	}
 
-	return &ce, Certificates, PRIVATE, nil
+	return &ce, Certificates, PRIVATE, string(pemData), nil
 }
 
 func getPrivateKey(privateKeyName, privatePassword string) ([]*pem.Block, error) {
@@ -45,7 +46,6 @@ func getPrivateKey(privateKeyName, privatePassword string) ([]*pem.Block, error)
 	if err != nil {
 		return nil, err
 	}
-
 	A, C := pkcs.ToPEM(bytes, privatePassword)
 	if A == nil {
 		return nil, C
@@ -59,7 +59,7 @@ func getPrivateKey(privateKeyName, privatePassword string) ([]*pem.Block, error)
 var MessageIdLock sync.Mutex
 var messageId = 1000
 
-//创建新的 messageId
+// 创建新的 messageId
 func newMessageId() int {
 	MessageIdLock.Lock()
 	defer MessageIdLock.Unlock()

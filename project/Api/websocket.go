@@ -195,7 +195,7 @@ func (w *WebsocketClient) WebsocketRead() {
 			_ = w.wb.Close()
 			return
 		}
-		go WebsocketSendCall(msg, w.call, 1, w.Context, m)
+		WebsocketSendCall(msg, w.call, 1, w.Context, m)
 	}
 }
 

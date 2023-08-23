@@ -3,17 +3,17 @@ package Api
 import "C"
 import (
 	"SunnyNet/project/public"
+	"SunnyNet/project/src/brotli-go/enc"
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
 	"compress/zlib"
 	"github.com/andybalholm/brotli"
-	"gopkg.in/kothar/brotli-go.v0/enc"
 	"io"
 	"io/ioutil"
 )
 
-//DeflateCompress Deflate压缩 (可能等同于zlib压缩)
+// DeflateCompress Deflate压缩 (可能等同于zlib压缩)
 func DeflateCompress(data uintptr, dataLen int) uintptr {
 	input := public.CStringToBytes(data, dataLen)
 	var o = &public.ZlibCompress{}
@@ -30,7 +30,7 @@ func DeflateCompress(data uintptr, dataLen int) uintptr {
 	return public.PointerPtr(string(bx))
 }
 
-//DeflateUnCompress Deflate解压缩 (可能等同于zlib解压缩)
+// DeflateUnCompress Deflate解压缩 (可能等同于zlib解压缩)
 func DeflateUnCompress(data uintptr, dataLen int) uintptr {
 	bin := public.CStringToBytes(data, dataLen)
 	if len(bin) < 1 {
@@ -44,7 +44,7 @@ func DeflateUnCompress(data uintptr, dataLen int) uintptr {
 	return public.PointerPtr(string(bx))
 }
 
-//ZlibUnCompress zlib解压缩
+// ZlibUnCompress zlib解压缩
 func ZlibUnCompress(data uintptr, dataLen int) uintptr {
 	bin := public.CStringToBytes(data, dataLen)
 	b := bytes.NewReader(bin)
@@ -59,7 +59,7 @@ func ZlibUnCompress(data uintptr, dataLen int) uintptr {
 	return public.PointerPtr(string(bx))
 }
 
-//ZlibCompress zlib压缩
+// ZlibCompress zlib压缩
 func ZlibCompress(data uintptr, dataLen int) uintptr {
 	bin := public.CStringToBytes(data, dataLen)
 	var buf bytes.Buffer
@@ -74,7 +74,7 @@ func ZlibCompress(data uintptr, dataLen int) uintptr {
 	return public.PointerPtr(string(out))
 }
 
-//GzipCompress Gzip压缩
+// GzipCompress Gzip压缩
 func GzipCompress(data uintptr, dataLen int) uintptr {
 	bin := public.CStringToBytes(data, dataLen)
 	var (
@@ -97,7 +97,7 @@ func GzipCompress(data uintptr, dataLen int) uintptr {
 	return public.PointerPtr(string(out))
 }
 
-//BrCompress br压缩
+// BrCompress br压缩
 func BrCompress(data uintptr, dataLen int) uintptr {
 	bin := public.CStringToBytes(data, dataLen)
 	compressedData, e := enc.CompressBuffer(nil, bin, make([]byte, 0))
@@ -108,7 +108,7 @@ func BrCompress(data uintptr, dataLen int) uintptr {
 	return public.PointerPtr(string(compressedData))
 }
 
-//BrUnCompress br解压缩
+// BrUnCompress br解压缩
 func BrUnCompress(data uintptr, dataLen int) uintptr {
 	bin := public.CStringToBytes(data, dataLen)
 	if len(bin) < 1 {
@@ -122,7 +122,7 @@ func BrUnCompress(data uintptr, dataLen int) uintptr {
 	return public.PointerPtr(string(b))
 }
 
-//GzipUnCompress Gzip解压缩
+// GzipUnCompress Gzip解压缩
 func GzipUnCompress(data uintptr, dataLen int) uintptr {
 	bin := public.CStringToBytes(data, dataLen)
 	if len(bin) < 1 {

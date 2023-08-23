@@ -1,3 +1,6 @@
+//go:build windows
+// +build windows
+
 package NFapi
 
 import "C"
@@ -48,15 +51,6 @@ func SetHookProcess(b bool) {
 	proxyLock.Lock()
 	HookProcess = b
 	proxyLock.Unlock()
-}
-
-type ProcessInfo struct {
-	Id            uint64
-	Pid           string
-	RemoteAddress string
-	RemoteProt    uint16
-	V6            bool
-	UDP_CONN_INFO *NF_UDP_CONN_INFO
 }
 
 func GetTcpConnectInfo(u uint16) *ProcessInfo {

@@ -4,11 +4,10 @@ import (
 	"SunnyNet/project/Resource"
 	"SunnyNet/project/public"
 	"SunnyNet/project/src/Certificate"
+	"SunnyNet/project/src/CrossCompiled"
 	"SunnyNet/project/src/GoWinHttp"
 	"SunnyNet/project/src/HttpCertificate"
 	"SunnyNet/project/src/crypto/tls"
-	"SunnyNet/project/src/iphlpapi"
-	NFapi "SunnyNet/project/src/nfapi"
 	"SunnyNet/project/src/websocket"
 	"bufio"
 	"bytes"
@@ -20,21 +19,17 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/Trisia/gosysproxy"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
-	"os/exec"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 	"unsafe"
 )
@@ -42,7 +37,7 @@ import (
 func init() {
 	//使用全部-1个CPU性能,例如你电脑CPU是4核心 那么就使用4-1 使用3核心的的CPU性能
 	runtime.GOMAXPROCS(runtime.NumCPU() - 1)
-	SetNetworkConnectNumber()
+	CrossCompiled.SetNetworkConnectNumber()
 }
 
 // TargetInfo 请求连接信息
@@ -1691,16 +1686,7 @@ func (s *Sunny) ExportCert() []byte {
 
 // SetIeProxy 设置IE代理 [Off=true 取消] [Off=false 设置] 在中间件设置端口后调用
 func (s *Sunny) SetIeProxy(Off bool) bool {
-	// "github.com/Tri sia/gos ysp roxy"
-	if runtime.GOOS == strings.Replace("windows", public.Space, public.NULL, 1) {
-		if Off {
-			_ = gosysproxy.Off()
-			return true
-		}
-		ies := "127.0.0.1:" + strconv.Itoa(s.Port())
-		_ = gosysproxy.SetGlobalProxy("http="+ies+";https="+ies, "")
-		return true
-	}
+	CrossCompiled.SetIeProxy(Off, s.Port())
 	return false
 }
 
@@ -1739,39 +1725,7 @@ func (s *Sunny) SetGlobalProxy(ProxyUrl string) bool {
 
 // InstallCert 安装证书 将证书安装到Windows系统内
 func (s *Sunny) InstallCert() string {
-	if runtime.GOOS == "windows" {
-		path, err := os.Getwd()
-		if err != nil {
-			return err.Error()
-		}
-		err = public.WriteBytesToFile(s.certificates, path+"\\ca.crt")
-		if err != nil {
-			return err.Error()
-		}
-		var args []string
-		args = append(args, "-addstore")
-		args = append(args, "root")
-		args = append(args, path+"\\ca.crt")
-		defer func() { _ = public.RemoveFile(path + "\\ca.crt") }()
-		cmd := exec.Command("certutil", args...)
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			return err.Error()
-		}
-		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		_ = cmd.Start()
-		var Buff bytes.Buffer
-		reader := bufio.NewReader(stdout)
-		for {
-			line, err2 := reader.ReadBytes('\n')
-			if err2 != nil || io.EOF == err2 {
-				break
-			}
-			Buff.Write(line)
-		}
-		return Buff.String()
-	}
-	return "The certificate is not automatically installed"
+	return CrossCompiled.InstallCert(s.certificates)
 }
 
 // SetCert 设置证书
@@ -1846,19 +1800,19 @@ func (s *Sunny) SetGoCallback(httpCall func(Conn *HttpConn), tcpCall func(Conn *
 
 // StartProcess 开始进程代理
 func (s *Sunny) StartProcess() bool {
-	if NFapi.IsInit {
-		if NFapi.ProcessPortInt != 0 && NFapi.SunnyPointer != uintptr(unsafe.Pointer(s)) {
-			NFapi.MessageBox("启动失败：", "已在其他Sunny对象启动\r\n\r\n不能多次加载驱动", 0x00000010)
+	if CrossCompiled.NFapi_IsInit() {
+		if CrossCompiled.NFapi_ProcessPortInt() != 0 && CrossCompiled.NFapi_SunnyPointer() != uintptr(unsafe.Pointer(s)) {
+			CrossCompiled.NFapi_MessageBox("启动失败：", "已在其他Sunny对象启动\r\n\r\n不能多次加载驱动", 0x00000010)
 			return false
 		}
-		NFapi.SunnyPointer = uintptr(unsafe.Pointer(s))
+		CrossCompiled.NFapi_SunnyPointer(uintptr(unsafe.Pointer(s)))
 		return true
 	}
-	NFapi.SunnyPointer = uintptr(unsafe.Pointer(s))
-	NFapi.ProcessPortInt = uint16(s.Port())
-	NFapi.IsInit = NFapi.ApiInit()
-	NFapi.UdpSendReceiveFunc = s.udpNFSendReceive
-	return NFapi.IsInit
+	CrossCompiled.NFapi_SunnyPointer(uintptr(unsafe.Pointer(s)))
+	CrossCompiled.NFapi_ProcessPortInt(uint16(s.Port()))
+	CrossCompiled.NFapi_IsInit(CrossCompiled.NFapi_ApiInit())
+	CrossCompiled.NFapi_UdpSendReceiveFunc(s.udpNFSendReceive)
+	return CrossCompiled.NFapi_IsInit()
 }
 
 // ProcessALLName 是否允许所有进程通过 所有 SunnyNet 通用,
@@ -1866,45 +1820,45 @@ func (s *Sunny) StartProcess() bool {
 // 因为如果不断开的一次的话,已经建立的TCP链接无法抓包。
 // Go程序调试，是通过TCP连接的，若使用此命令将无法调试。
 func (s *Sunny) ProcessALLName(open bool) *Sunny {
-	NFapi.SetHookProcess(open)
+	CrossCompiled.NFapi_SetHookProcess(open)
 	if open {
-		NFapi.ClosePidTCP(-1)
+		CrossCompiled.NFapi_ClosePidTCP(-1)
 	}
 	return s
 }
 
 // ProcessDelName 删除进程名  所有 SunnyNet 通用
 func (s *Sunny) ProcessDelName(name string) *Sunny {
-	NFapi.DelName(name)
-	NFapi.CloseNameTCP(name)
+	CrossCompiled.NFapi_DelName(name)
+	CrossCompiled.NFapi_CloseNameTCP(name)
 	return s
 }
 
 // ProcessAddName 进程代理 添加进程名 所有 SunnyNet 通用
 func (s *Sunny) ProcessAddName(Name string) *Sunny {
-	NFapi.AddName(Name)
-	NFapi.CloseNameTCP(Name)
+	CrossCompiled.NFapi_AddName(Name)
+	CrossCompiled.NFapi_CloseNameTCP(Name)
 	return s
 }
 
 // ProcessDelPid 删除PID  所有 SunnyNet 通用
 func (s *Sunny) ProcessDelPid(Pid int) *Sunny {
-	NFapi.DelPid(uint32(Pid))
-	NFapi.ClosePidTCP(Pid)
+	CrossCompiled.NFapi_DelPid(uint32(Pid))
+	CrossCompiled.NFapi_ClosePidTCP(Pid)
 	return s
 }
 
 // ProcessAddPid 进程代理 添加PID 所有 SunnyNet 通用
 func (s *Sunny) ProcessAddPid(Pid int) *Sunny {
-	NFapi.AddPid(uint32(Pid))
-	NFapi.ClosePidTCP(Pid)
+	CrossCompiled.NFapi_AddPid(uint32(Pid))
+	CrossCompiled.NFapi_ClosePidTCP(Pid)
 	return s
 }
 
 // ProcessCancelAll 进程代理 取消全部已设置的进程名
 func (s *Sunny) ProcessCancelAll() *Sunny {
-	NFapi.CancelAll()
-	NFapi.ClosePidTCP(-1)
+	CrossCompiled.NFapi_CancelAll()
+	CrossCompiled.NFapi_ClosePidTCP(-1)
 	return s
 }
 
@@ -1943,9 +1897,9 @@ func (s *Sunny) Start() *Sunny {
 	s.tcpSocket = &tcpListen
 	s.Error = err
 	s.isRun = true
-	if NFapi.SunnyPointer == uintptr(unsafe.Pointer(s)) {
-		NFapi.ProcessPortInt = uint16(s.port)
-		NFapi.UdpSendReceiveFunc = s.udpNFSendReceive
+	if CrossCompiled.NFapi_SunnyPointer() == uintptr(unsafe.Pointer(s)) {
+		CrossCompiled.NFapi_ProcessPortInt(uint16(s.port))
+		CrossCompiled.NFapi_UdpSendReceiveFunc(s.udpNFSendReceive)
 	}
 	go s.listenTcpGo()
 	go s.listenUdpGo()
@@ -1965,8 +1919,8 @@ func (s *Sunny) Close() *Sunny {
 		_ = conn.Close()
 		delete(s.connList, k)
 	}
-	if NFapi.SunnyPointer == uintptr(unsafe.Pointer(s)) {
-		NFapi.ProcessPortInt = 0
+	if CrossCompiled.NFapi_SunnyPointer() == uintptr(unsafe.Pointer(s)) {
+		CrossCompiled.NFapi_ProcessPortInt(0)
 	}
 	s.connListLock.Unlock()
 	return s
@@ -2030,23 +1984,25 @@ func (s *Sunny) handleClientConn(conn net.Conn, tgt *TargetInfo) {
 	case *net.TCPAddr:
 		u := uint16(addr.Port)
 		//这里是判断 是否是通过 NFapi 驱动进来的数据
-		info := NFapi.GetTcpConnectInfo(u)
-		if info != nil {
-			//如果是 通过 NFapi 驱动进来的数据 对连接信息进行赋值
-			req.Pid = info.Pid
-			req.Target.Parse(info.RemoteAddress, info.RemoteProt, info.V6)
-			req.Target.Parse(req.Target.String(), 0)
-			//然后进行数据处理,按照HTTPS数据进行处理
-			req.https()
-			NFapi.DelTcpConnectInfo(u)
-			NFapi.Api.NfTcpClose(info.Id)
-			return
+		if runtime.GOOS == "windows" {
+			info := CrossCompiled.NFapi_GetTcpConnectInfo(u)
+			if info != nil {
+				//如果是 通过 NFapi 驱动进来的数据 对连接信息进行赋值
+				req.Pid = info.Pid
+				req.Target.Parse(info.RemoteAddress, info.RemoteProt, info.V6)
+				req.Target.Parse(req.Target.String(), 0)
+				//然后进行数据处理,按照HTTPS数据进行处理
+				req.https()
+				CrossCompiled.NFapi_DelTcpConnectInfo(u)
+				CrossCompiled.NFapi_API_NfTcpClose(info.Id)
+				return
+			}
 		}
 		break
 	default:
 		break
 	}
-	req.Pid = iphlpapi.GetTcpInfoPID(conn.RemoteAddr().String(), s.port)
+	req.Pid = CrossCompiled.GetTcpInfoPID(conn.RemoteAddr().String(), s.port)
 	//若不是 通过 NFapi 驱动进来的数据 那么就是通过代理传递过来的数据
 	//进行预读1个字节的数据
 	peek, err := req.RwObj.Peek(1)

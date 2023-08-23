@@ -1,6 +1,9 @@
+//go:build windows
+// +build windows
+
 package NFapi
 
-//NF_EventHandler 传递到dll的结构体 所有字段皆为回调参数指针
+// NF_EventHandler 传递到dll的结构体 所有字段皆为回调参数指针
 type NF_EventHandler struct {
 	ThreadStart       uintptr
 	ThreadEnd         uintptr

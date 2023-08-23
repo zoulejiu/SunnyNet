@@ -9,6 +9,15 @@ import (
 	"unsafe"
 )
 
+const (
+	MAX_ADDRESS_LENGTH    = 28
+	MAX_IP_ADDRESS_LENGTH = 16
+	AF_INET               = 2
+	AF_INET6              = 23
+	IPPROTO_UDP           = 17
+	IPPROTO_TCP           = 6
+)
+
 var hostByteOrder binary.ByteOrder
 
 func init() {
@@ -49,6 +58,44 @@ type SockaddrInx struct {
 	Data1       [4]byte  //ipv4 Adder,ipv6 is zero. BigEndian
 	Data2       [16]byte //ipv6 Adder,ipv4 is zero. BigEndian
 	IPV6ScopeId UINT32   //ipv6 scope id
+}
+
+/**
+*	TCP connection properties UNALIGNED
+**/
+type NF_TCP_CONN_INFO struct {
+	FilteringFlag UINT32
+	ProcessId     UINT32
+	Direction     uint8
+	IpFamily      UINT16
+	LocalAddress  SockaddrInx
+	RemoteAddress SockaddrInx
+}
+
+/**
+*	UDP endpoint properties UNALIGNED
+**/
+type NF_UDP_CONN_INFO struct {
+	ProcessId    UINT32
+	IpFamily     UINT16
+	LocalAddress SockaddrInx
+}
+type ProcessInfo struct {
+	Id            uint64
+	Pid           string
+	RemoteAddress string
+	RemoteProt    uint16
+	V6            bool
+	UDP_CONN_INFO *NF_UDP_CONN_INFO
+}
+
+/**
+*	UDP options UNALIGNED
+**/
+type NF_UDP_OPTIONS struct {
+	Flags         UINT32
+	OptionsLength INT32
+	Options       [2048]byte //Options of variable size
 }
 
 var emptyBytes16 = make([]byte, 16)
