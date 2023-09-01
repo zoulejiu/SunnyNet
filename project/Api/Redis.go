@@ -44,7 +44,7 @@ func SubCall(msg string, call int, nc bool) {
 	}
 }
 
-//CreateRedis 创建 Redis 对象
+// CreateRedis 创建 Redis 对象
 func CreateRedis() int {
 	w := redis.NewRedis()
 	Context := newMessageId()
@@ -55,7 +55,7 @@ func CreateRedis() int {
 	return Context
 }
 
-//RemoveRedis 释放 Redis 对象
+// RemoveRedis 释放 Redis 对象
 func RemoveRedis(Context int) {
 	k := LoadRedisContext(Context)
 	if k != nil {
@@ -64,7 +64,7 @@ func RemoveRedis(Context int) {
 	DelRedisContext(Context)
 }
 
-//RedisDial Redis 连接
+// RedisDial Redis 连接
 func RedisDial(Context int, host, pass string, db, PoolSize, MinIdleCons, DialTimeout, ReadTimeout, WriteTimeout, PoolTimeout, IdleCheckFrequency, IdleTimeout int, error uintptr) bool {
 	public.WriteErr(ErrorNull, error)
 	w := LoadRedisContext(Context)
@@ -82,7 +82,7 @@ func RedisDial(Context int, host, pass string, db, PoolSize, MinIdleCons, DialTi
 	return ex == nil
 }
 
-//RedisSet Redis 设置值
+// RedisSet Redis 设置值
 func RedisSet(Context int, key, val string, expr int) bool {
 	w := LoadRedisContext(Context)
 	if w == nil {
@@ -91,7 +91,7 @@ func RedisSet(Context int, key, val string, expr int) bool {
 	return w.Set(key, val, expr)
 }
 
-//RedisSetBytes Redis 设置Bytes值
+// RedisSetBytes Redis 设置Bytes值
 func RedisSetBytes(Context int, key string, val []byte, expr int) bool {
 	w := LoadRedisContext(Context)
 	if w == nil {
@@ -100,7 +100,7 @@ func RedisSetBytes(Context int, key string, val []byte, expr int) bool {
 	return w.Set(key, val, expr)
 }
 
-//RedisSetNx Redis 设置NX 【如果键名存在返回假】
+// RedisSetNx Redis 设置NX 【如果键名存在返回假】
 func RedisSetNx(Context int, key, val string, expr int) bool {
 	w := LoadRedisContext(Context)
 	if w == nil {
@@ -109,7 +109,7 @@ func RedisSetNx(Context int, key, val string, expr int) bool {
 	return w.SetNX(key, val, expr)
 }
 
-//RedisExists Redis 检查指定 key 是否存在
+// RedisExists Redis 检查指定 key 是否存在
 func RedisExists(Context int, key string) bool {
 	w := LoadRedisContext(Context)
 	if w == nil {
@@ -118,7 +118,7 @@ func RedisExists(Context int, key string) bool {
 	return w.Exists(key)
 }
 
-//RedisGetStr Redis 取文本值
+// RedisGetStr Redis 取文本值
 func RedisGetStr(Context int, key string) uintptr {
 	w := LoadRedisContext(Context)
 	if w == nil {
@@ -131,7 +131,7 @@ func RedisGetStr(Context int, key string) uintptr {
 	return public.PointerPtr(s)
 }
 
-//RedisGetBytes Redis 取文本值
+// RedisGetBytes Redis 取文本值
 func RedisGetBytes(Context int, key string) uintptr {
 	w := LoadRedisContext(Context)
 	if w == nil {
@@ -144,7 +144,7 @@ func RedisGetBytes(Context int, key string) uintptr {
 	return public.PointerPtr(s)
 }
 
-//RedisDo Redis 自定义 执行和查询命令 返回操作结果可能是值 也可能是JSON文本
+// RedisDo Redis 自定义 执行和查询命令 返回操作结果可能是值 也可能是JSON文本
 func RedisDo(Context int, args string, error uintptr) uintptr {
 	public.WriteErr(ErrorNull, error)
 	w := LoadRedisContext(Context)
@@ -180,7 +180,7 @@ func RedisDo(Context int, args string, error uintptr) uintptr {
 	return public.PointerPtr(b)
 }
 
-//RedisGetKeys Redis 取指定条件键名
+// RedisGetKeys Redis 取指定条件键名
 func RedisGetKeys(Context int, key string) uintptr {
 	w := LoadRedisContext(Context)
 	if w == nil {
@@ -195,7 +195,7 @@ func RedisGetKeys(Context int, key string) uintptr {
 	return public.PointerPtr(public.BytesCombine(public.IntToBytes(b.Len()), b.Bytes()))
 }
 
-//RedisGetInt Redis 取整数值
+// RedisGetInt Redis 取整数值
 func RedisGetInt(Context int, key string) int64 {
 	w := LoadRedisContext(Context)
 	if w == nil {
@@ -204,7 +204,7 @@ func RedisGetInt(Context int, key string) int64 {
 	return w.GetInt(key)
 }
 
-//RedisClose Redis 关闭
+// RedisClose Redis 关闭
 func RedisClose(Context int) {
 	w := LoadRedisContext(Context)
 	if w == nil {
@@ -213,7 +213,7 @@ func RedisClose(Context int) {
 	w.Close()
 }
 
-//RedisFlushAll Redis 清空redis服务器
+// RedisFlushAll Redis 清空redis服务器
 func RedisFlushAll(Context int) {
 	//用于清空整个 redis 服务器的数据(删除所有数据库的所有 key )。
 	w := LoadRedisContext(Context)
@@ -223,7 +223,7 @@ func RedisFlushAll(Context int) {
 	w.FlushAll()
 }
 
-//RedisFlushDB Redis 清空当前数据库
+// RedisFlushDB Redis 清空当前数据库
 func RedisFlushDB(Context int) {
 	//用于清空当前数据库中的所有 key。
 	w := LoadRedisContext(Context)
@@ -233,7 +233,7 @@ func RedisFlushDB(Context int) {
 	w.FlushDB()
 }
 
-//RedisDelete Redis 删除
+// RedisDelete Redis 删除
 func RedisDelete(Context int, key string) bool {
 	w := LoadRedisContext(Context)
 	if w == nil {
@@ -242,7 +242,7 @@ func RedisDelete(Context int, key string) bool {
 	return w.Delete(key)
 }
 
-//RedisSubscribe Redis 订阅消息
+// RedisSubscribe Redis 订阅消息
 func RedisSubscribe(Context int, scribe string, call int, nc bool) {
 	w := LoadRedisContext(Context)
 	if w == nil {

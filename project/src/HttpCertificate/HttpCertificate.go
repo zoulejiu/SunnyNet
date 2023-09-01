@@ -52,26 +52,34 @@ func (w *CertificateRequestManager) Load(ca, key string) bool {
 	return true
 }
 func GetTlsConfigCrypto(host string, Rules uint8) *crypto.Config {
-	m := ParsingHost(host)
+	RequestHost := ParsingHost(host)
+	RequestHostLen := len(RequestHost)
 	Lock.Lock()
 	defer Lock.Unlock()
-	for k, v := range Map {
-		if k == m {
-			if v.Rules == Rules || v.Rules == public.CertificateRequestManagerRulesSendAndReceive {
-				return v.Crypto
+	for RulesHost, v := range Map {
+		RulesHostLen := len(RulesHost)
+		if RequestHostLen >= RulesHostLen && RulesHostLen > 3 {
+			if RequestHost[RequestHostLen-RulesHostLen:] == RulesHost {
+				if v.Rules == Rules || v.Rules == public.CertificateRequestManagerRulesSendAndReceive {
+					return v.Crypto
+				}
 			}
 		}
 	}
 	return nil
 }
 func GetTlsConfigSunny(host string, Rules uint8) *tls.Config {
-	m := ParsingHost(host)
+	RequestHost := ParsingHost(host)
+	RequestHostLen := len(RequestHost)
 	Lock.Lock()
 	defer Lock.Unlock()
-	for k, v := range Map {
-		if k == m {
-			if v.Rules == Rules || v.Rules == public.CertificateRequestManagerRulesSendAndReceive {
-				return v.Sunny
+	for RulesHost, v := range Map {
+		RulesHostLen := len(RulesHost)
+		if RequestHostLen >= RulesHostLen {
+			if RequestHost[RequestHostLen-RulesHostLen:] == RulesHost {
+				if v.Rules == Rules || v.Rules == public.CertificateRequestManagerRulesSendAndReceive {
+					return v.Sunny
+				}
 			}
 		}
 	}

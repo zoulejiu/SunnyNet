@@ -155,20 +155,21 @@ type ProxyRequest struct {
 	Pid       string                  //s5连接过来的pid
 	Global    *Sunny                  //继承全局中间件信息
 	//WinHttp   *GoWinHttp.WinHttp      //WinHTTP请求对象
-	WinHttp    *GoWinHttp.WinHttp   //WinHTTP请求对象
-	Request    *http.Request        //要发送的请求体
-	Response   *http.Response       //HTTP响应体
-	IsReturn   bool                 //是否不发送直接响应 Response 中的内容
-	TCP        public.TCP           //TCP收发数据
-	Websocket  *public.WebsocketMsg //Websocket会话
-	Proxy      *GoWinHttp.Proxy     //设置指定代理
-	HttpCall   int                  //http 请求回调地址
-	TcpCall    int                  //TCP请求回调地址
-	wsCall     int                  //ws回调地址
-	HttpGoCall func(Conn *HttpConn) //http 请求回调地址
-	TcpGoCall  func(Conn *TcpConn)  //TCP请求回调地址
-	wsGoCall   func(Conn *WsConn)   //ws回调地址
-	Lock       sync.Mutex
+	WinHttp      *GoWinHttp.WinHttp   //WinHTTP请求对象
+	Request      *http.Request        //要发送的请求体
+	Response     *http.Response       //HTTP响应体
+	IsReturn     bool                 //是否不发送直接响应 Response 中的内容
+	TCP          public.TCP           //TCP收发数据
+	Websocket    *public.WebsocketMsg //Websocket会话
+	Proxy        *GoWinHttp.Proxy     //设置指定代理
+	HttpCall     int                  //http 请求回调地址
+	TcpCall      int                  //TCP请求回调地址
+	wsCall       int                  //ws回调地址
+	HttpGoCall   func(Conn *HttpConn) //http 请求回调地址
+	TcpGoCall    func(Conn *TcpConn)  //TCP请求回调地址
+	wsGoCall     func(Conn *WsConn)   //ws回调地址
+	NoRepairHttp bool                 //不要纠正Http
+	Lock         sync.Mutex
 }
 
 // AuthMethod S5代理鉴权
@@ -666,12 +667,20 @@ func (s *ProxyRequest) ConnRead(aheadData []byte, Dosage bool) (rs []byte, Wheth
 	var NoHttpRequest = false
 	var eRequest = errors.New("No http Request ")
 	var Method = public.Nulls
+	//验证HTTP请求体
+	//islet=是否有 HTTP Body 长度
+	//ok 是否验证成功
+	//bodyLen 已出Body长度
+	var islet, ok bool
+	var bodyLen, ContentLength int
 	for {
 		sx, e := s.RwObj.Read(bs)
-		for n := 0; n < sx; n++ {
-			if bs[n] < 9 || bs[n] == 11 || bs[n] == 12 || (bs[n] >= 14 && bs[n] < 21) {
-				NoHttpRequest = true
-				break
+		if !NoHttpRequest {
+			for n := 0; n < sx; n++ {
+				if bs[n] < 9 || bs[n] == 11 || bs[n] == 12 || (bs[n] >= 14 && bs[n] < 21) {
+					NoHttpRequest = true
+					break
+				}
 			}
 		}
 		if NoHttpRequest {
@@ -680,22 +689,23 @@ func (s *ProxyRequest) ConnRead(aheadData []byte, Dosage bool) (rs []byte, Wheth
 		st.Write(bs[0:sx])
 		if e != nil {
 			if st.Len() < length {
-				// 如果已读入字节数 小于 512 并且 超过 10次 已读入数没有变动，那么直接返回
-				cmp[st.Len()]++
-				if cmp[st.Len()] >= kl || NoHttpRequest {
-					bs = make([]byte, 0)
-					last = public.CopyBytes(st.Bytes())
-					if last == nil {
-						last = []byte{}
+				if !islet {
+					// 如果已读入字节数 小于 512 并且 超过 10次 已读入数没有变动，那么直接返回
+					cmp[st.Len()]++
+					if cmp[st.Len()] >= kl || NoHttpRequest {
+						bs = make([]byte, 0)
+						last = public.CopyBytes(st.Bytes())
+						if last == nil {
+							last = []byte{}
+						}
+						_ = s.Conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+						return last, false
+					} else {
+						_ = s.Conn.SetReadDeadline(time.Now().Add(3 * time.Millisecond))
+						continue
 					}
-					_ = s.Conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-					return last, false
-				} else {
-					_ = s.Conn.SetReadDeadline(time.Now().Add(3 * time.Millisecond))
-					continue
 				}
 			}
-
 			//如果错误是超时那么进行判断 如果不是超时 那么直接返回
 			if strings.Index(e.Error(), public.Timeout) != -1 || NoHttpRequest {
 				if NoHttpRequest && Method != public.Nulls {
@@ -706,11 +716,7 @@ func (s *ProxyRequest) ConnRead(aheadData []byte, Dosage bool) (rs []byte, Wheth
 					}
 				}
 				i++
-				//验证HTTP请求体
-				//islet=是否有 HTTP Body 长度
-				//ok 是否验证成功
-				//bodyLen 已出Body长度
-				islet, ok, bodyLen, ContentLength := public.LegitimateRequest(st.Bytes())
+				islet, ok, bodyLen, ContentLength = public.LegitimateRequest(st.Bytes())
 				if ContentLength > public.MaxUploadLength {
 					last = public.CopyBytes(st.Bytes())
 					return last, true
@@ -747,7 +753,6 @@ func (s *ProxyRequest) ConnRead(aheadData []byte, Dosage bool) (rs []byte, Wheth
 			_ = s.Conn.SetReadDeadline(time.Now().Add(3 * time.Millisecond))
 		}
 	}
-
 	return last, false
 }
 
@@ -807,7 +812,9 @@ func (s *ProxyRequest) httpProcessing(aheadData []byte, DefaultPort, Tag string)
 	}
 	//提交数据是否超过 public.MaxUploadLength 字节，若是超过  public.MaxUploadLength  设定的最大字节数，改请求将转为TCP方式请求
 	if WhetherExceedsLength {
+		s.NoRepairHttp = true
 		s.MustTcpProcessing(ReadData, Tag)
+		s.NoRepairHttp = false
 		return
 	}
 	//继续HTTP处理
@@ -833,7 +840,9 @@ func (s *ProxyRequest) httpProcessing(aheadData []byte, DefaultPort, Tag string)
 		}
 		//提交数据是否超过 public.MaxUploadLength 字节，若是超过  public.MaxUploadLength  设定的最大字节数，改请求将转为TCP方式请求
 		if WhetherExceedsLength {
+			s.NoRepairHttp = true
 			s.MustTcpProcessing(ReadData, Tag)
+			s.NoRepairHttp = false
 			return
 		}
 		s.StartHTTPProcessing(public.CopyBytes(ReadData), public.NULL, Tag, DefaultPort)
@@ -911,7 +920,9 @@ func (s *ProxyRequest) StartHTTPProcessing(RawBytes []byte, sProxy, Tag, Default
 		BytesRaw, WhetherExceedsLength := s.ConnRead(nil, true)
 		//提交数据是否超过 public.MaxUploadLength 字节，若是超过  public.MaxUploadLength  设定的最大字节数，改请求将转为TCP方式请求
 		if WhetherExceedsLength {
+			s.NoRepairHttp = true
 			s.MustTcpProcessing(BytesRaw, Tag)
+			s.NoRepairHttp = false
 			return
 		}
 		req.Body = ioutil.NopCloser(bytes.NewBuffer(BytesRaw))
@@ -1037,8 +1048,8 @@ func (s *ProxyRequest) https() {
 	var tlsConn *tls.Conn
 	var serverName string
 	var HelloMsg *tls.ClientHelloMsg
-	//普通会话升级到TLS会话，并且设置生成的握手证书
-	tlsConn = tls.Server(s.Conn, &tls.Config{Certificates: []tls.Certificate{*certificate}})
+	//普通会话升级到TLS会话，并且设置生成的握手证书,限制tls最大版本为1.2,因为1.3可能存在算法不支持
+	tlsConn = tls.Server(s.Conn, &tls.Config{Certificates: []tls.Certificate{*certificate}, MaxVersion: tls.VersionTLS12})
 	defer func() {
 		//函数退出时 清理TLS会话
 		tlsConn.RReset()
@@ -1047,7 +1058,8 @@ func (s *ProxyRequest) https() {
 	}()
 	//设置1秒的超时 来判断是否 https 请求 因为正常的非HTTPS TCP 请求也会进入到这里来，需要判断一下
 	_ = tlsConn.SetDeadline(time.Now().Add(1 * time.Second))
-	//取出第一个字节，判断是否TLS请求，如果不是 22 23 就不是https或TLS-TCP
+	//取出第一个字节，判断是否TLS
+
 	peek := tlsConn.Peek(1)
 	if len(peek) == 1 && (peek[0] == 22 || peek[0] == 23) {
 		//发送数据 如果 不是 HEX 16 或 17 那么肯定不是HTTPS 或TLS-TCP
@@ -1074,7 +1086,8 @@ func (s *ProxyRequest) https() {
 				//根据握手的服务器域名 重新创建证书
 				certificate, err = s.Global.getCertificate(s.Target.String())
 				if certificate != nil {
-					tlsConn.SetServer(&tls.Config{Certificates: []tls.Certificate{*certificate}, ServerName: HttpCertificate.ParsingHost(s.Target.String())})
+					//限制tls最大版本为1.2,因为1.3可能存在算法不支持
+					tlsConn.SetServer(&tls.Config{MaxVersion: tls.VersionTLS12, Certificates: []tls.Certificate{*certificate}, ServerName: HttpCertificate.ParsingHost(s.Target.String())})
 				}
 			}
 			//继续握手
@@ -1458,7 +1471,7 @@ func (s *ProxyRequest) SocketForward(dst bufio.Writer, src *public.ReadWriteObje
 		return
 	}
 	firstRequest := true //是否是首次接收请求
-	if s.Global.isMustTcp {
+	if s.Global.isMustTcp || s.NoRepairHttp {
 		firstRequest = false
 	}
 	for {
@@ -1469,16 +1482,18 @@ func (s *ProxyRequest) SocketForward(dst bufio.Writer, src *public.ReadWriteObje
 		if firstRequest {
 			//是否是客户端发送数据
 			if MsgType == public.SunnyNetMsgTypeTCPClientSend {
-				//提取取出1个字节,
-				peek, e := src.Peek(1)
-				if e == nil {
-					if len(peek) > 0 {
-						//判断是否是HTTP请求
-						if public.IsHTTPRequest(peek[0], src) {
-							_ = t2.Close()
-							//如果是，那么关闭本次连接服务器的socket，并且纠正为HTTP请求，后续交给HTTP请求处理函数继续处理
-							*isHttpReq = true
-							return
+				{
+					//提取取出1个字节,
+					peek, e := src.Peek(1)
+					if e == nil {
+						if len(peek) > 0 {
+							//判断是否是HTTP请求
+							if public.IsHTTPRequest(peek[0], src) {
+								_ = t2.Close()
+								//如果是，那么关闭本次连接服务器的socket，并且纠正为HTTP请求，后续交给HTTP请求处理函数继续处理
+								*isHttpReq = true
+								return
+							}
 						}
 					}
 				}

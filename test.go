@@ -4,7 +4,6 @@ import "C"
 import (
 	"SunnyNet/project/SunnyNet"
 	"SunnyNet/project/public"
-	"SunnyNet/project/src/Certificate"
 	"fmt"
 	"time"
 )
@@ -13,33 +12,32 @@ func Test() {
 
 	s := SunnyNet.NewSunny()
 
-	i := CreateCertificate()
-	ok := LoadP12Certificate(i, C.CString("C:\\Users\\qinka\\Desktop\\74fe394a37757545d8cfbd2ea264c7c3.p12"), C.CString("qyrhudhZ"))
+	//i := CreateCertificate()
+	//ok := LoadP12Certificate(i, C.CString("C:\\Users\\qinka\\Desktop\\74fe394a37757545d8cfbd2ea264c7c3.p12"), C.CString("qyrhudhZ"))
 	//ok := AddCertPoolPath(i, C.CString("C:\\Users\\qinka\\Desktop\\P12\\certificate.pem"))
-	fmt.Println("载入P12:", ok)
-	c := Certificate.LoadCertificateContext(i)
-	fmt.Println("证书名称：", c.GetCommonName())
-	AddHttpCertificate(C.CString("ws-gateway-odis.volkswagenag.com"), i, 1)
+	//fmt.Println("载入P12:", ok)
+	//c := Certificate.LoadCertificateContext(i)
+	//fmt.Println("证书名称：", c.GetCommonName())
+	//AddHttpCertificate(C.CString("ws-gateway-odis.volkswagenag.com"), i, 1)
 
 	//s.SetGlobalProxy("http://192.168.31.173:8888")
 	//如果在Go中使用 设置Go的回调地址
 	s.SetGoCallback(HttpCallback, TcpCallback, WSCallback, UdpCallback)
 	//s.SetIeProxy(false)
 	//s.MustTcp(true)
-	Port := 2023
+	Port := 2024
 
 	s = s.SetPort(Port).Start()
-
-	// fmt.Println(s.StartProcess())
+	fmt.Println(s.StartProcess())
 
 	// 请注意GoLang调试时候，请不要使用此(ProcessALLName)命令，因为不管开启或关闭，都会将当前所有TCP链接断开一次
 	// 因为如果不断开的一次的话,已经建立的TCP链接无法抓包。
 	// Go程序调试，是通过TCP连接的，若使用此命令将无法调试。
 	// s.ProcessALLName(true)
 
-	// s.ProcessAddName("sunny.exe")
-	// s.ProcessAddName("sunny1.exe")
-	// s.ProcessAddName("go_build_p.exe")
+	s.ProcessAddName("WeChat.exe")
+	// s.ProcessAddName("WeChatAppEx.exe")
+	//s.ProcessAddName("EDVED1F.tmp")
 	err := s.Error
 	if err != nil {
 		panic(err)
