@@ -14,9 +14,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"runtime"
 	"strconv"
-	"strings"
 	"syscall"
 )
 
@@ -88,16 +86,13 @@ func NFapi_Api_NfUdpPostSend(id uint64, remoteAddress *NFapi.SockaddrInx, buf []
 
 func SetIeProxy(Off bool, Port int) bool {
 	// "github.com/Tri sia/gos ysp roxy"
-	if runtime.GOOS == strings.Replace("windows", " ", "", 1) {
-		if Off {
-			_ = gosysproxy.Off()
-			return true
-		}
-		ies := "127.0.0.1:" + strconv.Itoa(Port)
-		_ = gosysproxy.SetGlobalProxy("http="+ies+";https="+ies, "")
+	if Off {
+		_ = gosysproxy.Off()
 		return true
 	}
-	return false
+	ies := "127.0.0.1:" + strconv.Itoa(Port)
+	_ = gosysproxy.SetGlobalProxy("http="+ies+";https="+ies, "")
+	return true
 }
 
 // InstallCert 安装证书 将证书安装到Windows系统内

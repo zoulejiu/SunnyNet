@@ -25,7 +25,7 @@ func Test() {
 	s.SetGoCallback(HttpCallback, TcpCallback, WSCallback, UdpCallback)
 	//s.SetIeProxy(false)
 	//s.MustTcp(true)
-	Port := 2024
+	Port := 2022
 
 	s = s.SetPort(Port).Start()
 	fmt.Println(s.StartProcess())
@@ -35,9 +35,9 @@ func Test() {
 	// Go程序调试，是通过TCP连接的，若使用此命令将无法调试。
 	// s.ProcessALLName(true)
 
-	s.ProcessAddName("WeChat.exe")
+	//s.ProcessAddName("WeChat.exe")
 	// s.ProcessAddName("WeChatAppEx.exe")
-	//s.ProcessAddName("EDVED1F.tmp")
+	s.ProcessAddName("pop_dd_workbench.exe")
 	err := s.Error
 	if err != nil {
 		panic(err)

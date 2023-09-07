@@ -689,6 +689,7 @@ func (s *ProxyRequest) ConnRead(aheadData []byte, Dosage bool) (rs []byte, Wheth
 		st.Write(bs[0:sx])
 		if e != nil {
 			if st.Len() < length {
+				islet, ok, bodyLen, ContentLength = public.LegitimateRequest(st.Bytes())
 				if !islet {
 					// 如果已读入字节数 小于 512 并且 超过 10次 已读入数没有变动，那么直接返回
 					cmp[st.Len()]++
@@ -1049,7 +1050,9 @@ func (s *ProxyRequest) https() {
 	var serverName string
 	var HelloMsg *tls.ClientHelloMsg
 	//普通会话升级到TLS会话，并且设置生成的握手证书,限制tls最大版本为1.2,因为1.3可能存在算法不支持
-	tlsConn = tls.Server(s.Conn, &tls.Config{Certificates: []tls.Certificate{*certificate}, MaxVersion: tls.VersionTLS12})
+	//如果某些服务器只支持tls1.3,将会在 tlsConn.ClientHello() 函数中自动纠正为 tls1.3
+	tlsConfig := &tls.Config{Certificates: []tls.Certificate{*certificate}, MaxVersion: tls.VersionTLS12}
+	tlsConn = tls.Server(s.Conn, tlsConfig)
 	defer func() {
 		//函数退出时 清理TLS会话
 		tlsConn.RReset()
@@ -1059,7 +1062,6 @@ func (s *ProxyRequest) https() {
 	//设置1秒的超时 来判断是否 https 请求 因为正常的非HTTPS TCP 请求也会进入到这里来，需要判断一下
 	_ = tlsConn.SetDeadline(time.Now().Add(1 * time.Second))
 	//取出第一个字节，判断是否TLS
-
 	peek := tlsConn.Peek(1)
 	if len(peek) == 1 && (peek[0] == 22 || peek[0] == 23) {
 		//发送数据 如果 不是 HEX 16 或 17 那么肯定不是HTTPS 或TLS-TCP
@@ -1086,8 +1088,10 @@ func (s *ProxyRequest) https() {
 				//根据握手的服务器域名 重新创建证书
 				certificate, err = s.Global.getCertificate(s.Target.String())
 				if certificate != nil {
-					//限制tls最大版本为1.2,因为1.3可能存在算法不支持
-					tlsConn.SetServer(&tls.Config{MaxVersion: tls.VersionTLS12, Certificates: []tls.Certificate{*certificate}, ServerName: HttpCertificate.ParsingHost(s.Target.String())})
+					//因为tlsConfig是指针类型，所以这里可以直接对它进行修改,而不用重新赋值
+					tlsConfig.Certificates = []tls.Certificate{*certificate}
+					tlsConfig.ServerName = HttpCertificate.ParsingHost(s.Target.String())
+					//tlsConn.SetServer(&tls.Config{MaxVersion: tlsConfig.MaxVersion, Certificates: []tls.Certificate{*certificate}, ServerName: HttpCertificate.ParsingHost(s.Target.String())})
 				}
 			}
 			//继续握手
@@ -1097,9 +1101,8 @@ func (s *ProxyRequest) https() {
 		err = errors.New("No HTTPS ")
 	}
 	if err != nil {
-		// 以上握手过程中 有错误产生 有错误则不是TLS
+		//以上握手过程中 有错误产生 有错误则不是TLS
 		//判断这些错误信息，是否还能继续处理
-		//现有连接被远程主机强制关闭。
 		if s.Global.isMustTcp == false && (err == io.EOF || strings.Index(err.Error(), "An existing connection was forcibly closed by the remote host.") != -1 || strings.Index(err.Error(), "An established connection was aborted by the software in your host machine") != -1) {
 			s.Request = new(http.Request)
 			s.Request.URL, _ = url.Parse(public.HttpsRequestPrefix + strings.ReplaceAll(s.Target.Host, public.Space, public.NULL))
@@ -1107,8 +1110,9 @@ func (s *ProxyRequest) https() {
 			s.Error(errors.New("The client closes the connection "))
 			return
 		}
+		bs := tlsConn.Read_last_time_bytes()
 		//证书无效
-		if s.Global.isMustTcp == false && strings.Index(err.Error(), "unknown certificate") != -1 || strings.Index(err.Error(), "client offered only unsupported versions") != -1 {
+		if len(bs) == 0 || s.Global.isMustTcp == false && strings.Index(err.Error(), "unknown certificate") != -1 || strings.Index(err.Error(), "client offered only unsupported versions") != -1 {
 			s.Request = new(http.Request)
 			if serverName == public.NULL {
 				s.Request.URL, _ = url.Parse(public.HttpsRequestPrefix + s.Target.Host)
@@ -1121,7 +1125,6 @@ func (s *ProxyRequest) https() {
 			return
 		}
 		//如果是其他错误，将TLS握手过程中的信息取出来，进行http处理流程，继续判断
-		bs := tlsConn.Read_last_time_bytes()
 		tlsConn.RReset()
 		s.httpProcessing(bs, public.HttpDefaultPort, public.TagTcpAgreement)
 		return
@@ -1701,8 +1704,7 @@ func (s *Sunny) ExportCert() []byte {
 
 // SetIeProxy 设置IE代理 [Off=true 取消] [Off=false 设置] 在中间件设置端口后调用
 func (s *Sunny) SetIeProxy(Off bool) bool {
-	CrossCompiled.SetIeProxy(Off, s.Port())
-	return false
+	return CrossCompiled.SetIeProxy(Off, s.Port())
 }
 
 // SetGlobalProxy 设置全局上游代理 仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888

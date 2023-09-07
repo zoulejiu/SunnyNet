@@ -10,6 +10,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rsa"
 	"crypto/subtle"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -49,7 +50,6 @@ func (c *Conn) ServerHandshake(clientHello *ClientHelloMsg) error {
 
 	c.in.Lock()
 	defer c.in.Unlock()
-
 	if c.vers == VersionTLS13 {
 		hs := serverHandshakeStateTLS13{
 			c:           c,
@@ -163,7 +163,6 @@ func (c *Conn) ClientHello() (*ClientHelloMsg, string, error) {
 	defer c.handshakeMutex.Unlock()
 	c.in.Lock()
 	defer c.in.Unlock()
-
 	msg, e := c.readClientHello()
 	if msg == nil {
 		return msg, "", e
@@ -202,13 +201,24 @@ func (c *Conn) readClientHello() (*ClientHelloMsg, error) {
 	}
 	c.vers, ok = c.config.mutualVersion(clientVersions)
 	if !ok {
-		c.sendAlert(alertProtocolVersion)
-		return nil, fmt.Errorf("tls: client offered only unsupported versions: %x", clientVersions)
+		//如果配置的最大版本是tls1.2,并且客户端不支持tls1.2,将最大版本修正为tls1.3尝试一下
+		if c.config.MaxVersion == tls.VersionTLS12 {
+			c.config.MaxVersion = tls.VersionTLS13
+			c.vers, ok = c.config.mutualVersion(clientVersions)
+			if !ok {
+				c.config.MaxVersion = tls.VersionTLS12
+				c.sendAlert(alertProtocolVersion)
+				return nil, fmt.Errorf("tls: client offered only unsupported versions: %x", clientVersions)
+			}
+		} else {
+			c.sendAlert(alertProtocolVersion)
+			return nil, fmt.Errorf("tls: client offered only unsupported versions: %x", clientVersions)
+		}
+
 	}
 	c.haveVers = true
 	c.in.version = c.vers
 	c.out.version = c.vers
-
 	return clientHello, nil
 }
 
