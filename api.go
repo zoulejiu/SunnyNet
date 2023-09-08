@@ -1,12 +1,12 @@
 /*
-本类为所有DLL导出函数集合
+本类为所有动态库导出函数集合
 */
 package main
 
 import "C"
 import (
-	"SunnyNet/project/Api"
-	"SunnyNet/project/public"
+	"github.com/qtgolang/SunnyNet/Api"
+	"github.com/qtgolang/SunnyNet/public"
 )
 
 // 获取SunnyNet版本
