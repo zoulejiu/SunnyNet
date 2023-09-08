@@ -12,6 +12,7 @@ type MyConn struct {
 func (c *MyConn) Read(b []byte) (int, error) {
 	n, err := c.Conn.Read(b)
 	c.hook(b[0:n])
+
 	/*
 		if c.s == nil {
 			return n, err
