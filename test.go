@@ -2,16 +2,14 @@ package main
 
 import "C"
 import (
-	"SunnyNet/project/SunnyNet"
-	"SunnyNet/project/public"
 	"fmt"
+	"github.com/qtgolang/SunnyNet/SunnyNet"
+	"github.com/qtgolang/SunnyNet/public"
 	"time"
 )
 
 func Test() {
-
 	s := SunnyNet.NewSunny()
-
 	//i := CreateCertificate()
 	//ok := LoadP12Certificate(i, C.CString("C:\\Users\\qinka\\Desktop\\74fe394a37757545d8cfbd2ea264c7c3.p12"), C.CString("qyrhudhZ"))
 	//ok := AddCertPoolPath(i, C.CString("C:\\Users\\qinka\\Desktop\\P12\\certificate.pem"))
