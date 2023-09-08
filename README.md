@@ -22,6 +22,6 @@
 
 ## 示例文件以及抓包工具 下载地址
 ``` 
-https://wwxa.lanzouc.com/b0cic8fxe
-密码:46ca
+https://wwxa.lanzouj.com/b0cid04mf
+密码:22v8
 ```
