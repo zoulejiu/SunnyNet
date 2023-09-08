@@ -5,9 +5,9 @@
 package http
 
 import (
-	"Sunny/src/net/http/httptrace"
-	"Sunny/src/net/http/internal"
-	"Sunny/src/net/http/internal/ascii"
+	"github.com/qtgolang/SunnyNet/src/net/http/httptrace"
+	"github.com/qtgolang/SunnyNet/src/net/http/internal"
+	"github.com/qtgolang/SunnyNet/src/net/http/internal/ascii"
 	"bufio"
 	"bytes"
 	"errors"

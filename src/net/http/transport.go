@@ -10,9 +10,9 @@
 package http
 
 import (
-	"Sunny/src/internal/godebug"
-	"Sunny/src/net/http/httptrace"
-	"Sunny/src/net/http/internal/ascii"
+	"github.com/qtgolang/SunnyNet/src/internal/godebug"
+	"github.com/qtgolang/SunnyNet/src/net/http/httptrace"
+	"github.com/qtgolang/SunnyNet/src/net/http/internal/ascii"
 	"bufio"
 	"compress/gzip"
 	"container/list"

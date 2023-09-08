@@ -7,7 +7,7 @@
 package httptrace
 
 import (
-	"Sunny/src/internal/nettrace"
+	"github.com/qtgolang/SunnyNet/src/internal/nettrace"
 	"context"
 	"crypto/tls"
 	"net"

@@ -28,8 +28,8 @@ BrotliResult BrotliDecompressStream_Wrapper(
 import "C"
 
 import (
-	"SunnyNet/project/src/brotli-go/shared"
 	"errors"
+	"github.com/qtgolang/SunnyNet/src/brotli-go/shared"
 	"io"
 	"runtime"
 	"unsafe"

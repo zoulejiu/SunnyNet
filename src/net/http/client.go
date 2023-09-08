@@ -10,7 +10,7 @@
 package http
 
 import (
-	"Sunny/src/net/http/internal/ascii"
+	"github.com/qtgolang/SunnyNet/src/net/http/internal/ascii"
 	"context"
 	"crypto/tls"
 	"encoding/base64"

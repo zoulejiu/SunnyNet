@@ -5,7 +5,7 @@
 package http
 
 import (
-	"Sunny/src/net/http/internal/ascii"
+	"github.com/qtgolang/SunnyNet/src/net/http/internal/ascii"
 	"errors"
 	"fmt"
 	"log"

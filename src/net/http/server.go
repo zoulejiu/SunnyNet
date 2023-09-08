@@ -7,7 +7,7 @@
 package http
 
 import (
-	"Sunny/src/internal/godebug"
+	"github.com/qtgolang/SunnyNet/src/internal/godebug"
 	"bufio"
 	"bytes"
 	"context"

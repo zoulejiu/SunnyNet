@@ -7,8 +7,8 @@
 package httptest
 
 import (
-	"Sunny/src/net/http"
-	"Sunny/src/net/http/internal/testcert"
+	"github.com/qtgolang/SunnyNet/src/net/http"
+	"github.com/qtgolang/SunnyNet/src/net/http/internal/testcert"
 	"crypto/tls"
 	"crypto/x509"
 	"flag"

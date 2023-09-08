@@ -2,9 +2,9 @@
 package main
 
 import (
-	"SunnyNet/project/src/brotli-go/dec"
-	"SunnyNet/project/src/brotli-go/enc"
 	"flag"
+	"github.com/qtgolang/SunnyNet/src/brotli-go/dec"
+	"github.com/qtgolang/SunnyNet/src/brotli-go/enc"
 	"io/ioutil"
 	"log"
 )
