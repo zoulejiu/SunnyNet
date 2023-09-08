@@ -1,4 +1,4 @@
-module github.com/qtgolang/SunnyNet
+module SunnyNet
 
 go 1.18
 
@@ -14,6 +14,7 @@ require (
 	golang.org/x/sys v0.11.0
 	golang.org/x/text v0.12.0
 	google.golang.org/protobuf v1.28.1
+	gopkg.in/kothar/brotli-go.v0 v0.0.0-20170728081549-771231d473d6
 )
 
 require (

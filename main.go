@@ -8,9 +8,9 @@ import (
 )
 
 func init() {
+	//go func() { _ = http.ListenAndServe("127.0.0.1:6061", nil) }()
 }
 
 func main() {
 	Test()
-
 }
