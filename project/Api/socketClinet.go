@@ -39,8 +39,8 @@ func LoadSocketContext(Context int) *SocketClient {
 	return s.(*SocketClient)
 }
 
-//CreateSocketClient
-//创建 TCP客户端
+// CreateSocketClient
+// 创建 TCP客户端
 func CreateSocketClient() int {
 	w := &SocketClient{}
 	Context := newMessageId()
@@ -51,8 +51,9 @@ func CreateSocketClient() int {
 	return Context
 }
 
-//export RemoveSocketClient
 // 释放 TCP客户端
+//
+//export RemoveSocketClient
 func RemoveSocketClient(Context int) {
 	k := LoadSocketContext(Context)
 	if k != nil {
@@ -70,8 +71,9 @@ func DelClientContext(Context int) {
 	SocketMapLock.Unlock()
 }
 
+// TCP客户端 取错误
+//
 //export SocketClientGetErr
-//TCP客户端 取错误
 func SocketClientGetErr(Context int) uintptr {
 	k := LoadSocketContext(Context)
 	if k != nil {
@@ -82,7 +84,7 @@ func SocketClientGetErr(Context int) uintptr {
 	return 0
 }
 
-//SocketClientSetBufferSize
+// SocketClientSetBufferSize
 // TCP客户端 置缓冲区大小
 func SocketClientSetBufferSize(Context, BufferSize int) bool {
 	k := LoadSocketContext(Context)
@@ -96,8 +98,9 @@ func SocketClientSetBufferSize(Context, BufferSize int) bool {
 	return false
 }
 
-//SocketClientDial
-//  TCP客户端 连接
+// SocketClientDial
+//
+//	TCP客户端 连接
 func SocketClientDial(Context int, addr string, call int, isTls, synchronous bool, ProxyUrl string, CertificateConText int) bool {
 	w := LoadSocketContext(Context)
 	if w == nil {
@@ -185,8 +188,9 @@ func SocketClientDial(Context int, addr string, call int, isTls, synchronous boo
 	return true
 }
 
+// TCP客户端 同步模式下 接收数据
+//
 //export SocketClientReceive
-//TCP客户端 同步模式下 接收数据
 func SocketClientReceive(Context, OutTimes int) uintptr {
 	w := LoadSocketContext(Context)
 	if w == nil {
@@ -201,6 +205,9 @@ func SocketClientReceive(Context, OutTimes int) uintptr {
 	if _OutTime < 1 {
 		_OutTime = 100
 	}
+	if w.wb == nil {
+		return 0
+	}
 	_ = w.wb.SetReadDeadline(time.Now().Add(time.Duration(_OutTime) * time.Millisecond))
 	var Buff = make([]byte, w.BufferSize)
 	var le = 0
@@ -211,8 +218,8 @@ func SocketClientReceive(Context, OutTimes int) uintptr {
 	return 0
 }
 
-//SocketClientClose
-//TCP客户端 断开连接
+// SocketClientClose
+// TCP客户端 断开连接
 func SocketClientClose(Context int) {
 	w := LoadSocketContext(Context)
 	if w == nil {
@@ -221,8 +228,8 @@ func SocketClientClose(Context int) {
 	w.Close()
 }
 
-//SocketClientWrite
-//TCP客户端 发送数据
+// SocketClientWrite
+// TCP客户端 发送数据
 func SocketClientWrite(Context, OutTimes int, val uintptr, valLen int) int {
 	data := public.CStringToBytes(val, valLen)
 	w := LoadSocketContext(Context)
@@ -243,13 +250,16 @@ func SocketClientWrite(Context, OutTimes int, val uintptr, valLen int) int {
 	return m
 }
 func (w *SocketClient) Write(b []byte, OutTimes int) (int, error) {
+	if w.wb == nil {
+		return 0, errors.New("Connection closed")
+	}
 	_ = (w.wb).SetWriteDeadline(time.Now().Add(time.Duration(OutTimes) * time.Millisecond))
 	return (w.wb).Write(b)
 }
 func (w *SocketClient) Close() {
-
 	if w.wb != nil {
 		_ = w.wb.Close()
+		w.wb = nil
 	}
 }
 func (w *SocketClient) SocketClientRead() {
@@ -260,6 +270,11 @@ func (w *SocketClient) SocketClientRead() {
 	}()
 	non := 0
 	for {
+		if w.wb == nil {
+			SocketClientSendCall([]byte("The connection may be closed "), w.call, 2, w.Context)
+			w.Close()
+			return
+		}
 		_ = w.wb.SetReadDeadline(time.Time{})
 		response, err := w.readAllShut()
 		if len(response) == 0 {
@@ -282,6 +297,9 @@ func (w *SocketClient) SocketClientRead() {
 	}
 }
 func (w *SocketClient) readAllShut() ([]byte, error) {
+	if w.R == nil {
+		return make([]byte, 0), errors.New("Connection closed ")
+	}
 	re := bytes.NewBuffer(nil)
 	_bytes := make([]byte, w.BufferSize)
 	length, err := w.R.Read(_bytes[0:])
