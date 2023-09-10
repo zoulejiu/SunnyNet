@@ -1110,6 +1110,7 @@ func (s *ProxyRequest) https() {
 			s.Error(errors.New("The client closes the connection "))
 			return
 		}
+		//将TLS握手过程中的信息取出来
 		bs := tlsConn.Read_last_time_bytes()
 		if len(bs) == 0 {
 			//如果没有客户端没有主动发送数据的话
@@ -1130,7 +1131,7 @@ func (s *ProxyRequest) https() {
 			s.Error(err)
 			return
 		}
-		//如果是其他错误，将TLS握手过程中的信息取出来，进行http处理流程，继续判断
+		//如果是其他错误，进行http处理流程，继续判断
 		tlsConn.RReset()
 		s.httpProcessing(bs, public.HttpDefaultPort, public.TagTcpAgreement)
 		return
