@@ -1111,8 +1111,14 @@ func (s *ProxyRequest) https() {
 			return
 		}
 		bs := tlsConn.Read_last_time_bytes()
+		if len(bs) == 0 {
+			//如果没有客户端没有主动发送数据的话
+			//强制走TCP，按TCP流程处理
+			s.MustTcpProcessing(nil, public.TagTcpAgreement)
+			return
+		}
 		//证书无效
-		if len(bs) == 0 || s.Global.isMustTcp == false && strings.Index(err.Error(), "unknown certificate") != -1 || strings.Index(err.Error(), "client offered only unsupported versions") != -1 {
+		if s.Global.isMustTcp == false && strings.Index(err.Error(), "unknown certificate") != -1 || strings.Index(err.Error(), "client offered only unsupported versions") != -1 {
 			s.Request = new(http.Request)
 			if serverName == public.NULL {
 				s.Request.URL, _ = url.Parse(public.HttpsRequestPrefix + s.Target.Host)
