@@ -18,15 +18,14 @@ func Test() {
 	//fmt.Println("证书名称：", c.GetCommonName())
 	//AddHttpCertificate(C.CString("ws-gateway-odis.volkswagenag.com"), i, 1)
 
-	//s.SetGlobalProxy("http://192.168.31.173:8888")
 	//如果在Go中使用 设置Go的回调地址
 	s.SetGoCallback(HttpCallback, TcpCallback, WSCallback, UdpCallback)
 	//s.SetIeProxy(false)
 	//s.MustTcp(true)
-	Port := 2024
+	Port := 2023
 
 	s = s.SetPort(Port).Start()
-	fmt.Println(s.StartProcess())
+	//fmt.Println(s.StartProcess())
 
 	// 请注意GoLang调试时候，请不要使用此(ProcessALLName)命令，因为不管开启或关闭，都会将当前所有TCP链接断开一次
 	// 因为如果不断开的一次的话,已经建立的TCP链接无法抓包。
@@ -35,7 +34,7 @@ func Test() {
 
 	//s.ProcessAddName("WeChat.exe")
 	// s.ProcessAddName("WeChatAppEx.exe")
-	s.ProcessAddName("pop_dd_workbench.exe")
+	//s.ProcessAddName("pop_dd_workbench.exe")
 	err := s.Error
 	if err != nil {
 		panic(err)
@@ -44,9 +43,14 @@ func Test() {
 	time.Sleep(24 * time.Hour)
 }
 func HttpCallback(Conn *SunnyNet.HttpConn) {
+
 	if Conn.Type == public.HttpSendRequest {
 		//fmt.Println(Conn.Request.URL.String())
 		//发起请求
+
+		//直接响应,不让其发送请求
+		//Conn.StopRequest(200, "Hello Word")
+
 	} else if Conn.Type == public.HttpResponseOK {
 		//请求完成
 	} else if Conn.Type == public.HttpRequestFail {
@@ -54,6 +58,7 @@ func HttpCallback(Conn *SunnyNet.HttpConn) {
 	}
 }
 func WSCallback(Conn *SunnyNet.WsConn) {
+
 	//fmt.Println(Conn.Url)
 }
 func TcpCallback(Conn *SunnyNet.TcpConn) {

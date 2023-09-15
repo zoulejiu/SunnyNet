@@ -538,6 +538,34 @@ func LegitimateRequest(s []byte) (bool, bool, int, int) {
 			v := b.Len() - 4
 			b.Reset()
 			return islet, false, v, ContentLength
+		} else if strings.Index(a, "transfer-encoding: chunked") != -1 {
+			islet = true
+			arr := bytes.Split(s, []byte(CRLF+CRLF))
+			if len(arr) < 2 {
+				// 读取验证失败
+				return islet, false, 0, 0
+			}
+			arrays = strings.Split(string(arr[1]), CRLF)
+			if len(arr) < 1 {
+				return islet, false, 0, 0
+			}
+			ContentLength2, _ := strconv.ParseInt(arrays[0], 16, 64)
+			ContentLength := int(ContentLength2) + len(arrays[0]) + 2
+			var b bytes.Buffer
+			for i := 0; i < len(arr); i++ {
+				if i > 0 {
+					b.Write(CopyBytes(arr[i]))
+					b.Write([]byte{13, 10, 13, 10})
+				}
+			}
+			if b.Len() == ContentLength || b.Len()-4 == ContentLength {
+				b.Reset()
+				// 有长度  读取验证成功
+				return islet, true, 0, ContentLength
+			}
+			v := b.Len() - 4
+			b.Reset()
+			return islet, false, v, ContentLength
 		}
 		Method := GetMethod(s)
 		if (Method == HttpMethodGET || Method == HttpMethodOPTIONS || Method == HttpMethodHEAD) && len(s) > 4 && CopyString(string(s[len(s)-4:])) == CRLF+CRLF {
@@ -551,7 +579,7 @@ func LegitimateRequest(s []byte) (bool, bool, int, int) {
 }
 
 // BuildRequest 处理解析HTTP请求结构
-func BuildRequest(RawData []byte, host, source, DefaultPort string, setProxyHost func(s string), br net.Conn) (reqs *http.Request, length int) {
+func BuildRequest(RawData []byte, host, source, DefaultPort string, setProxyHost func(s string), br *ReadWriteObject) (reqs *http.Request, length int) {
 	defer func() {
 		if reqs != nil {
 			if reqs.URL != nil {
@@ -581,7 +609,6 @@ func BuildRequest(RawData []byte, host, source, DefaultPort string, setProxyHost
 				}
 			}
 		}
-
 	}()
 	Scheme := HttpRequestPrefix
 	if DefaultPort == HttpsDefaultPort {
@@ -731,7 +758,16 @@ func BuildRequest(RawData []byte, host, source, DefaultPort string, setProxyHost
 	if req.Body != nil || Method == HttpMethodGET || Method == HttpMethodCONNECT || Method == HttpMethodOPTIONS {
 		return req, BodyLength
 	}
-
+	req.Header.Del("Transfer-Encoding")
+	defer func() {
+		if reqs != nil {
+			if reqs.Method != HttpMethodGET && reqs.Method != HttpMethodCONNECT && reqs.Method != HttpMethodOPTIONS {
+				if reqs.Header != nil {
+					reqs.Header.Set("Content-Length", strconv.Itoa(length))
+				}
+			}
+		}
+	}()
 	if BodyIndex < 1 {
 		return req, BodyLength
 	}
@@ -740,7 +776,7 @@ func BuildRequest(RawData []byte, host, source, DefaultPort string, setProxyHost
 		buf.Write(CopyBytes(RawData))
 		buffBody := make([]byte, 512)
 		for {
-			if bytes.HasSuffix(buff, []byte{13, 10, 48, 13, 10, 13, 10}) {
+			if bytes.HasSuffix(buf.Bytes(), []byte{13, 10, 48, 13, 10, 13, 10}) {
 				break
 			}
 			l, e := br.Read(buffBody)
@@ -767,7 +803,6 @@ func BuildRequest(RawData []byte, host, source, DefaultPort string, setProxyHost
 		ret = nil
 		r = nil
 	}
-
 	BodyLength = len(buff)
 	if req.Body != nil {
 		_ = req.Body.Close()

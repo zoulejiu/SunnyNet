@@ -188,7 +188,7 @@ func (s *Sunny) udpNFSendReceive(Type int8, Theoni int64, pid uint32, LocalAddre
 	// 如果回调函数小于 10，则尝试调用Go回调函数
 	if s.udpCallback < 10 {
 		if s.goUdpCallback != nil {
-			n := &UDPConn{Theology: Theoni, Type: Type, SunnyContext: s.SunnyContext, Pid: int(pid), LocalAddress: LocalAddress, RemoteAddress: RemoteAddress, Data: data}
+			n := &UDPConn{Theology: Theoni, MessageId: NewMessageId(), Type: Type, SunnyContext: s.SunnyContext, Pid: int(pid), LocalAddress: LocalAddress, RemoteAddress: RemoteAddress, Data: data}
 			s.goUdpCallback(n)
 			return n.Data
 		}

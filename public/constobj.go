@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const SunnyVersion = "2023-09-08"
+const SunnyVersion = "2023-09-15"
 
 // TCP请求相关
 const (
@@ -24,7 +24,7 @@ const (
 	SunnyNetMsgTypeTCPClose          = 3 //连接关闭或连接失败
 )
 
-// UCP请求相关
+// UDP请求相关
 const (
 	SunnyNetUDPTypeClosed  = 1 //关闭
 	SunnyNetUDPTypeSend    = 2 //客户端发送数据

@@ -47,10 +47,16 @@ var proxyLock sync.Mutex
 var HookProcess bool
 
 func SetHookProcess(b bool) {
-	CancelAll()
 	proxyLock.Lock()
+	for u := range proxyName {
+		delete(proxyName, u)
+	}
+	for u := range proxyPid {
+		delete(proxyPid, u)
+	}
 	HookProcess = b
 	proxyLock.Unlock()
+	ClosePidTCP(-1)
 }
 
 func GetTcpConnectInfo(u uint16) *ProcessInfo {
@@ -71,33 +77,39 @@ func AddName(u string) bool {
 	proxyLock.Lock()
 	proxyName[strings.ToLower(u)] = true
 	proxyLock.Unlock()
+	CloseNameTCP(u)
 	return true
 }
 func DelName(u string) bool {
 	proxyLock.Lock()
 	delete(proxyName, strings.ToLower(u))
 	proxyLock.Unlock()
+	CloseNameTCP(u)
 	return true
 }
 func AddPid(u uint32) bool {
 	proxyLock.Lock()
 	proxyPid[u] = true
 	proxyLock.Unlock()
+	ClosePidTCP(int(u))
 	return true
 }
 func DelPid(u uint32) bool {
 	proxyLock.Lock()
 	delete(proxyPid, u)
 	proxyLock.Unlock()
+	ClosePidTCP(int(u))
 	return true
 }
 
 func CancelAll() bool {
 	proxyLock.Lock()
 	for u := range proxyName {
+		CloseNameTCP(u)
 		delete(proxyName, u)
 	}
 	for u := range proxyPid {
+		ClosePidTCP(int(u))
 		delete(proxyPid, u)
 	}
 	proxyLock.Unlock()

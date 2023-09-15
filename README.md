@@ -70,6 +70,9 @@ func HttpCallback(Conn *SunnyNet.HttpConn) {
 			Body = []byte("Hello Sunny Request")
 
 			Conn.Request.Body = io.NopCloser(bytes.NewBuffer(Body))
+
+			//直接响应,不让其发送请求
+			//Conn.StopRequest(200, "Hello Word")
 		}
 		fmt.Println(Conn.Request.URL.String())
 	} else if Conn.Type == public.HttpResponseOK {

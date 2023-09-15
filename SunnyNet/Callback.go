@@ -31,15 +31,14 @@ func (s *ProxyRequest) CallbackTCPRequest(callType int, msg *public.TcpMsg) {
 	LocalAddr := s.Conn.RemoteAddr().String()
 	hostname := s.Target.String()
 	pid, _ := strconv.Atoi(s.Pid)
+	MessageId := NewMessageId()
 	if s.TcpCall < 10 {
 		if s.TcpGoCall != nil {
-			Ams := &TcpConn{c: msg, Type: callType, theology: s.Theology, LocalAddr: LocalAddr, RemoteAddr: hostname, Pid: pid, SunnyContext: s.Global.SunnyContext}
+			Ams := &TcpConn{c: msg, MessageId: MessageId, Type: callType, Theology: s.Theology, LocalAddr: LocalAddr, RemoteAddr: hostname, Pid: pid, SunnyContext: s.Global.SunnyContext}
 			s.TcpGoCall(Ams)
 		}
 		return
 	}
-
-	MessageId := NewMessageId()
 	messageIdLock.Lock()
 	httpStorage[MessageId] = s
 	messageIdLock.Unlock()
@@ -58,6 +57,7 @@ func (s *ProxyRequest) CallbackTCPRequest(callType int, msg *public.TcpMsg) {
 		s.TCP.Receive = msg
 	}
 	Call.Call(s.TcpCall, s.Global.SunnyContext, LocalAddr, hostname, callType, MessageId, msg.Data.Bytes(), msg.Data.Len(), s.Theology, pid)
+
 	messageIdLock.Lock()
 	httpStorage[MessageId] = nil
 	delete(httpStorage, MessageId)
@@ -66,22 +66,29 @@ func (s *ProxyRequest) CallbackTCPRequest(callType int, msg *public.TcpMsg) {
 
 // CallbackBeforeRequest HTTP发起请求处理回调
 func (s *ProxyRequest) CallbackBeforeRequest() {
+
+	if s.Response != nil {
+		if s.Response.Body != nil {
+			_ = s.Response.Body.Close()
+		}
+	}
+	s.Response = nil
+	MessageId := NewMessageId()
+	pid, _ := strconv.Atoi(s.Pid)
 	if s.HttpCall < 10 {
 		if s.HttpGoCall != nil {
-			m := &HttpConn{theology: s.Theology, SunnyContext: s.Global.SunnyContext, Type: public.HttpSendRequest, Request: s.Request, Response: nil, err: "", proxy: s.Proxy}
+			m := &HttpConn{Theology: s.Theology, MessageId: MessageId, PID: pid, SunnyContext: s.Global.SunnyContext, Type: public.HttpSendRequest, Request: s.Request, Response: nil, err: "", proxy: s.Proxy}
 			s.HttpGoCall(m)
+			s.Response = m.Response
 		}
 		return
 	}
-	MessageId := NewMessageId()
 	Method := s.Request.Method
 	Url := s.Request.URL.String()
-
 	messageIdLock.Lock()
 	httpStorage[MessageId] = s
 	messageIdLock.Unlock()
 
-	pid, _ := strconv.Atoi(s.Pid)
 	Call.Call(s.HttpCall, s.Global.SunnyContext, s.Theology, MessageId, public.HttpSendRequest, Method, Url, "", pid)
 
 	messageIdLock.Lock()
@@ -93,9 +100,10 @@ func (s *ProxyRequest) CallbackBeforeRequest() {
 
 // CallbackBeforeResponse HTTP请求完成处理回调
 func (s *ProxyRequest) CallbackBeforeResponse() {
+	pid, _ := strconv.Atoi(s.Pid)
 	if s.HttpCall < 10 {
 		if s.HttpGoCall != nil {
-			m := &HttpConn{theology: s.Theology, SunnyContext: s.Global.SunnyContext, Type: public.HttpResponseOK, Request: s.Request, Response: s.Response, err: ""}
+			m := &HttpConn{Theology: s.Theology, MessageId: NewMessageId(), PID: pid, SunnyContext: s.Global.SunnyContext, Type: public.HttpResponseOK, Request: s.Request, Response: s.Response, err: ""}
 			s.HttpGoCall(m)
 		}
 		return
@@ -108,7 +116,6 @@ func (s *ProxyRequest) CallbackBeforeResponse() {
 	httpStorage[MessageId] = s
 	messageIdLock.Unlock()
 
-	pid, _ := strconv.Atoi(s.Pid)
 	Call.Call(s.HttpCall, s.Global.SunnyContext, s.Theology, MessageId, public.HttpResponseOK, Method, Url, "", pid)
 
 	messageIdLock.Lock()
@@ -123,7 +130,7 @@ func (s *ProxyRequest) CallbackWssRequest(State int, Method, Url string, msg *pu
 	//Websocket消息
 	if s.wsCall < 10 {
 		if s.wsGoCall != nil {
-			m := &WsConn{Pid: pid, Type: State, SunnyContext: s.Global.SunnyContext, Url: Url, c: msg, MessageId: MessageId, theology: s.Theology, Request: s.Request}
+			m := &WsConn{Pid: pid, Type: State, SunnyContext: s.Global.SunnyContext, Url: Url, c: msg, MessageId: MessageId, Theology: s.Theology, Request: s.Request}
 			s.wsGoCall(m)
 		}
 		return
@@ -133,9 +140,10 @@ func (s *ProxyRequest) CallbackWssRequest(State int, Method, Url string, msg *pu
 
 // CallbackError HTTP请求失败处理回调
 func (s *ProxyRequest) CallbackError(err error) {
+	pid, _ := strconv.Atoi(s.Pid)
 	if s.HttpCall < 10 {
 		if s.HttpGoCall != nil {
-			m := &HttpConn{theology: s.Theology, SunnyContext: s.Global.SunnyContext, Type: public.HttpRequestFail, Request: s.Request, Response: nil, err: ""}
+			m := &HttpConn{Theology: s.Theology, MessageId: NewMessageId(), PID: pid, SunnyContext: s.Global.SunnyContext, Type: public.HttpRequestFail, Request: s.Request, Response: nil, err: ""}
 			s.HttpGoCall(m)
 		}
 		return
@@ -153,7 +161,6 @@ func (s *ProxyRequest) CallbackError(err error) {
 	httpStorage[MessageId] = s
 	messageIdLock.Unlock()
 
-	pid, _ := strconv.Atoi(s.Pid)
 	Call.Call(s.HttpCall, s.Global.SunnyContext, s.Theology, MessageId, public.HttpRequestFail, Method, Url, err.Error(), pid)
 
 	messageIdLock.Lock()

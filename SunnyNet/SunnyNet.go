@@ -158,7 +158,6 @@ type ProxyRequest struct {
 	WinHttp      *GoWinHttp.WinHttp   //WinHTTP请求对象
 	Request      *http.Request        //要发送的请求体
 	Response     *http.Response       //HTTP响应体
-	IsReturn     bool                 //是否不发送直接响应 Response 中的内容
 	TCP          public.TCP           //TCP收发数据
 	Websocket    *public.WebsocketMsg //Websocket会话
 	Proxy        *GoWinHttp.Proxy     //设置指定代理
@@ -878,7 +877,7 @@ func (s *ProxyRequest) StartHTTPProcessing(RawBytes []byte, sProxy, Tag, Default
 		source = arr[0] + ""
 	}
 	arr = nil
-	req, BodyLen := public.BuildRequest(RawBytes, s.Target.String(), source, DefaultPort, setProxyHost, s.Conn)
+	req, BodyLen := public.BuildRequest(RawBytes, s.Target.String(), source, DefaultPort, setProxyHost, s.RwObj)
 	defer func() {
 		if req != nil {
 			if req.Header != nil {
@@ -1347,14 +1346,13 @@ func (s *ProxyRequest) CompleteRequest(req *http.Request) {
 	if s.ProxyHost != public.NULL && s.ProxyHost != req.Host+":"+public.HttpDefaultPort && s.ProxyHost != req.Host+":"+public.HttpsDefaultPort && s.ProxyHost != req.Host {
 		s.Proxy.Address = s.ProxyHost
 	}
+
 	//通知回调 即将开始发送请求
 	s.CallbackBeforeRequest()
-	if s.IsReturn {
-		//回调中设置 不发送 直接响应指定数据 或终止发送
-		if s.Response != nil {
-			_, _ = s.RwObj.Write(public.StructureBody(s.Response))
-			return
-		}
+	//回调中设置 不发送 直接响应指定数据 或终止发送
+	if s.Response != nil {
+		_, _ = s.RwObj.Write(public.StructureBody(s.Response))
+		return
 	}
 	//验证处理是否websocket请求,如果是直接处理
 	if s.handleWss() {
@@ -1845,44 +1843,42 @@ func (s *Sunny) StartProcess() bool {
 // Go程序调试，是通过TCP连接的，若使用此命令将无法调试。
 func (s *Sunny) ProcessALLName(open bool) *Sunny {
 	CrossCompiled.NFapi_SetHookProcess(open)
-	if open {
-		CrossCompiled.NFapi_ClosePidTCP(-1)
-	}
+	//CrossCompiled.NFapi_ClosePidTCP(-1)
 	return s
 }
 
 // ProcessDelName 删除进程名  所有 SunnyNet 通用
 func (s *Sunny) ProcessDelName(name string) *Sunny {
 	CrossCompiled.NFapi_DelName(name)
-	CrossCompiled.NFapi_CloseNameTCP(name)
+	//CrossCompiled.NFapi_CloseNameTCP(name)
 	return s
 }
 
 // ProcessAddName 进程代理 添加进程名 所有 SunnyNet 通用
 func (s *Sunny) ProcessAddName(Name string) *Sunny {
 	CrossCompiled.NFapi_AddName(Name)
-	CrossCompiled.NFapi_CloseNameTCP(Name)
+	//CrossCompiled.NFapi_CloseNameTCP(Name)
 	return s
 }
 
 // ProcessDelPid 删除PID  所有 SunnyNet 通用
 func (s *Sunny) ProcessDelPid(Pid int) *Sunny {
 	CrossCompiled.NFapi_DelPid(uint32(Pid))
-	CrossCompiled.NFapi_ClosePidTCP(Pid)
+	//CrossCompiled.NFapi_ClosePidTCP(Pid)
 	return s
 }
 
 // ProcessAddPid 进程代理 添加PID 所有 SunnyNet 通用
 func (s *Sunny) ProcessAddPid(Pid int) *Sunny {
 	CrossCompiled.NFapi_AddPid(uint32(Pid))
-	CrossCompiled.NFapi_ClosePidTCP(Pid)
+	//CrossCompiled.NFapi_ClosePidTCP(Pid)
 	return s
 }
 
 // ProcessCancelAll 进程代理 取消全部已设置的进程名
 func (s *Sunny) ProcessCancelAll() *Sunny {
 	CrossCompiled.NFapi_CancelAll()
-	CrossCompiled.NFapi_ClosePidTCP(-1)
+	//CrossCompiled.NFapi_ClosePidTCP(-1)
 	return s
 }
 

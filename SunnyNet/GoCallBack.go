@@ -1,15 +1,19 @@
 package SunnyNet
 
 import (
+	"bytes"
 	"github.com/qtgolang/SunnyNet/public"
 	"github.com/qtgolang/SunnyNet/src/GoWinHttp"
+	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 )
 
 type TcpConn struct {
 	SunnyContext int
-	theology     int            //唯一ID
+	Theology     int //唯一ID
+	MessageId    int
 	c            *public.TcpMsg //事件消息
 	Type         int            //事件类型_ 例如  public.SunnyNetMsgTypeTCP.....
 	LocalAddr    string         //本地地址
@@ -60,7 +64,7 @@ func (k *TcpConn) Close(int) bool {
 		return false
 	}
 	TcpSceneLock.Lock()
-	w := TcpStorage[k.theology]
+	w := TcpStorage[k.Theology]
 	TcpSceneLock.Unlock()
 	if w == nil {
 		return false
@@ -85,7 +89,7 @@ func (k *TcpConn) SetConnectionIP(ip string) bool {
 // SendToServer 模拟客户端向服务器端主动发送数据
 func (k *TcpConn) SendToServer(data []byte) int {
 	TcpSceneLock.Lock()
-	w := TcpStorage[k.theology]
+	w := TcpStorage[k.Theology]
 	TcpSceneLock.Unlock()
 	if w == nil {
 		return 0
@@ -108,7 +112,7 @@ func (k *TcpConn) SendToServer(data []byte) int {
 // SendToClient  模拟服务器端向客户端主动发送数据
 func (k *TcpConn) SendToClient(data []byte) int {
 	TcpSceneLock.Lock()
-	w := TcpStorage[k.theology]
+	w := TcpStorage[k.Theology]
 	TcpSceneLock.Unlock()
 	if w == nil {
 		return 0
@@ -147,35 +151,38 @@ func (k *TcpConn) GetBodyLen() int {
 type WsConn struct {
 	c            *public.WebsocketMsg
 	SunnyContext int
-	MessageId    int           //Text=1 Binary=2 Close=8 Ping=9 Pong=10 Invalid=-1
+	MessageId    int           //仅标识消息ID,不能用于API函数
 	Pid          int           //Pid
 	Type         int           //消息类型 	public.Websocket...
 	Url          string        //连接请求地址
-	theology     int           //唯一ID
+	Theology     int           //请求唯一ID
 	Request      *http.Request //请求体
 }
 
-// GetTheology 获取请求唯一ID
-func (k *WsConn) GetTheology() int {
-	return k.theology
-}
-
-// GetWebsocketBody 获取 WebSocket消息
-func (k *WsConn) GetWebsocketBody() []byte {
+// GetMessageBody 获取 消息消息
+func (k *WsConn) GetMessageBody() []byte {
 	k.c.Sync.Lock()
 	defer k.c.Sync.Unlock()
 	return k.c.Data.Bytes()
 }
 
-// GetWebsocketBodyLen 获取 WebSocket消息长度
-func (k *WsConn) GetWebsocketBodyLen() int {
+// GetMessageType 获取 消息类型
+// Text=1 Binary=2 Close=8 Ping=9 Pong=10 Invalid=-1/255
+func (k *WsConn) GetMessageType() int {
+	k.c.Sync.Lock()
+	defer k.c.Sync.Unlock()
+	return k.c.Mt
+}
+
+// GetMessageBodyLen 获取 消息长度
+func (k *WsConn) GetMessageBodyLen() int {
 	k.c.Sync.Lock()
 	defer k.c.Sync.Unlock()
 	return k.c.Data.Len()
 }
 
-// SetWebsocketBody 修改 WebSocket消息
-func (k *WsConn) SetWebsocketBody(data []byte) bool {
+// SetMessageBody 修改 消息
+func (k *WsConn) SetMessageBody(data []byte) bool {
 	k.c.Sync.Lock()
 	defer k.c.Sync.Unlock()
 	k.c.Data.Reset()
@@ -224,7 +231,9 @@ func (k *WsConn) Close(int) bool {
 
 type HttpConn struct {
 	SunnyContext int
-	theology     int              //唯一ID
+	Theology     int //唯一ID
+	MessageId    int //消息ID,仅标识消息ID,不能用于API函数
+	PID          int
 	Type         int              //请求类型 例如 public.HttpSendRequest  public.Http....
 	Request      *http.Request    //请求体
 	Response     *http.Response   //响应体
@@ -232,6 +241,44 @@ type HttpConn struct {
 	proxy        *GoWinHttp.Proxy //代理信息
 }
 
+// StopRequest 阻止请求,仅支持在发起请求时使用
+// StatusCode要响应的状态码
+// Data=要响应的数据 可以是string 也可以是[]byte
+// Header=要响应的Header 可以忽略
+func (h *HttpConn) StopRequest(StatusCode int, Data any, Header ...http.Header) {
+	if h.Type != public.HttpSendRequest {
+		return
+	}
+	var ResponseData []byte
+	switch v := Data.(type) {
+	case string:
+		ResponseData = []byte(v)
+		break
+	case []byte:
+		ResponseData = v
+		break
+	default:
+		return
+	}
+	h.Response = new(http.Response)
+	if StatusCode < 100 {
+		h.Response.StatusCode = 200
+	} else {
+		h.Response.StatusCode = StatusCode
+	}
+	h.Response.Body = io.NopCloser(bytes.NewBuffer(ResponseData))
+	if len(Header) > 0 {
+		h.Response.Header = Header[0]
+	}
+	if h.Response.Header == nil {
+		h.Response.Header = make(http.Header)
+		h.Response.Header.Set("Server", "Sunny")
+		h.Response.Header.Set("Accept-Ranges", "bytes")
+		h.Response.Header.Set("Connection", "Close")
+	}
+	h.Response.Header.Set("Content-Length", strconv.Itoa(len(ResponseData)))
+	h.Response.ContentLength = int64(len(ResponseData))
+}
 func (h *HttpConn) GetError() string {
 	return h.err
 }
@@ -275,6 +322,7 @@ func (h *HttpConn) SetAgent(ProxyUrl string) bool {
 type UDPConn struct {
 	SunnyContext  int
 	Theology      int64 //唯一ID
+	MessageId     int   //消息ID
 	Type          int8  //请求类型 例如 public.SunnyNetUDPType...
 	Pid           int
 	LocalAddress  string

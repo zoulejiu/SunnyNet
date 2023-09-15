@@ -339,7 +339,6 @@ func SetResponseHeader(MessageId int, name string, val string) {
 		k.Response.Header = make(http.Header)
 		k.Response.Header.Set("Connection", "Close")
 		k.Response.ContentLength = 0
-		k.IsReturn = true
 	}
 	if k.Response.Header == nil {
 		k.Response.Header = make(http.Header)
@@ -363,7 +362,6 @@ func SetResponseAllHeader(MessageId int, value string) {
 		k.Response.Header = make(http.Header)
 		k.Response.Header.Set("Connection", "Close")
 		k.Response.ContentLength = 0
-		k.IsReturn = true
 	}
 	if k.Response.Header == nil {
 		k.Response.Header = make(http.Header)
@@ -426,7 +424,6 @@ func SetResponseData(MessageId int, data uintptr, dataLen int) bool {
 		k.Response.Header.Set("Server", "Sunny")
 		k.Response.Header.Set("Accept-Ranges", "bytes")
 		k.Response.Header.Set("Connection", "Close")
-		k.IsReturn = true
 	}
 
 	if k.Response.Header == nil {
