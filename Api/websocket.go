@@ -219,7 +219,6 @@ func WebsocketClientReceive(Context, OutTimes int) uintptr {
 		return 0
 	}
 	w.err = w.wb.SetReadDeadline(time.Now().Add(time.Duration(_OutTime) * time.Millisecond))
-
 	var Buff []byte
 	messageType := 0
 	length := 0

@@ -18,7 +18,8 @@
 ```
 
 ---
-> 由于代码主要是做DLL使用,部分功能未封装给Go使用(例如添加证书,添加证书使用规则),请自行探索！
+* # 由于代码主要是做DLL使用,部分功能未封装给Go使用(例如添加证书,添加证书使用规则),请自行探索！
+* # <a href="https://github.com/jmeubank/tdm-gcc/releases/download/v10.3.0-tdm64-2/tdm64-gcc-10.3.0-2.exe">编译请使用 TDM-GCC</a> 
 <center><h2><a style="color: red;">BUG 反馈</a></center></h2></center>
 <center><h3>QQ群:751406884</center></h3></center>
 <center><h3>二群：545120699</center></h3></center>
@@ -27,8 +28,8 @@
 ---
 
 ### <center><h3>示例文件以及抓包工具 下载地址 </center></h3></center>
-<center><h3>https://wwxa.lanzouj.com/b0cidv9hg</center></h3></center>
-<center><h3>密码:8j5e</center></h3></center>
+<center><h3>https://wwxa.lanzouj.com/b0ciemzeb</center></h3></center>
+<center><h3>密码:fhgf</center></h3></center>
 <center><h3></center></h3></center>
 <center><h3></center></h3></center>
 
@@ -47,7 +48,7 @@ import (
 
 var Sunny = SunnyNet.NewSunny()
 
-func test() {
+func main() {
 	//绑定回调函数
 	Sunny.SetGoCallback(HttpCallback, TcpCallback, WSCallback, UdpCallback)
 
@@ -79,7 +80,7 @@ func HttpCallback(Conn *SunnyNet.HttpConn) {
 		//请求完成
 		if Conn.Response.Body != nil {
 			Body, _ := io.ReadAll(Conn.Response.Body)
-			_ = Conn.Request.Body.Close()
+			_ = Conn.Response.Body.Close()
 
 			//这里可以对Body修改
 

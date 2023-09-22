@@ -39,7 +39,7 @@ func DeflateUnCompress(data uintptr, dataLen int) uintptr {
 
 	zr := flate.NewReader(ioutil.NopCloser(bytes.NewBuffer(bin)))
 	defer func() { _ = zr.Close() }()
-	bx, _ := ioutil.ReadAll(zr)
+	bx, _ := io.ReadAll(zr)
 	bx = public.BytesCombine(public.IntToBytes(len(bx)), bx)
 	return public.PointerPtr(string(bx))
 }
@@ -114,10 +114,7 @@ func BrUnCompress(data uintptr, dataLen int) uintptr {
 	if len(bin) < 1 {
 		return 0
 	}
-	b, e := ioutil.ReadAll(brotli.NewReader(ioutil.NopCloser(bytes.NewBuffer(bin))))
-	if e != nil {
-		return 0
-	}
+	b, _ := io.ReadAll(brotli.NewReader(ioutil.NopCloser(bytes.NewBuffer(bin))))
 	b = public.BytesCombine(public.IntToBytes(len(b)), b)
 	return public.PointerPtr(string(b))
 }
@@ -132,10 +129,7 @@ func GzipUnCompress(data uintptr, dataLen int) uintptr {
 	if err != nil {
 		return 0
 	}
-	b, e := ioutil.ReadAll(gr)
-	if e != nil {
-		return 0
-	}
+	b, _ := io.ReadAll(gr)
 	b = public.BytesCombine(public.IntToBytes(len(b)), b)
 	return public.PointerPtr(b)
 }
