@@ -318,6 +318,12 @@ func GetRequestHeader(MessageId int, name string) uintptr {
 	}
 	val := k.Request.Header[name]
 	if len(val) < 1 {
+		aegName := strings.ToLower(name)
+		for _Name, v := range k.Request.Header {
+			if strings.ToLower(_Name) == aegName {
+				return public.PointerPtr(v[0])
+			}
+		}
 		return public.NULLPtr
 	}
 	return public.PointerPtr(val[0])
@@ -621,6 +627,12 @@ func GetResponseHeader(MessageId int, name string) uintptr {
 	}
 	Head := k.Response.Header[(name)]
 	if len(Head) < 1 {
+		aegName := strings.ToLower(name)
+		for _Name, v := range k.Response.Header {
+			if strings.ToLower(_Name) == aegName {
+				return public.PointerPtr(v[0])
+			}
+		}
 		return public.NULLPtr
 	}
 	return public.PointerPtr(Head[0])

@@ -77,7 +77,7 @@ func (s *ProxyRequest) CallbackBeforeRequest() {
 	pid, _ := strconv.Atoi(s.Pid)
 	if s.HttpCall < 10 {
 		if s.HttpGoCall != nil {
-			m := &HttpConn{Theology: s.Theology, MessageId: MessageId, PID: pid, SunnyContext: s.Global.SunnyContext, Type: public.HttpSendRequest, Request: s.Request, Response: nil, err: "", proxy: s.Proxy}
+			m := &HttpConn{Theology: s.Theology, MessageId: MessageId, PID: pid, SunnyContext: s.Global.SunnyContext, Type: public.HttpSendRequest, Request: s.Request, Response: nil, err: "", proxy: s.Proxy, ClientIP: s.Conn.RemoteAddr().String()}
 			s.HttpGoCall(m)
 			s.Response = m.Response
 		}
@@ -103,7 +103,7 @@ func (s *ProxyRequest) CallbackBeforeResponse() {
 	pid, _ := strconv.Atoi(s.Pid)
 	if s.HttpCall < 10 {
 		if s.HttpGoCall != nil {
-			m := &HttpConn{Theology: s.Theology, MessageId: NewMessageId(), PID: pid, SunnyContext: s.Global.SunnyContext, Type: public.HttpResponseOK, Request: s.Request, Response: s.Response, err: ""}
+			m := &HttpConn{Theology: s.Theology, MessageId: NewMessageId(), PID: pid, SunnyContext: s.Global.SunnyContext, Type: public.HttpResponseOK, Request: s.Request, Response: s.Response, err: "", ClientIP: s.Conn.RemoteAddr().String()}
 			s.HttpGoCall(m)
 		}
 		return
@@ -130,7 +130,7 @@ func (s *ProxyRequest) CallbackWssRequest(State int, Method, Url string, msg *pu
 	//Websocket消息
 	if s.wsCall < 10 {
 		if s.wsGoCall != nil {
-			m := &WsConn{Pid: pid, Type: State, SunnyContext: s.Global.SunnyContext, Url: Url, c: msg, MessageId: MessageId, Theology: s.Theology, Request: s.Request}
+			m := &WsConn{Pid: pid, Type: State, SunnyContext: s.Global.SunnyContext, Url: Url, c: msg, MessageId: MessageId, Theology: s.Theology, Request: s.Request, ClientIP: s.Conn.RemoteAddr().String()}
 			s.wsGoCall(m)
 		}
 		return
@@ -143,7 +143,7 @@ func (s *ProxyRequest) CallbackError(err error) {
 	pid, _ := strconv.Atoi(s.Pid)
 	if s.HttpCall < 10 {
 		if s.HttpGoCall != nil {
-			m := &HttpConn{Theology: s.Theology, MessageId: NewMessageId(), PID: pid, SunnyContext: s.Global.SunnyContext, Type: public.HttpRequestFail, Request: s.Request, Response: nil, err: ""}
+			m := &HttpConn{Theology: s.Theology, MessageId: NewMessageId(), PID: pid, SunnyContext: s.Global.SunnyContext, Type: public.HttpRequestFail, Request: s.Request, Response: nil, err: "", ClientIP: s.Conn.RemoteAddr().String()}
 			s.HttpGoCall(m)
 		}
 		return

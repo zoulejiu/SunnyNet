@@ -156,6 +156,7 @@ type WsConn struct {
 	Type         int           //消息类型 	public.Websocket...
 	Url          string        //连接请求地址
 	Theology     int           //请求唯一ID
+	ClientIP     string        //来源IP地址,请求从哪里来
 	Request      *http.Request //请求体
 }
 
@@ -235,6 +236,7 @@ type HttpConn struct {
 	MessageId    int //消息ID,仅标识消息ID,不能用于API函数
 	PID          int
 	Type         int              //请求类型 例如 public.HttpSendRequest  public.Http....
+	ClientIP     string           //来源IP地址,请求从哪里来
 	Request      *http.Request    //请求体
 	Response     *http.Response   //响应体
 	err          string           //错误信息
