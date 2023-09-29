@@ -24,6 +24,7 @@ type SocketClient struct {
 	BufferSize  int
 	synchronous bool
 	R           *bufio.Reader
+	l           sync.Mutex
 }
 
 var SocketMap = make(map[int]interface{})
@@ -57,9 +58,11 @@ func CreateSocketClient() int {
 func RemoveSocketClient(Context int) {
 	k := LoadSocketContext(Context)
 	if k != nil {
+		k.l.Lock()
 		if k.wb != nil {
 			k.Close()
 		}
+		k.l.Unlock()
 	}
 	DelClientContext(Context)
 
@@ -89,6 +92,8 @@ func SocketClientGetErr(Context int) uintptr {
 func SocketClientSetBufferSize(Context, BufferSize int) bool {
 	k := LoadSocketContext(Context)
 	if k != nil {
+		k.l.Lock()
+		defer k.l.Unlock()
 		k.BufferSize = BufferSize
 		if k.BufferSize < 1 {
 			k.BufferSize = 4096
@@ -106,6 +111,8 @@ func SocketClientDial(Context int, addr string, call int, isTls, synchronous boo
 	if w == nil {
 		return false
 	}
+	w.l.Lock()
+	defer w.l.Unlock()
 	w.call = call
 	if w.BufferSize < 1 {
 		w.BufferSize = 4096
@@ -197,6 +204,9 @@ func SocketClientReceive(Context, OutTimes int) uintptr {
 		w.err = errors.New("The Context does not exist ")
 		return 0
 	}
+
+	w.l.Lock()
+	defer w.l.Unlock()
 	if w.synchronous == false {
 		w.err = errors.New("Not synchronous mode ")
 		return 0
@@ -225,6 +235,8 @@ func SocketClientClose(Context int) {
 	if w == nil {
 		return
 	}
+	w.l.Lock()
+	defer w.l.Unlock()
 	w.Close()
 }
 
@@ -236,6 +248,9 @@ func SocketClientWrite(Context, OutTimes int, val uintptr, valLen int) int {
 	if w == nil {
 		return 0
 	}
+
+	w.l.Lock()
+	defer w.l.Unlock()
 	_OutTimes := OutTimes
 	if _OutTimes < 0 {
 		_OutTimes = 30000

@@ -22,8 +22,7 @@ func Test() {
 	s.SetGoCallback(HttpCallback, TcpCallback, WSCallback, UdpCallback)
 	//s.SetIeProxy(false)
 	//s.MustTcp(true)
-	Port := 2023
-
+	Port := 2022
 	s = s.SetPort(Port).Start()
 	//fmt.Println(s.StartProcess())
 

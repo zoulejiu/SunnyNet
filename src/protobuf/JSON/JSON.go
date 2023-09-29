@@ -24,9 +24,7 @@ func (s *SyJson) Parse(xstr string) bool {
 		s._Data = _Data
 		return false
 	}
-
 	json.Unmarshal([]byte("{\"/\":"+xstr+"}"), &s._Data)
-
 	return true
 }
 
@@ -268,18 +266,27 @@ func (s *SyJson) GetData(path string) string {
 				switch obj := data.(type) {
 				case []int:
 					if i < len(PathToTheArray)-1 {
+						if ind < 0 || ind >= len(obj) {
+							return ""
+						}
 						data = obj[ind]
 						continue
 					}
 					return tostring(obj[ind])
 				case []string:
 					if i < len(PathToTheArray)-1 {
+						if ind < 0 || ind >= len(obj) {
+							return ""
+						}
 						data = obj[ind]
 						continue
 					}
 					return tostring(obj[ind])
 				case []float64:
 					if i < len(PathToTheArray)-1 {
+						if ind < 0 || ind >= len(obj) {
+							return ""
+						}
 						data = obj[ind]
 						continue
 					}
@@ -292,8 +299,14 @@ func (s *SyJson) GetData(path string) string {
 					return ""
 				}
 				if i < len(PathToTheArray)-1 {
+					if ind < 0 || ind >= len(obj) {
+						return ""
+					}
 					data = obj[ind]
 					continue
+				}
+				if ind < 0 || ind >= len(obj) {
+					return ""
 				}
 				return tostring(obj[ind])
 			} else {
@@ -318,16 +331,28 @@ func (s *SyJson) GetData(path string) string {
 			}
 			switch obj := data.(type) {
 			case []int:
+				if ind < 0 || ind >= len(obj) {
+					return ""
+				}
 				return tostring(obj[ind])
 			case []string:
+				if ind < 0 || ind >= len(obj) {
+					return ""
+				}
 				return tostring(obj[ind])
 			case []float64:
+				if ind < 0 || ind >= len(obj) {
+					return ""
+				}
 				return tostring(obj[ind])
 			default:
 				break
 			}
 			obj := data.([]interface{})
 			if obj == nil {
+				return ""
+			}
+			if ind < 0 || ind >= len(obj) {
 				return ""
 			}
 			return tostring(obj[ind])
@@ -341,7 +366,16 @@ func (s *SyJson) GetData(path string) string {
 	if !_IsMap(data) {
 		return ""
 	}
-	return tostring(data.(map[string]interface{})[PathToTheArray[len(PathToTheArray)-1]])
+	obj := data.(map[string]interface{})
+	if obj == nil {
+		return ""
+	}
+	ind = len(PathToTheArray) - 1
+	if ind < 0 || ind >= len(PathToTheArray) {
+		return ""
+	}
+	ss := PathToTheArray[ind]
+	return tostring(obj[ss])
 }
 func (s *SyJson) GetNum(path string) int {
 	//解析传入的路径
@@ -458,7 +492,17 @@ func (s *SyJson) GetNum(path string) int {
 	if !_IsMap(data) {
 		return 0
 	}
-	return GetDtaNum(data.(map[string]interface{})[PathToTheArray[len(PathToTheArray)-1]])
+	//return GetDtaNum(data.(map[string]interface{})[PathToTheArray[len(PathToTheArray)-1]])
+	obj := data.(map[string]interface{})
+	if obj == nil {
+		return 0
+	}
+	ind = len(PathToTheArray) - 1
+	if ind < 0 || ind >= len(PathToTheArray) {
+		return 0
+	}
+	ss := PathToTheArray[ind]
+	return GetDtaNum(obj[ss])
 }
 
 func _IsArray(interf interface{}) bool {

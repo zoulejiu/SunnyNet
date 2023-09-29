@@ -506,9 +506,16 @@ func IsCerRequest(request *http.Request) bool {
 }
 
 // LegitimateRequest 解析HTTP 请求体
-func LegitimateRequest(s []byte) (bool, bool, int, int) {
+func LegitimateRequest(s []byte) (bool, bool, int, int, bool) {
 	a := strings.ToLower(CopyString(string(s)))
 	arrays := strings.Split(a, Space)
+	isHttpRequest := false
+	Method := GetMethod(s)
+	if IsHttpMethod(Method) && Method != HttpMethodCONNECT {
+		if SubString(string(s), Space, Space) != "" {
+			isHttpRequest = true
+		}
+	}
 	if len(arrays) > 1 {
 		//Body中是否有长度
 		islet := strings.Index(a, "content-length: ") != -1
@@ -516,12 +523,12 @@ func LegitimateRequest(s []byte) (bool, bool, int, int) {
 			ContentLength, _ := strconv.Atoi(SubString(a, "content-length: ", "\r\n"))
 			if ContentLength == 0 {
 				// 有长度  但长度为0 直接验证成功
-				return islet, true, 0, ContentLength
+				return islet, true, 0, ContentLength, isHttpRequest
 			}
 			arr := bytes.Split(s, []byte(CRLF+CRLF))
 			if len(arr) < 2 {
 				// 读取验证失败
-				return islet, false, 0, ContentLength
+				return islet, false, 0, ContentLength, isHttpRequest
 			}
 			var b bytes.Buffer
 			for i := 0; i < len(arr); i++ {
@@ -533,21 +540,21 @@ func LegitimateRequest(s []byte) (bool, bool, int, int) {
 			if b.Len() == ContentLength || b.Len()-4 == ContentLength {
 				b.Reset()
 				// 有长度  读取验证成功
-				return islet, true, 0, ContentLength
+				return islet, true, 0, ContentLength, isHttpRequest
 			}
 			v := b.Len() - 4
 			b.Reset()
-			return islet, false, v, ContentLength
+			return islet, false, v, ContentLength, isHttpRequest
 		} else if strings.Index(a, "transfer-encoding: chunked") != -1 {
 			islet = true
 			arr := bytes.Split(s, []byte(CRLF+CRLF))
 			if len(arr) < 2 {
 				// 读取验证失败
-				return islet, false, 0, 0
+				return islet, false, 0, 0, isHttpRequest
 			}
 			arrays = strings.Split(string(arr[1]), CRLF)
 			if len(arr) < 1 {
-				return islet, false, 0, 0
+				return islet, false, 0, 0, isHttpRequest
 			}
 			ContentLength2, _ := strconv.ParseInt(arrays[0], 16, 64)
 			ContentLength := int(ContentLength2) + len(arrays[0]) + 2
@@ -561,20 +568,20 @@ func LegitimateRequest(s []byte) (bool, bool, int, int) {
 			if b.Len() == ContentLength || b.Len()-4 == ContentLength {
 				b.Reset()
 				// 有长度  读取验证成功
-				return islet, true, 0, ContentLength
+				return islet, true, 0, ContentLength, isHttpRequest
 			}
 			v := b.Len() - 4
 			b.Reset()
-			return islet, false, v, ContentLength
+			return islet, false, v, ContentLength, isHttpRequest
 		}
 		Method := GetMethod(s)
 		if (Method == HttpMethodGET || Method == HttpMethodOPTIONS || Method == HttpMethodHEAD) && len(s) > 4 && CopyString(string(s[len(s)-4:])) == CRLF+CRLF {
-			return false, true, 0, 0
+			return false, true, 0, 0, isHttpRequest
 		}
 		//没有长度  读取验证失败
-		return false, false, 0, 0
+		return false, false, 0, 0, isHttpRequest
 	}
-	return false, false, 0, 0
+	return false, false, 0, 0, isHttpRequest
 
 }
 

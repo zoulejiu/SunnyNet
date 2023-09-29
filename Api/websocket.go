@@ -89,6 +89,8 @@ func WebsocketDial(Context int, URL, Heads string, call int, synchronous bool, P
 	if w == nil {
 		return false
 	}
+	w.l.Lock()
+	defer w.l.Unlock()
 	w.call = call
 	head := strings.ReplaceAll(Heads, "\r", "")
 	var dialer websocket.Dialer
@@ -144,6 +146,8 @@ func WebsocketClose(Context int) {
 	if w == nil {
 		return
 	}
+	w.l.Lock()
+	defer w.l.Unlock()
 	if w.wb != nil {
 		_ = w.wb.Close()
 	}
@@ -207,6 +211,8 @@ func WebsocketClientReceive(Context, OutTimes int) uintptr {
 		w.err = errors.New("The Context does not exist ")
 		return 0
 	}
+	w.l.Lock()
+	defer w.l.Unlock()
 	if w.synchronous == false {
 		w.err = errors.New("Not synchronous mode ")
 		return 0
@@ -224,8 +230,10 @@ func WebsocketClientReceive(Context, OutTimes int) uintptr {
 	length := 0
 	messageType, Buff, w.err = w.wb.ReadMessage()
 	length = len(Buff)
-	if length > 0 {
-		return public.PointerPtr(public.BytesCombine(public.IntToBytes(length), public.BytesCombine(public.IntToBytes(messageType), Buff)))
+	if w.err == nil {
+		if length > 0 {
+			return public.PointerPtr(public.BytesCombine(public.IntToBytes(length), public.BytesCombine(public.IntToBytes(messageType), Buff)))
+		}
 	}
 	return 0
 }

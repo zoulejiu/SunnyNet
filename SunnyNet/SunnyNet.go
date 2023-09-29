@@ -670,7 +670,8 @@ func (s *ProxyRequest) ConnRead(aheadData []byte, Dosage bool) (rs []byte, Wheth
 	//islet=是否有 HTTP Body 长度
 	//ok 是否验证成功
 	//bodyLen 已出Body长度
-	var islet, ok bool
+	//isHttpRequest 是否HTTP请求
+	var islet, ok, isHttpRequest bool
 	var bodyLen, ContentLength int
 	for {
 		sx, e := s.RwObj.Read(bs)
@@ -688,8 +689,8 @@ func (s *ProxyRequest) ConnRead(aheadData []byte, Dosage bool) (rs []byte, Wheth
 		st.Write(bs[0:sx])
 		if e != nil {
 			if st.Len() < length {
-				islet, ok, bodyLen, ContentLength = public.LegitimateRequest(st.Bytes())
-				if !islet {
+				islet, ok, bodyLen, ContentLength, isHttpRequest = public.LegitimateRequest(st.Bytes())
+				if !islet && !isHttpRequest {
 					// 如果已读入字节数 小于 512 并且 超过 10次 已读入数没有变动，那么直接返回
 					cmp[st.Len()]++
 					if cmp[st.Len()] >= kl || NoHttpRequest {
@@ -716,7 +717,7 @@ func (s *ProxyRequest) ConnRead(aheadData []byte, Dosage bool) (rs []byte, Wheth
 					}
 				}
 				i++
-				islet, ok, bodyLen, ContentLength = public.LegitimateRequest(st.Bytes())
+				islet, ok, bodyLen, ContentLength, isHttpRequest = public.LegitimateRequest(st.Bytes())
 				if ContentLength > public.MaxUploadLength {
 					last = public.CopyBytes(st.Bytes())
 					return last, true
@@ -805,6 +806,7 @@ func (s *ProxyRequest) httpProcessing(aheadData []byte, DefaultPort, Tag string)
 	}()
 	//缓冲区读取字节流
 	ReadData, WhetherExceedsLength := s.ConnRead(aheadData, false)
+
 	//从字节流中取出HOST
 	host := public.GetHost(string(ReadData))
 	if host != public.NULL && host != s.Target.Host {
