@@ -27,11 +27,10 @@
 
 ---
 
-### <center><h3>示例文件以及抓包工具 下载地址 </center></h3></center>
-<center><h3>https://wwxa.lanzouj.com/b0ciemzeb</center></h3></center>
-<center><h3>密码:fhgf</center></h3></center>
-<center><h3></center></h3></center>
-<center><h3></center></h3></center>
+### <center><h3>示例文件以及抓包工具 下载地址 </center>
+<div style="text-align: center;"><h3>https://wwxa.lanzouj.com/b0cifuvtg</h3></div>
+<div style="text-align: center;"><h3>密码:g8zh</h3></div>
+<div style="text-align: center;"><h3></h3></div>
 
 ---
 - > GoLang使用示例代码
