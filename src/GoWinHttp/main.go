@@ -83,13 +83,49 @@ type PoolInfo struct {
 	_h        bytes.Buffer
 	_hh       http.Header
 	ib        bool
+	state     bool
 }
 
+func (e *PoolInfo) inject(Conn net.Conn, b []byte, hook func(b []byte)) (int, error) {
+	if e.state {
+		n, err := Conn.Read(b)
+		hook(b[0:n])
+		return n, err
+	}
+	i := cap(b)
+	bs := make([]byte, i)
+	n, err := Conn.Read(bs)
+	bs1 := bs[0:n]
+	hook(bs1)
+	var input bytes.Buffer
+	input.Reset()
+	//因为返回协议头不重要，在 hook 函数会重写Header,所以这里检查协议头中如果有乱码，讲乱码设置为 ";"号
+	crlfIndex := bytes.Index(bs1, AUTOCRLF)
+	if crlfIndex != -1 {
+		e.state = true
+		for k, v := range bs1 {
+			if k >= crlfIndex {
+				break
+			}
+			if !validHeaderValueByte(v) {
+				bs1[k] = 59
+			}
+		}
+	} else {
+		for k, v := range bs1 {
+			if !validHeaderValueByte(v) {
+				bs1[k] = 59
+			}
+		}
+	}
+	input.Write(bs1)
+	n, _ = input.Read(b)
+	return n, err
+}
 func (e *PoolInfo) clearHeads() {
 	e._h.Reset() // 重置用于存储头部数据的缓冲区
 	e._hh = nil  // 将头部字典设置为 nil
 }
-
 func (e *PoolInfo) SetHeads(b []byte) {
 	if e.ib == true { // 检查 PoolInfo 实例是否被标记为无效
 		return // 如果是，直接返回
@@ -622,6 +658,7 @@ func (w *WinHttp) Send(data any) (_r *http.Response, _e error) {
 	_ = w.WinPool.Conn.SetDeadline(time.Now().Add(w.ReadTimeout))
 	//由于 http.ReadResponse 会自动将 返回的协议头 转为 MIME-style格式。所以安装了一个钩子获取到Heads 字符串,我们自己重写解析
 	w.WinPool.clearHeads()
+	w.WinPool.state = false
 	w.WinPool.ib = false
 	ret, err := http.ReadResponse(w.WinPool.Bw, nil)
 	if ret != nil {
@@ -881,7 +918,7 @@ func (w *WinHttp) connect() (_a bool, _b bool, _c *http.Response, _d error) {
 						return false, true, nil, err
 					}
 					if ret.StatusCode != 200 {
-						w.WinPool.Bw = bufio.NewReader(&MyConn{Conn: w.WinPool.Conn, hook: w.WinPool.SetHeads})
+						w.WinPool.Bw = bufio.NewReader(&MyConn{Conn: w.WinPool.Conn, hook: w.WinPool.SetHeads, inject: w.WinPool.inject})
 						w.WinPool.prohibit = true
 						return true, true, ret, nil
 					}
@@ -921,7 +958,7 @@ func (w *WinHttp) connect() (_a bool, _b bool, _c *http.Response, _d error) {
 		}
 		w.WinPool.Conn = tlsConn
 	}
-	w.WinPool.Bw = bufio.NewReader(&MyConn{Conn: w.WinPool.Conn, hook: w.WinPool.SetHeads})
+	w.WinPool.Bw = bufio.NewReader(&MyConn{Conn: w.WinPool.Conn, hook: w.WinPool.SetHeads, inject: w.WinPool.inject})
 	w.WinPool.prohibit = false
 	return true, true, nil, nil
 
