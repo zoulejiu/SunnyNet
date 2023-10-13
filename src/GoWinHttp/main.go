@@ -107,12 +107,18 @@ func (e *PoolInfo) inject(Conn net.Conn, b []byte, hook func(b []byte)) (int, er
 			if k >= crlfIndex {
 				break
 			}
+			if v == 13 || v == 10 {
+				continue
+			}
 			if !validHeaderValueByte(v) {
 				bs1[k] = 59
 			}
 		}
 	} else {
 		for k, v := range bs1 {
+			if v == 13 || v == 10 {
+				continue
+			}
 			if !validHeaderValueByte(v) {
 				bs1[k] = 59
 			}

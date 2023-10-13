@@ -16,6 +16,13 @@
  
  支持 WS/WSS/TCP/TLS-TCP/UDP 主动发送数据
 ```
+---
+````text
+ 如果你需要编译为 Windows 32位DLL
+ 请使用Go 1.21 以下Go版本
+ 例如使用Go 1.18.4版本 进行交叉编译
+ ->此问题详细情况 https://github.com/golang/go/issues/63531
+````
 
 ---
 * # 由于代码主要是做DLL使用,部分功能未封装给Go使用(例如添加证书,添加证书使用规则),请自行探索！
@@ -28,8 +35,8 @@
 ---
 
 ### <center><h3>示例文件以及抓包工具 下载地址 </center>
-<div style="text-align: center;"><h3>https://wwxa.lanzouj.com/b0cifuvtg</h3></div>
-<div style="text-align: center;"><h3>密码:g8zh</h3></div>
+<div style="text-align: center;"><h3>https://wwxa.lanzouj.com/b0cihmbab</h3></div>
+<div style="text-align: center;"><h3>密码:djmf</h3></div>
 <div style="text-align: center;"><h3></h3></div>
 
 ---

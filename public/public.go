@@ -905,6 +905,8 @@ func CopyBuffer(dst *ReadWriteObject, src io.Reader, dstConn net.Conn, srcConn *
 					return
 				}
 				continue
+			} else if ExpectLen > 0 && ExpectLen == buff.Len() {
+				er = io.EOF
 			}
 		}
 		if er != nil {

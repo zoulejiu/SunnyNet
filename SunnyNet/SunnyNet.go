@@ -1356,13 +1356,13 @@ func (s *ProxyRequest) CompleteRequest(req *http.Request) {
 		_, _ = s.RwObj.Write(public.StructureBody(s.Response))
 		return
 	}
+	var err error
 	//验证处理是否websocket请求,如果是直接处理
 	if s.handleWss() {
 		return
 	}
-	var err error
-
 	err = s.doRequest()
+
 	if err != nil || s.Response == nil {
 		if s.Response == nil && err == nil {
 			err = errors.New("[Sunny]No data obtained")
