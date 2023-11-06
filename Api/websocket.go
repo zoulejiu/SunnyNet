@@ -94,14 +94,14 @@ func WebsocketDial(Context int, URL, Heads string, call int, synchronous bool, P
 	w.call = call
 	head := strings.ReplaceAll(Heads, "\r", "")
 	var dialer websocket.Dialer
-	Headers := make(http.Header)
+	Request, _ := http.NewRequest("GET", strings.Replace(URL, "wss://", "https://", 1), nil)
 	arr := strings.Split(head, "\n")
 	for _, v := range arr {
 		arr1 := strings.Split(v, ":")
 		if len(arr1) >= 2 {
 			k := arr1[0]
 			val := strings.TrimSpace(strings.Replace(v, arr1[0]+":", "", 1))
-			Headers.Set(textproto.TrimString(k), val)
+			Request.Header[textproto.TrimString(k)] = []string{val}
 		}
 	}
 	mUrl := strings.ToLower(URL)
@@ -129,7 +129,8 @@ func WebsocketDial(Context int, URL, Heads string, call int, synchronous bool, P
 	if len(a.Host) < 3 {
 		Proxy_ = ""
 	}
-	w.wb, _, w.err = dialer.Dial(URL, Headers, Proxy_)
+	w.wb, _, w.err = dialer.ConnDialContext(Request, Proxy_)
+	//w.wb, _, w.err = dialer.Dial(URL, Headers, Proxy_)
 	if w.err != nil {
 		return false
 	}

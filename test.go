@@ -19,11 +19,11 @@ func Test() {
 	//AddHttpCertificate(C.CString("ws-gateway-odis.volkswagenag.com"), i, 1)
 
 	//如果在Go中使用 设置Go的回调地址
-	//s.SetGlobalProxy("socket5://192.168.31.1:2082")
+	//	s.SetGlobalProxy("socket5://192.168.31.1:2082")
 	s.SetGoCallback(HttpCallback, TcpCallback, WSCallback, UdpCallback)
 	//s.SetIeProxy(false)
 	//s.MustTcp(true)
-	Port := 2025
+	Port := 2024
 	s = s.SetPort(Port).Start()
 	//fmt.Println(s.StartProcess())
 
