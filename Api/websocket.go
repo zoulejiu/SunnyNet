@@ -92,6 +92,7 @@ func WebsocketDial(Context int, URL, Heads string, call int, synchronous bool, P
 	w.l.Lock()
 	defer w.l.Unlock()
 	w.call = call
+	w.err = nil
 	head := strings.ReplaceAll(Heads, "\r", "")
 	var dialer websocket.Dialer
 	Request, _ := http.NewRequest("GET", strings.Replace(URL, "wss://", "https://", 1), nil)

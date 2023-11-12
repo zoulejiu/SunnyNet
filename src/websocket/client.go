@@ -380,7 +380,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 	return conn, resp, nil
 }
 
-//ConnDialContext 自己改写的 返回Websocket.Conn 和httpResponse
+// ConnDialContext 自己改写的 返回Websocket.Conn 和httpResponse
 func (d *Dialer) ConnDialContext(request *http.Request, ProxyUrl string) (*Conn, *http.Response, error) {
 	if d == nil {
 		d = &nilDialer

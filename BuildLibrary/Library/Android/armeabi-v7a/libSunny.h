@@ -643,7 +643,7 @@ extern GoUintptr SocketClientReceive(GoInt Context, GoInt OutTimes);
 
 // TCP客户端 连接
 //
-extern GoUint8 SocketClientDial(GoInt Context, char* addr, GoInt call, GoUint8 isTls, GoUint8 synchronous, char* ProxyUrl, GoInt CertificateConText);
+extern GoUint8 SocketClientDial(GoInt Context, char* addr, GoInt call, GoUint8 isTls, GoUint8 synchronous, char* ProxyUrl, GoInt CertificateConText, GoInt ProxyOutTime);
 
 // TCP客户端 置缓冲区大小
 //

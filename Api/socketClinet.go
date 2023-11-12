@@ -106,13 +106,14 @@ func SocketClientSetBufferSize(Context, BufferSize int) bool {
 // SocketClientDial
 //
 //	TCP客户端 连接
-func SocketClientDial(Context int, addr string, call int, isTls, synchronous bool, ProxyUrl string, CertificateConText int) bool {
+func SocketClientDial(Context int, addr string, call int, isTls, synchronous bool, ProxyUrl string, CertificateConText int, ProxyOutTime int) bool {
 	w := LoadSocketContext(Context)
 	if w == nil {
 		return false
 	}
 	w.l.Lock()
 	defer w.l.Unlock()
+	w.err = nil
 	w.call = call
 	if w.BufferSize < 1 {
 		w.BufferSize = 4096
@@ -139,12 +140,19 @@ func SocketClientDial(Context int, addr string, call int, isTls, synchronous boo
 			if ok {
 				c.Pass = p
 			}
-			a, b := net.DialTimeout("tcp", Pu.Host, 30*time.Second)
+			out := time.Duration(ProxyOutTime) * time.Millisecond
+			if ProxyOutTime < 1 {
+				out = 15000 * time.Millisecond
+			}
+			a, b := net.DialTimeout("tcp", Pu.Host, out)
 			if b != nil {
 				w.err = b
 			} else {
+				_ = a.SetDeadline(time.Now().Add(out))
 				if GoWinHttp.ConnectS5(&a, c, uAddr.Host, uAddr.Port) == false {
 					w.err = errors.New("Socket5 Proxy Connect Fail ")
+				} else {
+					_ = a.SetDeadline(time.Time{})
 				}
 
 			}

@@ -1013,8 +1013,8 @@ func SocketClientReceive(Context, OutTimes int) uintptr {
 // TCP客户端 连接
 //
 //export SocketClientDial
-func SocketClientDial(Context int, addr *C.char, call int, isTls, synchronous bool, ProxyUrl *C.char, CertificateConText int) bool {
-	return Api.SocketClientDial(Context, C.GoString(addr), call, isTls, synchronous, C.GoString(ProxyUrl), CertificateConText)
+func SocketClientDial(Context int, addr *C.char, call int, isTls, synchronous bool, ProxyUrl *C.char, CertificateConText int, ProxyOutTime int) bool {
+	return Api.SocketClientDial(Context, C.GoString(addr), call, isTls, synchronous, C.GoString(ProxyUrl), CertificateConText, ProxyOutTime)
 }
 
 // TCP客户端 置缓冲区大小
