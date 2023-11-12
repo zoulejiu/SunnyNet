@@ -171,6 +171,43 @@ type ProxyRequest struct {
 	Lock         sync.Mutex
 }
 
+var sUser = make(map[int]string)
+var sL sync.Mutex
+
+// 设置s5连接账号
+func (s *ProxyRequest) setSocket5User(user string) {
+	sL.Lock()
+	sUser[s.Theology] = user
+	sL.Unlock()
+}
+
+// 更新唯一ID以及s5连接账号
+func (s *ProxyRequest) updateSocket5User() {
+	sL.Lock()
+	user := sUser[s.Theology]
+	delete(sUser, s.Theology)
+	s.Theology = int(atomic.AddInt64(&public.Theology, 1))
+	if user != "" {
+		sUser[s.Theology] = user
+	}
+	sL.Unlock()
+}
+
+// 清除唯一ID对应的s5连接账号
+func (s *ProxyRequest) delSocket5User() {
+	sL.Lock()
+	delete(sUser, s.Theology)
+	sL.Unlock()
+}
+
+// 获取唯一ID对应的s5连接账号
+func GetSocket5User(TheologyId int) string {
+	sL.Lock()
+	user := sUser[TheologyId]
+	sL.Unlock()
+	return user
+}
+
 // AuthMethod S5代理鉴权
 func (s *ProxyRequest) AuthMethod() (bool, string) {
 	av, err := s.RwObj.ReadByte()
@@ -215,6 +252,7 @@ func (s *ProxyRequest) AuthMethod() (bool, string) {
 				s.Global.socket5VerifyUserLock.Unlock()
 				_ = s.RwObj.WriteByte(0x01)
 				_ = s.RwObj.WriteByte(0x00)
+				s.setSocket5User(user)
 				return true, passwd
 			}
 			s.Global.socket5VerifyUserLock.Unlock()
@@ -227,6 +265,7 @@ func (s *ProxyRequest) AuthMethod() (bool, string) {
 			return true, passwd
 		}
 	}
+
 	_ = s.RwObj.WriteByte(0x01)
 	_ = s.RwObj.WriteByte(0x01)
 	return false, public.NULL
@@ -620,7 +659,7 @@ func (s *ProxyRequest) TcpCallback(RemoteTCP *net.Conn, Tag string, tw *public.R
 	if isHttpReq {
 		//可能由于某些原因 客户端发送数据不及时判断为了TCP请求,此时纠正为HTTP请求
 		s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil)
-		s.Theology = int(atomic.AddInt64(&public.Theology, 1))
+		s.updateSocket5User()
 		//如果之前是HTTP请求识别错误 这里转由HTTP请求处理函数继续处理
 		if Tag == public.TagTcpSSLAgreement {
 			s.httpProcessing(nil, "443", Tag)
@@ -828,7 +867,7 @@ func (s *ProxyRequest) httpProcessing(aheadData []byte, DefaultPort, Tag string)
 		s.Response = nil
 		s.Request = nil
 		s.WinHttp = nil
-		s.Theology = int(atomic.AddInt64(&public.Theology, 1))
+		s.updateSocket5User()
 		//超过3秒无数据的长连接就直接断开吧
 		_ = s.Conn.SetDeadline(time.Now().Add(public.WaitingTime))
 		_, e := s.RwObj.Peek(1)
@@ -1976,6 +2015,7 @@ func (s *Sunny) handleClientConn(conn net.Conn, tgt *TargetInfo) {
 	s.connListLock.Unlock()
 	//构造一个请求中间件
 	req := &ProxyRequest{Global: s, TcpCall: s.tcpCallback, HttpCall: s.httpCallback, wsCall: s.websocketCallback, TcpGoCall: s.goTcpCallback, HttpGoCall: s.goHttpCallback, wsGoCall: s.goWebsocketCallback} //原始请求对象
+	defer req.delSocket5User()
 	defer func() {
 		//当 handleClientConn 函数 即将退出时 从会话列表中删除当前会话
 		_ = conn.Close()

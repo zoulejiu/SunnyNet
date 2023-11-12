@@ -46,7 +46,7 @@ func LoadX509Certificate(Context int, Host, CA, KEY string) bool {
 	if c == nil {
 		return false
 	}
-	return c.LoadX509Certificate(Host, CA, c.PrivateKey)
+	return c.LoadX509Certificate(Host, CA, KEY)
 }
 
 // SetInsecureSkipVerify 证书管理器 设置跳过主机验证

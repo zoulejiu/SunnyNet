@@ -127,6 +127,10 @@ extern __declspec(dllexport) GoUint8 SunnyNetVerifyUser(GoInt SunnyContext, GoUi
 //
 extern __declspec(dllexport) GoUint8 SunnyNetSocket5DelUser(GoInt SunnyContext, char* User);
 
+// 开启身份验证模式后 获取授权的S5账号,注意UDP请求无法获取到授权的s5账号
+//
+extern __declspec(dllexport) GoUintptr SunnyNetGetSocket5User(GoInt Theology);
+
 // 设置中间件是否开启强制走TCP
 //
 extern __declspec(dllexport) void SunnyNetMustTcp(GoInt SunnyContext, GoUint8 open);

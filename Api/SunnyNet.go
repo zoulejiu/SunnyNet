@@ -1073,6 +1073,11 @@ func SunnyNetSocket5DelUser(SunnyContext int, User string) bool {
 	return true
 }
 
+// SunnyNetGetSocket5User 开启身份验证模式后 获取授权的S5账号,注意UDP请求无法获取到授权的s5账号
+func SunnyNetGetSocket5User(Theology int) uintptr {
+	return public.PointerPtr(SunnyNet.GetSocket5User(Theology))
+}
+
 // SunnyNetError 获取中间件启动时的错误信息
 func SunnyNetError(SunnyContext int) uintptr {
 	SunnyNet.SunnyStorageLock.Lock()

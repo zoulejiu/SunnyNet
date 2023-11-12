@@ -100,6 +100,13 @@ func SunnyNetSocket5DelUser(SunnyContext int, User *C.char) bool {
 	return Api.SunnyNetSocket5DelUser(SunnyContext, C.GoString(User))
 }
 
+// 开启身份验证模式后 获取授权的S5账号,注意UDP请求无法获取到授权的s5账号
+//
+//export SunnyNetGetSocket5User
+func SunnyNetGetSocket5User(Theology int) uintptr {
+	return Api.SunnyNetGetSocket5User(Theology)
+}
+
 // 设置中间件是否开启强制走TCP
 //
 //export SunnyNetMustTcp
