@@ -143,7 +143,7 @@ func (s *ProxyRequest) CallbackError(err error) {
 	pid, _ := strconv.Atoi(s.Pid)
 	if s.HttpCall < 10 {
 		if s.HttpGoCall != nil {
-			m := &HttpConn{Theology: s.Theology, MessageId: NewMessageId(), PID: pid, SunnyContext: s.Global.SunnyContext, Type: public.HttpRequestFail, Request: s.Request, Response: nil, err: "", ClientIP: s.Conn.RemoteAddr().String()}
+			m := &HttpConn{Theology: s.Theology, MessageId: NewMessageId(), PID: pid, SunnyContext: s.Global.SunnyContext, Type: public.HttpRequestFail, Request: s.Request, Response: nil, err: err.Error(), ClientIP: s.Conn.RemoteAddr().String()}
 			s.HttpGoCall(m)
 		}
 		return
