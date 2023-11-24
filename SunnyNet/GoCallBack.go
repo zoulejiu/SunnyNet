@@ -59,7 +59,7 @@ func (k *TcpConn) SetBody(data []byte) bool {
 }
 
 // Close 关闭TCP连接
-func (k *TcpConn) Close(int) bool {
+func (k *TcpConn) Close() bool {
 	if k.Type == public.SunnyNetMsgTypeTCPAboutToConnect {
 		return false
 	}
@@ -218,7 +218,7 @@ func (k *WsConn) SendToClient(MessageType int, data []byte) bool {
 }
 
 // Close 关闭Websocket连接
-func (k *WsConn) Close(int) bool {
+func (k *WsConn) Close() bool {
 	k.c.Sync.Lock()
 	defer k.c.Sync.Unlock()
 	if k.c.Server != nil {
