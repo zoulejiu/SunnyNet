@@ -134,7 +134,10 @@ func (k *TcpConn) SendToClient(data []byte) int {
 
 // GetBody  获取发送、接收的数据
 func (k *TcpConn) GetBody() []byte {
-	if k.Type != public.SunnyNetMsgTypeTCPClientReceive && k.Type != public.SunnyNetMsgTypeTCPClientSend {
+	if k == nil {
+		return []byte{}
+	}
+	if k.c == nil {
 		return []byte{}
 	}
 	return k.c.Data.Bytes()
@@ -142,7 +145,10 @@ func (k *TcpConn) GetBody() []byte {
 
 // GetBodyLen  获取发送、接收的数据长度
 func (k *TcpConn) GetBodyLen() int {
-	if k.Type != public.SunnyNetMsgTypeTCPClientReceive && k.Type != public.SunnyNetMsgTypeTCPClientSend {
+	if k == nil {
+		return 0
+	}
+	if k.c == nil {
 		return 0
 	}
 	return k.c.Data.Len()
