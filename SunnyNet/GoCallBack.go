@@ -23,12 +23,15 @@ type TcpConn struct {
 
 // SetAgent Set仅支持S5代理 例如 socket5://admin:123456@127.0.0.1:8888
 func (k *TcpConn) SetAgent(ProxyUrl string) bool {
-	k.c.TcpIp = public.NULL
-	k.c.TcpUser = public.NULL
-	k.c.TcpPass = public.NULL
 	if k.Type != public.SunnyNetMsgTypeTCPAboutToConnect {
 		return false
 	}
+	if k.c == nil {
+		return false
+	}
+	k.c.TcpIp = public.NULL
+	k.c.TcpUser = public.NULL
+	k.c.TcpPass = public.NULL
 	proxy, err := url.Parse(ProxyUrl)
 	if err != nil || proxy == nil {
 		return false
