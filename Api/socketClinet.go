@@ -156,9 +156,6 @@ func SocketClientDial(Context int, addr string, call int, isTls, synchronous boo
 				}
 
 			}
-			if w.err != nil {
-				return false
-			}
 			w.wb = a
 			w.err = b
 		} else {
@@ -171,7 +168,9 @@ func SocketClientDial(Context int, addr string, call int, isTls, synchronous boo
 		w.wb = a
 		w.err = b
 	}
-
+	if w.err != nil {
+		return false
+	}
 	w.synchronous = synchronous
 	if isTls {
 		var t *tls.Config

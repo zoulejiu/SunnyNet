@@ -161,7 +161,7 @@ func (p *parser) parseMessage(msgDesc protoreflect.MessageDescriptor, group, inf
 	for len(p.in) > 0 {
 		v, n := protowire.ConsumeVarint(p.in)
 		num, typ := protowire.DecodeTag(v)
-		if n < 0 || num <= 0 || v > math.MaxUint32 {
+		if n < 0 || num < 0 || v > math.MaxUint32 {
 			p.out, p.in = append(p.out, Raw(p.in)), nil
 			p.invalid = true
 			return
