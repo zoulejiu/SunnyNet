@@ -605,7 +605,7 @@ func ProcessALLName(SunnyContext int, open bool) {
 //
 //export GetCommonName
 func GetCommonName(Context int) uintptr {
-	return Api.GetCommonName(Context)
+	return public.PointerPtr(Api.GetCommonName(Context))
 }
 
 // 证书管理器 导出为P12
@@ -626,14 +626,14 @@ func ExportPub(Context int) uintptr {
 //
 //export ExportKEY
 func ExportKEY(Context int) uintptr {
-	return Api.ExportKEY(Context)
+	return public.PointerPtr(Api.ExportKEY(Context))
 }
 
 // 证书管理器 导出证书
 //
 //export ExportCA
 func ExportCA(Context int) uintptr {
-	return Api.ExportCA(Context)
+	return public.PointerPtr(Api.ExportCA(Context))
 }
 
 // 证书管理器 创建证书
@@ -668,7 +668,7 @@ func AddCertPoolPath(Context int, cer *C.char) bool {
 //
 //export GetServerName
 func GetServerName(Context int) uintptr {
-	return Api.GetServerName(Context)
+	return public.PointerPtr(Api.GetServerName(Context))
 }
 
 // 证书管理器 设置ServerName

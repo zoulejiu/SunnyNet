@@ -72,14 +72,14 @@ func SetServerName(Context int, name string) bool {
 }
 
 // GetServerName 证书管理器 取ServerName
-func GetServerName(Context int) uintptr {
+func GetServerName(Context int) string {
 	Certificate.Lock.Lock()
 	defer Certificate.Lock.Unlock()
 	c := Certificate.LoadCertificateContext(Context)
 	if c == nil {
-		return 0
+		return ""
 	}
-	return public.PointerPtr(c.GetServerName())
+	return c.GetServerName()
 }
 
 // AddCertPoolPath 证书管理器 设置信任的证书 从 文件
@@ -135,25 +135,25 @@ func CreateCA(Context int, Country, Organization, OrganizationalUnit, Province, 
 }
 
 // ExportCA 证书管理器 导出证书
-func ExportCA(Context int) uintptr {
+func ExportCA(Context int) string {
 	Certificate.Lock.Lock()
 	defer Certificate.Lock.Unlock()
 	c := Certificate.LoadCertificateContext(Context)
 	if c == nil {
-		return 0
+		return ""
 	}
-	return public.PointerPtr(c.ExportCA())
+	return c.ExportCA()
 }
 
 // ExportKEY 证书管理器 导出私钥
-func ExportKEY(Context int) uintptr {
+func ExportKEY(Context int) string {
 	Certificate.Lock.Lock()
 	defer Certificate.Lock.Unlock()
 	c := Certificate.LoadCertificateContext(Context)
 	if c == nil {
-		return 0
+		return ""
 	}
-	return public.PointerPtr(c.ExportKEY())
+	return c.ExportKEY()
 }
 
 // ExportPub 证书管理器 导出公钥
@@ -167,15 +167,15 @@ func ExportPub(Context int) uintptr {
 	return public.PointerPtr(c.ExportPub())
 }
 
-// GetCommonName 证书管理器 导出为P12
-func GetCommonName(Context int) uintptr {
+// GetCommonName 证书管理器 获取证书 CommonName 字段
+func GetCommonName(Context int) string {
 	Certificate.Lock.Lock()
 	defer Certificate.Lock.Unlock()
 	c := Certificate.LoadCertificateContext(Context)
 	if c == nil {
-		return 0
+		return ""
 	}
-	return public.PointerPtr(c.GetCommonName())
+	return c.GetCommonName()
 }
 
 // ExportP12 证书管理器 导出为P12
