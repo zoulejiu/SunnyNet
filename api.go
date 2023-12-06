@@ -121,6 +121,13 @@ func CompileProxyRegexp(SunnyContext int, Regexp *C.char) bool {
 	return Api.CompileProxyRegexp(SunnyContext, C.GoString(Regexp))
 }
 
+// 设置强制走TCP规则,如果 打开了全部强制走TCP状态,本功能则无效
+//
+//export SetMustTcpRegexp
+func SetMustTcpRegexp(SunnyContext int, Regexp *C.char) bool {
+	return Api.SetMustTcpRegexp(SunnyContext, C.GoString(Regexp))
+}
+
 // 获取中间件启动时的错误信息
 //
 //export SunnyNetError

@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const SunnyVersion = "2023-11-12"
+const SunnyVersion = "2023-12-06"
 
 // TCP请求相关
 const (
@@ -66,7 +66,7 @@ const (
 
 	TagTcpAgreement                              = "TCP"
 	TagTcpSSLAgreement                           = "TLS-TCP"
-	TagMustTCP                                   = "TCP-S5"
+	TagMustTCP                                   = "TCP-Must"
 	MaxUploadLength                              = 409600 //POST数据最大数据长度,超过次长度请求将会转成TCP方式请求
 	CertificateRequestManagerRulesSend           = 1      //指定证书使用规则,发送使用
 	CertificateRequestManagerRulesSendAndReceive = 2      //指定证书使用规则,发送及解析使用

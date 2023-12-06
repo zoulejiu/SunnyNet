@@ -23,7 +23,8 @@ func Test() {
 	s.SetGoCallback(HttpCallback, TcpCallback, WSCallback, UdpCallback)
 	//s.SetIeProxy(false)
 	//s.MustTcp(true)
-	Port := 2024
+	Port := 2028
+	s.SetMustTcpRegexp("*.baidu.com")
 	s = s.SetPort(Port).Start()
 	//fmt.Println(s.StartProcess())
 

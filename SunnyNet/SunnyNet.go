@@ -180,6 +180,14 @@ func (s *ProxyRequest) setSocket5User(user string) {
 	sUser[s.Theology] = user
 	sL.Unlock()
 }
+func (s *ProxyRequest) IsMustTcpRules(Host string) bool {
+	s.Global.connListLock.Lock()
+	defer s.Global.connListLock.Unlock()
+	if s.Global.mustTcpRegexp == nil {
+		return false
+	}
+	return s.Global.mustTcpRegexp.MatchString(Host)
+}
 
 // 更新唯一ID以及s5连接账号
 func (s *ProxyRequest) updateSocket5User() {
@@ -1076,9 +1084,9 @@ func (s *ProxyRequest) https() {
 		return
 	}
 	//是否开启了强制走TCP
-	if s.Global.isMustTcp {
+	if s.Global.isMustTcp || s.IsMustTcpRules(s.Target.Host) {
 		//开启了强制走TCP，则按TCP流程处理
-		s.MustTcpProcessing(nil, public.TagTcpAgreement)
+		s.MustTcpProcessing(nil, public.TagMustTCP)
 		return
 	}
 	//创建要握手的证书
@@ -1106,11 +1114,15 @@ func (s *ProxyRequest) https() {
 	if len(peek) == 1 && (peek[0] == 22 || peek[0] == 23) {
 		//发送数据 如果 不是 HEX 16 或 17 那么肯定不是HTTPS 或TLS-TCP
 		//HEX 16=ANSI 22 HEX 17=ANSI 23
-
 		//如果是TLS请求设置3秒超时来处理握手信息
 		_ = tlsConn.SetDeadline(time.Now().Add(3 * time.Second))
 		//开始握手
 		msg, _serverName, _err := tlsConn.ClientHello()
+		bs := tlsConn.Read_Handshake_bytes()
+		if _serverName != "" && s.IsMustTcpRules(_serverName) {
+			s.MustTcpProcessing(bs, public.TagMustTCP)
+			return
+		}
 		HelloMsg = msg
 		//得到握手信息后 恢复30秒的读写超时
 		_ = tlsConn.SetDeadline(time.Now().Add(30 * time.Second))
@@ -1600,6 +1612,7 @@ type Sunny struct {
 	goUdpCallback         func(Conn *UDPConn)  //UDP请求GO回调地址
 	proxy                 *GoWinHttp.Proxy     //全局上游代理
 	proxyRegexp           *regexp.Regexp       //上游代理使用规则
+	mustTcpRegexp         *regexp.Regexp       //强制走TCP规则,如果 isMustTcp 打开状态,本功能则无效
 	isRun                 bool                 //是否在运行中
 	SunnyContext          int
 }
@@ -1624,6 +1637,28 @@ func NewSunny() *Sunny {
 	SunnyStorage[s.SunnyContext] = s
 	SunnyStorageLock.Unlock()
 	return s
+}
+
+// SetMustTcpRegexp 设置强制走TCP规则,如果 打开了全部强制走TCP状态,本功能则无效
+func (s *Sunny) SetMustTcpRegexp(RegexpList string) error {
+	s.connListLock.Lock()
+	defer s.connListLock.Unlock()
+	r := strings.ReplaceAll("^"+strings.ReplaceAll(RegexpList, " ", "")+"$", "\r", "")
+	r = strings.ReplaceAll(r, "\t", "")
+	r = strings.ReplaceAll(r, "\n", ";")
+	r = strings.ReplaceAll(r, ";", "$|^")
+	r = strings.ReplaceAll(r, ".", "\\.")
+	r = strings.ReplaceAll(r, "*", ".*.?")
+	if r == "" {
+		r = "ALL" //让其全部匹配失败，也就是全部使用上游代理代理
+	}
+	a, e := regexp.Compile(r)
+	if e == nil {
+		s.mustTcpRegexp = a
+	} else {
+		s.mustTcpRegexp = nil
+	}
+	return e
 }
 
 // CompileProxyRegexp 创建上游代理使用规则

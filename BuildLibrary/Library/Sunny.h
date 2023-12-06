@@ -139,6 +139,10 @@ extern __declspec(dllexport) void SunnyNetMustTcp(GoInt SunnyContext, GoUint8 op
 //
 extern __declspec(dllexport) GoUint8 CompileProxyRegexp(GoInt SunnyContext, char* Regexp);
 
+// 设置强制走TCP规则,如果 打开了全部强制走TCP状态,本功能则无效
+//
+extern __declspec(dllexport) GoUint8 SetMustTcpRegexp(GoInt SunnyContext, char* Regexp);
+
 // 获取中间件启动时的错误信息
 //
 extern __declspec(dllexport) GoUintptr SunnyNetError(GoInt SunnyContext);

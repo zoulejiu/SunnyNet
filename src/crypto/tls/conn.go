@@ -580,12 +580,14 @@ func (c *Conn) readChangeCipherSpec() error {
 
 // readRecordOrCCS reads one or more TLS records from the connection and
 // updates the record layer state. Some invariants:
-//   * c.in must be locked
-//   * c.input must be empty
+//   - c.in must be locked
+//   - c.input must be empty
+//
 // During the handshake one and only one of the following will happen:
 //   - c.hand grows
 //   - c.in.changeCipherSpec is called
 //   - an error is returned
+//
 // After the handshake one and only one of the following will happen:
 //   - c.hand grows
 //   - c.input is set
@@ -601,7 +603,7 @@ func (c *Conn) readRecordOrCCS(expectChangeCipherSpec bool) error {
 		return c.in.setErrorLocked(errors.New("tls: internal error: attempted to read record with pending application data"))
 	}
 	c.input.Reset(nil)
-
+	c.rawInput2.Reset()
 	// Read header, payload.
 	if err := c.ReadFromUntil(recordHeaderLen); err != nil {
 		// RFC 8446, Section 6.1 suggests that EOF without an alertCloseNotify
@@ -806,6 +808,7 @@ func (c *Conn) ReadFromUntil(n int) error {
 	needs := n - c.rawInput.Len()
 	c.rawInput.Grow(needs + bytes.MinRead)
 	_, err := c.rawInput.ReadFrom(&atLeastReader{c.conn, int64(needs)})
+	c.rawInput2.Write(c.rawInput.Bytes())
 	return err
 }
 func (c *Conn) Peek(n int) []byte {
@@ -1518,10 +1521,21 @@ func (c *Conn) handshakeComplete() bool {
 
 // Read_last_time_bytes
 //
-//自己加的函数
+// 自己加的函数
 func (c *Conn) Read_last_time_bytes() []byte {
 	buf := c.rawInput.Bytes()
 	var bs = make([]byte, len(buf))
 	copy(bs, buf)
+	return bs
+}
+
+// Read_Handshake_bytes
+//
+// 自己加的函数
+func (c *Conn) Read_Handshake_bytes() []byte {
+	buf := c.rawInput2.Bytes()
+	var bs = make([]byte, len(buf))
+	copy(bs, buf)
+	c.rawInput2.Reset()
 	return bs
 }

@@ -1114,6 +1114,17 @@ func CompileProxyRegexp(SunnyContext int, Regexp string) bool {
 	return w.CompileProxyRegexp(Regexp) == nil
 }
 
+// SetMustTcpRegexp 设置强制走TCP规则,如果 打开了全部强制走TCP状态,本功能则无效
+func SetMustTcpRegexp(SunnyContext int, Regexp string) bool {
+	SunnyNet.SunnyStorageLock.Lock()
+	w := SunnyNet.SunnyStorage[SunnyContext]
+	SunnyNet.SunnyStorageLock.Unlock()
+	if w == nil {
+		return false
+	}
+	return w.SetMustTcpRegexp(Regexp) == nil
+}
+
 // SetGlobalProxy 设置全局上游代理 仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
 func SetGlobalProxy(SunnyContext int, ProxyAddress string) bool {
 	SunnyNet.SunnyStorageLock.Lock()
