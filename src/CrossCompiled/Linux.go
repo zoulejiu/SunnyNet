@@ -7,7 +7,7 @@ import (
 	NFapi "github.com/qtgolang/SunnyNet/src/nfapi"
 )
 
-func SetIeProxy(Set bool, Port int) bool {
+func SetIeProxy(Off bool, Port int) bool {
 	return false
 }
 func NFapi_SunnyPointer(a ...uintptr) uintptr {

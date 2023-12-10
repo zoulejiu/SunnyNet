@@ -73,9 +73,9 @@ func (c *netInterface) DisableProxy() bool {
 	return true
 }
 
-func SetIeProxy(Set bool, Port int) bool {
+func SetIeProxy(Off bool, Port int) bool {
 	Inter := &netInterface{}
-	if !Set {
+	if Off {
 		return Inter.DisableProxy()
 	}
 	return Inter.SetProxy("127.0.0.1", Port)
