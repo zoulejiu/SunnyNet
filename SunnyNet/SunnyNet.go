@@ -1650,7 +1650,7 @@ func (s *Sunny) SetMustTcpRegexp(RegexpList string) error {
 	r = strings.ReplaceAll(r, ".", "\\.")
 	r = strings.ReplaceAll(r, "*", ".*.?")
 	if r == "" {
-		r = "ALL" //让其全部匹配失败，也就是全部使用上游代理代理
+		r = "ALL"
 	}
 	a, e := regexp.Compile(r)
 	if e == nil {

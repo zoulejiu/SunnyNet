@@ -3,8 +3,84 @@
 
 package CrossCompiled
 
-import NFapi "github.com/qtgolang/SunnyNet/src/nfapi"
+import (
+	NFapi "github.com/qtgolang/SunnyNet/src/nfapi"
+	"os/exec"
+	"strconv"
+	"strings"
+)
 
+type netInterface struct {
+}
+
+// 获取所有网络接口名称
+func (c *netInterface) getAllInterfaceNames() []string {
+	cmd := exec.Command("networksetup", "-listallnetworkservices")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+
+	var interfaceNames []string
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "An asterisk (*) ") || strings.HasPrefix(line, " ") || line == "" {
+			continue
+		}
+		interfaceNames = append(interfaceNames, line)
+	}
+
+	return interfaceNames
+}
+
+func (c *netInterface) SetProxy(proxyHost string, Port int) bool {
+	AllInterfaceName := c.getAllInterfaceNames()
+	if len(AllInterfaceName) < 1 {
+		return false
+	}
+	proxyPort := strconv.Itoa(Port)
+	for _, interfaceName := range AllInterfaceName {
+		// 设置 HTTP 代理
+		setWebProxyCmd := exec.Command("networksetup", "-setwebproxy", interfaceName, proxyHost, proxyPort)
+		_ = setWebProxyCmd.Run()
+
+		// 设置 HTTPS 代理
+		setSecureWebProxyCmd := exec.Command("networksetup", "-setsecurewebproxy", interfaceName, proxyHost, proxyPort)
+		_ = setSecureWebProxyCmd.Run()
+
+		// 设置 SOCKS 代理
+		setSocksProxyCmd := exec.Command("networksetup", "-setsocksfirewallproxy", interfaceName, proxyHost, proxyPort)
+		_ = setSocksProxyCmd.Run()
+	}
+	return true
+}
+
+func (c *netInterface) DisableProxy() bool {
+	AllInterfaceName := c.getAllInterfaceNames()
+	if len(AllInterfaceName) < 1 {
+		return false
+	}
+	for _, interfaceName := range AllInterfaceName {
+		// 关闭 HTTP 代理
+		disableWebProxyCmd := exec.Command("networksetup", "-setwebproxystate", interfaceName, "off")
+		_ = disableWebProxyCmd.Run()
+		// 关闭 HTTPS 代理
+		disableSecureWebProxyCmd := exec.Command("networksetup", "-setsecurewebproxystate", interfaceName, "off")
+		_ = disableSecureWebProxyCmd.Run()
+		// 关闭 SOCKS 代理
+		disableSocksProxyCmd := exec.Command("networksetup", "-setsocksfirewallproxystate", interfaceName, "off")
+		_ = disableSocksProxyCmd.Run()
+	}
+	return true
+}
+
+func SetIeProxy(Set bool, Port int) bool {
+	Inter := &netInterface{}
+	if !Set {
+		return Inter.DisableProxy()
+	}
+	return Inter.SetProxy("127.0.0.1", Port)
+}
 func NFapi_SunnyPointer(a ...uintptr) uintptr {
 	return 0
 }
@@ -50,9 +126,6 @@ func NFapi_UdpSendReceiveFunc(udp func(Type int8, Theoni int64, pid uint32, Loca
 
 func NFapi_Api_NfUdpPostSend(id uint64, remoteAddress any, buf []byte, option any) (int32, error) {
 	return 0, nil
-}
-func SetIeProxy(Off bool, Port int) bool {
-	return false
 }
 
 func SetNetworkConnectNumber() {
