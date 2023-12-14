@@ -679,7 +679,7 @@ extern __declspec(dllexport) void WebsocketClose(GoInt Context);
 
 // Websocket客户端 连接
 //
-extern __declspec(dllexport) GoUint8 WebsocketDial(GoInt Context, char* URL, char* Heads, GoInt call, GoUint8 synchronous, char* ProxyUrl, GoInt CertificateConText);
+extern __declspec(dllexport) GoUint8 WebsocketDial(GoInt Context, char* URL, char* Heads, GoInt call, GoUint8 synchronous, char* ProxyUrl, GoInt CertificateConText, GoInt outTime);
 
 // Websocket客户端 获取错误
 //

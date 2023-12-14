@@ -84,7 +84,7 @@ func WebsocketGetErr(Context int) uintptr {
 
 // WebsocketDial
 // Websocket客户端 连接
-func WebsocketDial(Context int, URL, Heads string, call int, synchronous bool, ProxyUrl string, CertificateConText int) bool {
+func WebsocketDial(Context int, URL, Heads string, call int, synchronous bool, ProxyUrl string, CertificateConText int, outTime int) bool {
 	w := LoadWebSocketContext(Context)
 	if w == nil {
 		return false
@@ -95,14 +95,15 @@ func WebsocketDial(Context int, URL, Heads string, call int, synchronous bool, P
 	w.err = nil
 	head := strings.ReplaceAll(Heads, "\r", "")
 	var dialer websocket.Dialer
-	Request, _ := http.NewRequest("GET", strings.Replace(URL, "wss://", "https://", 1), nil)
+	//Request, _ := http.NewRequest("GET", strings.Replace(URL, "wss://", "https://", 1), nil)
+	Header := make(http.Header)
 	arr := strings.Split(head, "\n")
 	for _, v := range arr {
 		arr1 := strings.Split(v, ":")
 		if len(arr1) >= 2 {
 			k := arr1[0]
 			val := strings.TrimSpace(strings.Replace(v, arr1[0]+":", "", 1))
-			Request.Header[textproto.TrimString(k)] = []string{val}
+			Header[textproto.TrimString(k)] = []string{val}
 		}
 	}
 	mUrl := strings.ToLower(URL)
@@ -130,8 +131,9 @@ func WebsocketDial(Context int, URL, Heads string, call int, synchronous bool, P
 	if len(a.Host) < 3 {
 		Proxy_ = ""
 	}
-	w.wb, _, w.err = dialer.ConnDialContext(Request, Proxy_)
-	//w.wb, _, w.err = dialer.Dial(URL, Headers, Proxy_)
+	//w.wb, _, w.err = dialer.Dial(Request.URL.String(), Request.Header, Proxy_)
+	//w.wb, _, w.err = dialer.ConnDialContext(Request, Proxy_)
+	w.wb, _, w.err = dialer.Dial(URL, Header, Proxy_, outTime)
 	if w.err != nil {
 		return false
 	}

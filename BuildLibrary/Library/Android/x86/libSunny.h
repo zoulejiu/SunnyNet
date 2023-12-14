@@ -679,7 +679,7 @@ extern void WebsocketClose(GoInt Context);
 
 // Websocket客户端 连接
 //
-extern GoUint8 WebsocketDial(GoInt Context, char* URL, char* Heads, GoInt call, GoUint8 synchronous, char* ProxyUrl, GoInt CertificateConText);
+extern GoUint8 WebsocketDial(GoInt Context, char* URL, char* Heads, GoInt call, GoUint8 synchronous, char* ProxyUrl, GoInt CertificateConText, GoInt outTime);
 
 // Websocket客户端 获取错误
 //

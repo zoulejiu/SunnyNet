@@ -1078,8 +1078,8 @@ func WebsocketClose(Context int) {
 // Websocket客户端 连接
 //
 //export WebsocketDial
-func WebsocketDial(Context int, URL, Heads *C.char, call int, synchronous bool, ProxyUrl *C.char, CertificateConText int) bool {
-	return Api.WebsocketDial(Context, C.GoString(URL), C.GoString(Heads), call, synchronous, C.GoString(ProxyUrl), CertificateConText)
+func WebsocketDial(Context int, URL, Heads *C.char, call int, synchronous bool, ProxyUrl *C.char, CertificateConText, outTime int) bool {
+	return Api.WebsocketDial(Context, C.GoString(URL), C.GoString(Heads), call, synchronous, C.GoString(ProxyUrl), CertificateConText, outTime)
 }
 
 // Websocket客户端 获取错误

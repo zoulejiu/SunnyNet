@@ -103,9 +103,13 @@ type Dialer struct {
 	ProxyUrl string
 }
 
-func (d *Dialer) Dial(urlStr string, requestHeader http.Header, ProxyUrl string) (*Conn, *http.Response, error) {
+func (d *Dialer) Dial(urlStr string, requestHeader http.Header, ProxyUrl string, outTime ...int) (*Conn, *http.Response, error) {
 	d.ProxyUrl = ProxyUrl
-	return d.DialContext(context.Background(), urlStr, requestHeader)
+	t := 0
+	if len(outTime) > 0 {
+		t = outTime[0]
+	}
+	return d.DialContext(context.Background(), urlStr, requestHeader, t)
 }
 
 var errMalformedURL = errors.New("malformed ws or wss URL")
@@ -148,7 +152,7 @@ var nilDialer = *DefaultDialer
 // non-nil *net.Response so that callers can handle redirects, authentication,
 // etcetera. The response body may not contain the entire response and does not
 // need to be closed by the application.
-func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader http.Header) (*Conn, *http.Response, error) {
+func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader http.Header, outTime ...int) (*Conn, *http.Response, error) {
 	if d == nil {
 		d = &nilDialer
 	}
@@ -222,17 +226,19 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 	// Get network dial function.
 	var netDial func(network, add string) (net.Conn, error)
 
-	if d.NetDialContext != nil {
-		netDial = func(network, addr string) (net.Conn, error) {
-			return d.NetDialContext(ctx, network, addr)
+	netDialer := &net.Dialer{}
+	_outTime := 3000
+	if len(outTime) > 0 {
+		t := outTime[0]
+		if t > 10 {
+			_outTime = t
+			netDialer.Timeout = time.Duration(t) * time.Millisecond
+		} else {
+			netDialer.Timeout = 30000 * time.Millisecond
 		}
-	} else if d.NetDial != nil {
-		netDial = d.NetDial
-	} else {
-		netDialer := &net.Dialer{}
-		netDial = func(network, addr string) (net.Conn, error) {
-			return netDialer.DialContext(ctx, network, addr)
-		}
+	}
+	netDial = func(network, addr string) (net.Conn, error) {
+		return netDialer.DialContext(ctx, network, addr)
 	}
 
 	// If needed, wrap the dial function to set the connection deadline.
@@ -288,10 +294,9 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 	if err != nil {
 		return nil, nil, err
 	}
-
 	defer func() {
 		if netConn != nil {
-			netConn.Close()
+			_ = netConn.Close()
 		}
 	}()
 
@@ -326,6 +331,15 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 		//fmt.Println("err2:=", err)
 		return nil, nil, err
 	}
+
+	_ = conn.conn.SetDeadline(time.Now().Add(time.Duration(_outTime) * time.Millisecond))
+	defer func() {
+		if conn != nil {
+			if conn.conn != nil {
+				_ = conn.conn.SetDeadline(time.Time{})
+			}
+		}
+	}()
 
 	if trace != nil && trace.GotFirstResponseByte != nil {
 		if peek, err := conn.br.Peek(1); err == nil && len(peek) == 1 {
