@@ -126,10 +126,13 @@ func (s *Sunny) listenUdpGo() {
 		if err != nil {
 			break
 		}
+		bs := public.CopyBytes(buffer[:n])
 		// 解析连接地址并生成唯一键值
-		_info := resolveConnectionAddress(addr, public.CopyBytes(buffer[:n]))
+		_info := resolveConnectionAddress(addr, bs)
+		if _info == nil {
+			continue
+		}
 		k := addr.String() + _info.RemoteAddress
-
 		// 如果连接池中不存在该连接，则新建连接并添加到连接池中
 		if c, Tid := NFapi.UdpSenders.Get(addr.String() + _info.RemoteAddress); c == nil {
 			Tid = atomic.AddInt64(&public.Theology, 1)
