@@ -18,7 +18,7 @@ func NewSyJson() *SyJson {
 }
 
 func (s *SyJson) Parse(xstr string) bool {
-	_Data := make(map[string]interface{})
+	_Data := make(map[string]any)
 	if xstr == "" {
 		_Data["/"] = ""
 		s._Data = _Data
@@ -27,7 +27,16 @@ func (s *SyJson) Parse(xstr string) bool {
 	json.Unmarshal([]byte("{\"/\":"+xstr+"}"), &s._Data)
 	return true
 }
-
+func (s *SyJson) GetMap() map[string]any {
+	if s._Data == nil {
+		return make(map[string]any)
+	}
+	b := s._Data.(map[string]any)
+	if b == nil {
+		return make(map[string]any)
+	}
+	return b["/"].(map[string]any)
+}
 func (s *SyJson) ToString() string {
 	return s.GetData("")
 }
