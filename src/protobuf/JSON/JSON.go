@@ -35,7 +35,11 @@ func (s *SyJson) GetMap() map[string]any {
 	if b == nil {
 		return make(map[string]any)
 	}
-	return b["/"].(map[string]any)
+	c := b["/"]
+	if c == nil {
+		return make(map[string]any)
+	}
+	return c.(map[string]any)
 }
 func (s *SyJson) ToString() string {
 	return s.GetData("")
