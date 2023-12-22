@@ -10,6 +10,8 @@ int LinuxCall5(void *,void *,void *,void *,void *,void *);
 int LinuxCall6(void *,void *,void *,void *,void *,void *,void *);
 int LinuxCall7(void *,void *,void *,void *,void *,void *,void *,void *);
 int LinuxCall8(void *,void *,void *,void *,void *,void *,void *,void *,void *);
+int LinuxCall9(void *,void *,void *,void *,void *,void *,void *,void *,void *,void *);
+int LinuxCall10(void *,void *,void *,void *,void *,void *,void *,void *,void *,void *,void *);
 
 
 #endif

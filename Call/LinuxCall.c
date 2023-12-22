@@ -10,6 +10,8 @@ typedef int (*Fun5)(void *,void *,void *,void *,void *);
 typedef int (*Fun6)(void *,void *,void *,void *,void *,void *);
 typedef int (*Fun7)(void *,void *,void *,void *,void *,void *,void *);
 typedef int (*Fun8)(void *,void *,void *,void *,void *,void *,void *,void *);
+typedef int (*Fun9)(void *,void *,void *,void *,void *,void *,void *,void *,void *);
+typedef int (*Fun10)(void *,void *,void *,void *,void *,void *,void *,void *,void *,void *);
 
 
 int LinuxCall0(void * addr){
@@ -38,4 +40,10 @@ int LinuxCall7(void * addr, void * a1,void * a2,void * a3,void * a4,void * a5,vo
 }
 int LinuxCall8(void * addr, void * a1,void * a2,void * a3,void * a4,void * a5,void * a6,void * a7,void * a8){
    return ((Fun8)addr)(a1,a2,a3,a4,a5,a6,a7,a8);
+}
+int LinuxCall9(void * addr, void * a1,void * a2,void * a3,void * a4,void * a5,void * a6,void * a7,void * a8,void * a9){
+   return ((Fun9)addr)(a1,a2,a3,a4,a5,a6,a7,a8,a9);
+}
+int LinuxCall10(void * addr, void * a1,void * a2,void * a3,void * a4,void * a5,void * a6,void * a7,void * a8,void * a9,void * a10){
+   return ((Fun10)addr)(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10);
 }

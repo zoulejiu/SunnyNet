@@ -85,6 +85,12 @@ func Call(address int, arg ...interface{}) int {
 	case 8:
 		ret = uintptr(C.LinuxCall8(addr, unsafe.Pointer(args[0]), unsafe.Pointer(args[1]), unsafe.Pointer(args[2]), unsafe.Pointer(args[3]), unsafe.Pointer(args[4]), unsafe.Pointer(args[5]), unsafe.Pointer(args[6]), unsafe.Pointer(args[7])))
 		break
+	case 9:
+		ret = uintptr(C.LinuxCall9(addr, unsafe.Pointer(args[0]), unsafe.Pointer(args[1]), unsafe.Pointer(args[2]), unsafe.Pointer(args[3]), unsafe.Pointer(args[4]), unsafe.Pointer(args[5]), unsafe.Pointer(args[6]), unsafe.Pointer(args[7]), unsafe.Pointer(args[8])))
+		break
+	case 10:
+		ret = uintptr(C.LinuxCall10(addr, unsafe.Pointer(args[0]), unsafe.Pointer(args[1]), unsafe.Pointer(args[2]), unsafe.Pointer(args[3]), unsafe.Pointer(args[4]), unsafe.Pointer(args[5]), unsafe.Pointer(args[6]), unsafe.Pointer(args[7]), unsafe.Pointer(args[8]), unsafe.Pointer(args[9])))
+		break
 	default:
 		return -1
 	}
