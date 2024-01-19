@@ -24,7 +24,7 @@ func Test() {
 	//s.SetIeProxy(false)
 	//s.MustTcp(true)
 	Port := 2024
-	s.SetMustTcpRegexp("*.baidu.com")
+	//s.SetMustTcpRegexp("*.baidu.com")
 	s = s.SetPort(Port).Start()
 	//fmt.Println(s.StartProcess())
 
