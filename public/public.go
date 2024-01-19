@@ -505,8 +505,8 @@ func IsCerRequest(request *http.Request) bool {
 	return false
 }
 
-// LegitimateRequest 解析HTTP 请求体
-func LegitimateRequest(s []byte) (bool, bool, int, int, bool) {
+// LegitimateRequestBAK 解析HTTP 请求体,               2024-01-20之前版本的代码
+func LegitimateRequestBAK(s []byte) (bool, bool, int, int, bool) {
 	a := strings.ToLower(CopyString(string(s)))
 	arrays := strings.Split(a, Space)
 	isHttpRequest := false
@@ -575,6 +575,105 @@ func LegitimateRequest(s []byte) (bool, bool, int, int, bool) {
 			return islet, false, v, ContentLength, isHttpRequest
 		}
 		Method := GetMethod(s)
+		if (Method == HttpMethodGET || Method == HttpMethodOPTIONS || Method == HttpMethodHEAD) && len(s) > 4 && CopyString(string(s[len(s)-4:])) == CRLF+CRLF {
+			return false, true, 0, 0, isHttpRequest
+		}
+		//没有长度  读取验证失败
+		return false, false, 0, 0, isHttpRequest
+	}
+	return false, false, 0, 0, isHttpRequest
+
+}
+
+// LegitimateRequest 解析HTTP 请求体，                 2024-01-20修改后的代码
+func LegitimateRequest(s []byte) (bool, bool, int, int, bool) {
+	a := strings.ToLower(CopyString(string(s)))
+	arrays := strings.Split(a, Space)
+	isHttpRequest := false
+	Method := GetMethod(s)
+	if IsHttpMethod(Method) && Method != HttpMethodCONNECT {
+		if SubString(string(s), Space, Space) != "" {
+			isHttpRequest = true
+		}
+	}
+	if len(arrays) > 1 {
+		//Body中是否有长度
+		islet := strings.Index(a, "content-length: ") != -1
+		if islet {
+			ContentLength, _ := strconv.Atoi(SubString(a, "content-length: ", "\r\n"))
+			if ContentLength == 0 {
+				// 有长度  但长度为0 直接验证成功
+				return islet, true, 0, ContentLength, isHttpRequest
+			}
+			arr := bytes.Split(s, []byte(CRLF+CRLF))
+			if len(arr) < 2 {
+				// 读取验证失败
+				return islet, false, 0, ContentLength, isHttpRequest
+			}
+			var b bytes.Buffer
+			for i := 0; i < len(arr); i++ {
+				if i != 0 {
+					b.Write(CopyBytes(arr[i]))
+					b.Write([]byte{13, 10, 13, 10})
+				}
+			}
+			if b.Len() == ContentLength || b.Len()-4 == ContentLength {
+				b.Reset()
+				// 有长度  读取验证成功
+				return islet, true, 0, ContentLength, isHttpRequest
+			}
+			v := b.Len() - 4
+			b.Reset()
+			return islet, false, v, ContentLength, isHttpRequest
+		} else if strings.Index(a, "transfer-encoding: chunked") != -1 {
+			islet = true
+			arr := bytes.Split(s, []byte(CRLF+CRLF))
+			if len(arr) < 2 {
+				// 读取验证失败
+				return islet, false, 0, 0, isHttpRequest
+			}
+			BodyLen := 0
+			var bs bytes.Buffer
+			for i := 0; i < len(arr); i++ {
+				if i != 0 {
+					if len(arr[i]) == 0 {
+						continue
+					}
+					bs.Write(CopyBytes(arr[i]))
+					bs.Write([]byte{13, 10, 13, 10})
+					BodyLen += len(arr[i]) + 4
+				}
+			}
+			reader := bufio.NewReader(bytes.NewReader(bs.Bytes()))
+			bLen := int64(0)
+			for {
+				T, _, e := reader.ReadLine()
+				ContentLength2, _ := strconv.ParseInt(string(T), 16, 64)
+				if ContentLength2 == 0 && e != nil {
+					break
+				}
+				bLen += ContentLength2 + int64(len(T)+2)
+				if ContentLength2 == 0 {
+					bLen += 2
+					break
+				}
+				p, _ := reader.Discard(int(ContentLength2))
+				if p != int(ContentLength2) {
+					v := bLen - ContentLength2 + int64(p)
+					return islet, false, int(v), 0, isHttpRequest
+				}
+				bLen += 2
+				p, _ = reader.Discard(2)
+				if p != 2 {
+					v := bLen - 2 + int64(p)
+					return islet, false, int(v), 0, isHttpRequest
+				}
+			}
+			if int64(BodyLen) == bLen {
+				return islet, true, BodyLen, BodyLen, isHttpRequest
+			}
+			return islet, false, int(bLen), int(bLen), isHttpRequest
+		}
 		if (Method == HttpMethodGET || Method == HttpMethodOPTIONS || Method == HttpMethodHEAD) && len(s) > 4 && CopyString(string(s[len(s)-4:])) == CRLF+CRLF {
 			return false, true, 0, 0, isHttpRequest
 		}

@@ -710,7 +710,7 @@ func (s *ProxyRequest) ConnRead(aheadData []byte, Dosage bool) (rs []byte, Wheth
 	if Dosage {
 		kl = kl * 10
 	}
-	var NoHttpRequest = false
+	var NoHttpRequest = true
 	var eRequest = errors.New("No http Request ")
 	var Method = public.Nulls
 	//验证HTTP请求体
@@ -722,18 +722,34 @@ func (s *ProxyRequest) ConnRead(aheadData []byte, Dosage bool) (rs []byte, Wheth
 	var bodyLen, ContentLength int
 	for {
 		sx, e := s.RwObj.Read(bs)
-		if !NoHttpRequest {
-			for n := 0; n < sx; n++ {
-				if bs[n] < 9 || bs[n] == 11 || bs[n] == 12 || (bs[n] >= 14 && bs[n] < 21) {
-					NoHttpRequest = true
-					break
+		//2024-01-20 之前版本的代码
+		/*
+			if !NoHttpRequest {
+				for n := 0; n < sx; n++ {
+					if bs[n] < 9 || bs[n] == 11 || bs[n] == 12 || (bs[n] >= 14 && bs[n] < 21) {
+						NoHttpRequest = true
+						break
+					}
+				}
+			}
+		*/
+		st.Write(bs[0:sx])
+		//-----------------------------------------
+		//----  下面是2024-01-20 修改的代码 ----------
+		bsm := st.Bytes()
+		if NoHttpRequest {
+			_index := bytes.Index(bsm, []byte("\r\n\r\n"))
+			if _index > 11 {
+				va := bsm[0:_index]
+				if public.IsHttpMethod(public.GetMethod(va)) {
+					NoHttpRequest = false
 				}
 			}
 		}
+		//-----------------------------------------
 		if NoHttpRequest {
 			e = eRequest
 		}
-		st.Write(bs[0:sx])
 		if e != nil {
 			if st.Len() < length {
 				islet, ok, bodyLen, ContentLength, isHttpRequest = public.LegitimateRequest(st.Bytes())
