@@ -143,7 +143,7 @@ func (k *TcpConn) GetBody() []byte {
 	if k.c == nil {
 		return []byte{}
 	}
-	return k.c.Data.Bytes()
+	return public.CopyBytes(k.c.Data.Bytes())
 }
 
 // GetBodyLen  获取发送、接收的数据长度
@@ -173,7 +173,7 @@ type WsConn struct {
 func (k *WsConn) GetMessageBody() []byte {
 	k.c.Sync.Lock()
 	defer k.c.Sync.Unlock()
-	return k.c.Data.Bytes()
+	return public.CopyBytes(k.c.Data.Bytes())
 }
 
 // GetMessageType 获取 消息类型
