@@ -64,7 +64,7 @@ func GetHost(s string) string {
 		sml := len(s)
 		//找到 换行的位置
 		if sml > index+6 {
-			out := strings.Index(strings.ToLower(CopyString(s[index:])), "\r\n")
+			out := strings.Index(strings.ToLower(CopyString(s[index:])), CRLF)
 			if out != -1 {
 				if sml >= out+index {
 					if index+6 <= out+index {
@@ -199,7 +199,7 @@ func LocalBuildBody(ContentType string, Body interface{}) []byte {
 		break
 	}
 	l := strconv.Itoa(len(b))
-	buffer.WriteString("HTTP/1.1 200 OK\r\nCache-Control: no-cache, must-revalidate\r\nPragma: no-cache\r\nContent-Length: " + l + "\r\nContent-Type: " + ContentType + "\r\n\r\n")
+	buffer.WriteString("HTTP/1.1 200 OK\r\nCache-Control: no-cache, must-revalidate\r\nPragma: no-cache\r\nContent-Length: " + l + "\r\nContent-Type: " + ContentType + CRLF + CRLF)
 	buffer.Write(b)
 	return CopyBytes(buffer.Bytes())
 }
@@ -301,18 +301,18 @@ func StructureBody(heads *http.Response) []byte {
 	if status == 0 {
 		status = 200
 	}
-	buffer.Write([]byte("HTTP/1.1 " + strconv.Itoa(status) + " " + http.StatusText(status) + "\r\n"))
+	buffer.Write([]byte("HTTP/1.1 " + strconv.Itoa(status) + " " + http.StatusText(status) + CRLF))
 	if heads != nil {
 		if heads.Header != nil {
 			for name, values := range heads.Header {
 				for _, value := range values {
-					buffer.Write([]byte(name + ": " + value + "\r\n"))
+					buffer.Write([]byte(name + ": " + value + CRLF))
 				}
 			}
 		}
 	}
 
-	buffer.Write([]byte("\r\n"))
+	buffer.Write([]byte(CRLF))
 	if heads != nil {
 		if heads.Body != nil {
 			bodyBytes, _ := ioutil.ReadAll(heads.Body)
@@ -432,11 +432,11 @@ func ResponseToHeader(response *http.Response) []byte {
 	for name, values := range response.Header {
 		for _, value := range values {
 			if name != "Transfer-Encoding" {
-				bs.WriteString(name + ": " + value + "\r\n")
+				bs.WriteString(name + ": " + value + CRLF)
 			}
 		}
 	}
-	bs.WriteString("\r\n")
+	bs.WriteString(CRLF)
 	return CopyBytes(bs.Bytes())
 }
 
@@ -520,7 +520,7 @@ func LegitimateRequestBAK(s []byte) (bool, bool, int, int, bool) {
 		//Body中是否有长度
 		islet := strings.Index(a, "content-length: ") != -1
 		if islet {
-			ContentLength, _ := strconv.Atoi(SubString(a, "content-length: ", "\r\n"))
+			ContentLength, _ := strconv.Atoi(SubString(a, "content-length: ", CRLF))
 			if ContentLength == 0 {
 				// 有长度  但长度为0 直接验证成功
 				return islet, true, 0, ContentLength, isHttpRequest
@@ -600,7 +600,7 @@ func LegitimateRequest(s []byte) (bool, bool, int, int, bool) {
 		//Body中是否有长度
 		islet := strings.Index(a, "content-length: ") != -1
 		if islet {
-			ContentLength, _ := strconv.Atoi(SubString(a+"\r\n", "content-length: ", "\r\n"))
+			ContentLength, _ := strconv.Atoi(SubString(a+CRLF, "content-length: ", CRLF))
 			if ContentLength == 0 {
 				// 有长度  但长度为0 直接验证成功
 				return islet, true, 0, ContentLength, isHttpRequest
