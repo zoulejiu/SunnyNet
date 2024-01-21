@@ -600,7 +600,7 @@ func LegitimateRequest(s []byte) (bool, bool, int, int, bool) {
 		//Body中是否有长度
 		islet := strings.Index(a, "content-length: ") != -1
 		if islet {
-			ContentLength, _ := strconv.Atoi(SubString(a, "content-length: ", "\r\n"))
+			ContentLength, _ := strconv.Atoi(SubString(a+"\r\n", "content-length: ", "\r\n"))
 			if ContentLength == 0 {
 				// 有长度  但长度为0 直接验证成功
 				return islet, true, 0, ContentLength, isHttpRequest
