@@ -602,8 +602,12 @@ func LegitimateRequest(s []byte) (bool, bool, int, int, bool) {
 		if islet {
 			ContentLength, _ := strconv.Atoi(SubString(a+CRLF, "content-length: ", CRLF))
 			if ContentLength == 0 {
-				// 有长度  但长度为0 直接验证成功
-				return islet, true, 0, ContentLength, isHttpRequest
+				if strings.Contains(a, CRLF+CRLF) {
+					// 有长度  但长度为0 直接验证成功,并且有CRLF+CRLF
+					return islet, true, 0, ContentLength, isHttpRequest
+				}
+				// 有长度  但长度为0 但是没有 有CRLF+CRLF 直接验证失败
+				return islet, false, 0, ContentLength, isHttpRequest
 			}
 			arr := bytes.Split(s, []byte(CRLF+CRLF))
 			if len(arr) < 2 {
