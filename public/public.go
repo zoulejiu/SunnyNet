@@ -25,6 +25,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 )
@@ -440,67 +441,55 @@ func ResponseToHeader(response *http.Response) []byte {
 	return CopyBytes(bs.Bytes())
 }
 
+var CertDownloadHostArray []string
+var HostArray sync.Mutex
+
+func init() {
+	go func() {
+		for {
+			HostArray.Lock()
+			CertDownloadHostArray = make([]string, 0)
+			CertDownloadHostArray = append(CertDownloadHostArray, CertDownloadHost1)
+			CertDownloadHostArray = append(CertDownloadHostArray, CertDownloadHost2)
+			adders, err := net.InterfaceAddrs()
+			if err == nil {
+				for _, addr := range adders {
+					if ipNet, ok := addr.(*net.IPNet); ok && !ipNet.IP.IsLoopback() {
+						if ipNet.IP.To4() != nil {
+							CertDownloadHostArray = append(CertDownloadHostArray, ipNet.IP.String())
+						} else if ipNet.IP.To16() != nil {
+							//CertDownloadHostArray = append(CertDownloadHostArray, ipNet.IP.String())
+						}
+					}
+				}
+			}
+			HostArray.Unlock()
+			time.Sleep(5 * time.Second)
+		}
+	}()
+}
+
 // IsCerRequest 是否下载证书的请求
-func IsCerRequest(request *http.Request) bool {
+func IsCerRequest(request *http.Request, port int) bool {
+	portStr := strconv.Itoa(port)
 	if request == nil {
 		return false
 	}
-
+	HostArray.Lock()
+	defer HostArray.Unlock()
 	if request.URL != nil {
-		if request.URL.Hostname() == CertDownloadHost1 {
-			return true
+		_host := request.URL.Host
+		for _, host := range CertDownloadHostArray {
+			if _host == host {
+				return true
+			}
+			if _host == host+":"+portStr {
+				return true
+			}
+			if _host == host+":"+portStr {
+				return true
+			}
 		}
-		if request.URL.Hostname() == CertDownloadHost1+":"+HttpDefaultPort {
-			return true
-		}
-		if request.URL.Hostname() == CertDownloadHost1+":"+HttpsDefaultPort {
-			return true
-		}
-		if request.URL.Hostname() == CertDownloadHost2 {
-			return true
-		}
-		if request.URL.Hostname() == CertDownloadHost2+":"+HttpDefaultPort {
-			return true
-		}
-		if request.URL.Hostname() == CertDownloadHost2+":"+HttpsDefaultPort {
-			return true
-		}
-		if request.URL.Host == CertDownloadHost1 {
-			return true
-		}
-		if request.URL.Host == CertDownloadHost1+":"+HttpDefaultPort {
-			return true
-		}
-		if request.URL.Host == CertDownloadHost1+":"+HttpsDefaultPort {
-			return true
-		}
-		if request.URL.Host == CertDownloadHost2 {
-			return true
-		}
-		if request.URL.Host == CertDownloadHost2+":"+HttpDefaultPort {
-			return true
-		}
-		if request.URL.Host == CertDownloadHost2+":"+HttpsDefaultPort {
-			return true
-		}
-	}
-	if request.Host == CertDownloadHost1 {
-		return true
-	}
-	if request.Host == CertDownloadHost1+":"+HttpDefaultPort {
-		return true
-	}
-	if request.Host == CertDownloadHost1+":"+HttpsDefaultPort {
-		return true
-	}
-	if request.Host == CertDownloadHost2 {
-		return true
-	}
-	if request.Host == CertDownloadHost2+":"+HttpsDefaultPort {
-		return true
-	}
-	if request.Host == CertDownloadHost2+":"+HttpDefaultPort {
-		return true
 	}
 	return false
 }

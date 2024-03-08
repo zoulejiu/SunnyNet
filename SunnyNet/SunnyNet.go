@@ -1002,7 +1002,7 @@ func (s *ProxyRequest) StartHTTPProcessing(RawBytes []byte, sProxy, Tag, Default
 	return
 }
 func (s *ProxyRequest) isCerDownloadPage(request *http.Request) bool {
-	if public.IsCerRequest(request) || s.Conn.LocalAddr().String() == request.Host {
+	if public.IsCerRequest(request, s.Global.port) {
 		if request.URL != nil {
 			defer func() { _ = s.Conn.Close() }()
 			if request.URL.Path == "/favicon.ico" {
@@ -1455,6 +1455,16 @@ func (s *ProxyRequest) CompleteRequest(req *http.Request) {
 		}
 	}
 	SetReqHeadsValue := func(DataLen string) []byte {
+		if s.Response != nil {
+			if s.Response.Header != nil {
+				for k, _ := range s.Response.Header {
+					ks := strings.ToUpper(k)
+					if ks == "CONTENT-LENGTH" {
+						delete(s.Response.Header, k)
+					}
+				}
+			}
+		}
 		if DataLen != "-1" {
 			s.Response.Header.Set("Content-Length", DataLen)
 		}
@@ -1481,6 +1491,21 @@ func (s *ProxyRequest) CompleteRequest(req *http.Request) {
 		return b
 	}
 	Length, _ := strconv.Atoi(s.Response.Header.Get("Content-Length"))
+	if Length < 1 {
+		if s.Response != nil {
+			if s.Response.Header != nil {
+				for k, v := range s.Response.Header {
+					ks := strings.ToUpper(k)
+					if ks == "CONTENT-LENGTH" {
+						if len(v) > 0 {
+							Length, _ = strconv.Atoi(v[0])
+							break
+						}
+					}
+				}
+			}
+		}
+	}
 	Method := ""
 	if req != nil {
 		Method = req.Method

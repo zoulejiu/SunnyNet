@@ -7,4 +7,4 @@ cd %tmpPath:~0,1%:
 for %%I in ("%tmpPath%..\") do set "parentPath=%%~fI"
 cd %parentPath%
 @echo on
-go build -buildmode=c-shared  -ldflags "-s -w" -o "%tmpPath%Library\Sunny.dll"
+go build -buildmode=c-shared  -ldflags "-s -w" -o "%tmpPath%Library\windows\x32\Sunny.dll"
