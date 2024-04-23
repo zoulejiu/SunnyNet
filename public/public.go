@@ -486,9 +486,12 @@ func IsCerRequest(request *http.Request, port int) bool {
 			if _host == host+":"+portStr {
 				return true
 			}
-			if _host == host+":"+portStr {
+		}
+		if request.URL.Port() == portStr {
+			if request.Header.Get("Sunny-Net") == "True" {
 				return true
 			}
+			request.Header.Set("Sunny-Net", "True")
 		}
 	}
 	return false
@@ -822,7 +825,7 @@ func BuildRequest(RawData []byte, host, source, DefaultPort string, setProxyHost
 					host = strings.ReplaceAll(mHost, Space, NULL)
 				}
 				if strings.ToUpper(HeadArr[0]) == "CONTENT-LENGTH" {
-					bodyLen, _ := strconv.Atoi(CopyString(HeadArr[1]))
+					bodyLen, _ := strconv.Atoi(strings.TrimSpace(CopyString(HeadArr[1])))
 					req.ContentLength = int64(bodyLen)
 					if bodyLen == len(buff) {
 						BodyLength = len(buff)

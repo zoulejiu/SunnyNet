@@ -270,7 +270,6 @@ func (hs *serverHandshakeState) processClientHello() error {
 	if len(hs.clientHello.serverName) > 0 {
 		c.serverName = hs.clientHello.serverName
 	}
-
 	if len(hs.clientHello.alpnProtocols) > 0 {
 		if selectedProto := mutualProtocol(hs.clientHello.alpnProtocols, c.config.NextProtos); selectedProto != "" {
 			hs.hello.alpnProtocol = selectedProto

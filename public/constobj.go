@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const SunnyVersion = "2024-03-09"
+const SunnyVersion = "2024-04-24"
 
 // TCP请求相关
 const (
@@ -67,10 +67,10 @@ const (
 	TagTcpAgreement                              = "TCP"
 	TagTcpSSLAgreement                           = "TLS-TCP"
 	TagMustTCP                                   = "TCP-Must"
-	MaxUploadLength                              = 409600 //POST数据最大数据长度,超过次长度请求将会转成TCP方式请求
-	CertificateRequestManagerRulesSend           = 1      //指定证书使用规则,发送使用
-	CertificateRequestManagerRulesSendAndReceive = 2      //指定证书使用规则,发送及解析使用
-	CertificateRequestManagerRulesReceive        = 3      //指定证书使用规则,解析使用
+	MaxUploadLength                              = 4096000 //POST数据最大数据长度,超过次长度请求将会转成TCP方式请求
+	CertificateRequestManagerRulesSend           = 1       //指定证书使用规则,发送使用
+	CertificateRequestManagerRulesSendAndReceive = 2       //指定证书使用规则,发送及解析使用
+	CertificateRequestManagerRulesReceive        = 3       //指定证书使用规则,解析使用
 )
 
 // 用户浏览器访问 以下地址 可以下载证书(要访问以下地址用户必须设置代理)

@@ -506,11 +506,58 @@ func (s *ProxyRequest) Socks5ProxyVerification() bool {
 	return true
 }
 
+type loop struct {
+	LastTime time.Time
+	Num      int
+}
+
+var LoopMap = make(map[string]*loop)
+var loopLock sync.Mutex
+
+func init() {
+	go loopCheckFunc()
+}
+func loopCheckFunc() {
+	for {
+		time.Sleep(time.Second * 2)
+		loopLock.Lock()
+		for k, v := range LoopMap {
+			if time.Now().Sub(v.LastTime) > time.Second {
+				delete(LoopMap, k)
+			}
+		}
+		loopLock.Unlock()
+	}
+}
+func loopAdd(Host string) bool {
+	ok := false
+	loopLock.Lock()
+	m := LoopMap[Host]
+	if m != nil {
+		m.Num++
+		m.LastTime = time.Now()
+		ok = m.Num > 5
+	} else {
+		LoopMap[Host] = &loop{
+			LastTime: time.Now(),
+			Num:      1,
+		}
+	}
+	loopLock.Unlock()
+	return ok
+}
+
 // MustTcpProcessing 强制走TCP处理过程
 // aheadData 提取获取的数据
 func (s *ProxyRequest) MustTcpProcessing(aheadData []byte, Tag string) {
 	if s.Target == nil {
 		return
+	}
+	if s.Target.Port == uint16(s.Global.port) {
+		//检测环路循环检测
+		if loopAdd(s.Target.Host) {
+			return
+		}
 	}
 	var err error
 	var isClose = false
@@ -876,7 +923,8 @@ func (s *ProxyRequest) httpProcessing(aheadData []byte, DefaultPort, Tag string)
 		s.Target.Parse(host, DefaultPort)
 	}
 	//提交数据是否超过 public.MaxUploadLength 字节，若是超过  public.MaxUploadLength  设定的最大字节数，改请求将转为TCP方式请求
-	if WhetherExceedsLength {
+	//或者符合强制TCP的规则
+	if WhetherExceedsLength || s.IsMustTcpRules(s.Target.Host) {
 		s.NoRepairHttp = true
 		s.MustTcpProcessing(ReadData, Tag)
 		s.NoRepairHttp = false
@@ -1001,6 +1049,7 @@ func (s *ProxyRequest) StartHTTPProcessing(RawBytes []byte, sProxy, Tag, Default
 	s.sendHttp(req)
 	return
 }
+
 func (s *ProxyRequest) isCerDownloadPage(request *http.Request) bool {
 	if public.IsCerRequest(request, s.Global.port) {
 		if request.URL != nil {
@@ -1740,7 +1789,6 @@ func (s *Sunny) generatePem(host string) ([]byte, []byte, error) {
 		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},               // 密钥扩展用途的序列
 		EmailAddresses: []string{"forward.nice.cp@gmail.com"},
 	}
-
 	if ip := net.ParseIP(host); ip != nil {
 		template.IPAddresses = []net.IP{ip}
 	} else {

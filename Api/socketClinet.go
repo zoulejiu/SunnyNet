@@ -212,8 +212,8 @@ func SocketClientReceive(Context, OutTimes int) uintptr {
 		return 0
 	}
 
-	w.l.Lock()
-	defer w.l.Unlock()
+	//w.l.Lock()
+	//defer w.l.Unlock()
 	if w.synchronous == false {
 		w.err = errors.New("Not synchronous mode ")
 		return 0
@@ -256,8 +256,8 @@ func SocketClientWrite(Context, OutTimes int, val uintptr, valLen int) int {
 		return 0
 	}
 
-	w.l.Lock()
-	defer w.l.Unlock()
+	//w.l.Lock()
+	//defer w.l.Unlock()
 	_OutTimes := OutTimes
 	if _OutTimes < 0 {
 		_OutTimes = 30000
@@ -266,7 +266,7 @@ func SocketClientWrite(Context, OutTimes int, val uintptr, valLen int) int {
 	if err != nil {
 		s := err.Error()
 		SocketClientSendCall([]byte(s), w.call, 3, Context)
-		w.Close()
+		//w.Close()
 		return m
 	}
 	return m
