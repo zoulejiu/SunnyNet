@@ -768,6 +768,27 @@ func BuildRequest(RawData []byte, host, source, DefaultPort string, setProxyHost
 		Header:     make(http.Header),
 		Body:       nil,
 	}
+	defer func() {
+		if req.URL == nil {
+			return
+		}
+		jHost := req.URL.Host
+		Ars := strings.Split(req.URL.Host, ":")
+		if len(Ars) == 2 {
+			if Ars[1] == DefaultPort {
+				jHost = Ars[0]
+			}
+		}
+		m := req.Header["Host"]
+		if len(m) > 0 {
+			req.Header["Host"] = []string{jHost}
+			return
+		}
+		m = req.Header["host"]
+		if len(m) > 0 {
+			req.Header["host"] = []string{jHost}
+		}
+	}()
 	TransferEncoding := false
 	var HeadArr []string
 	for index := 0; index < len(arr); index++ {

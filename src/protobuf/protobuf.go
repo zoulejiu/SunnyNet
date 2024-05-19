@@ -581,6 +581,7 @@ const _Tag = "tag"
 const _Type = "Type"
 const _Text = "value"
 const _Note = "note"
+const _useNote = "useNote"
 const _Path = "path"
 
 // 两个Byte数组是否相同
@@ -808,8 +809,11 @@ func ParseJson(k, rootpath string) ([]interface{}, error) {
 					continue
 				}
 				s4[_Text] = str1
+				s4[_Note] = Text
+				s4[_useNote] = false
+				s4["INF"] = "如果您觉得此tag解析是错误的,请手动修改'Note'的Base64值,并且将'useNote'设置为 true 那么在json转PB时,将使用 Note 值作为属性值而不是 value"
 				s4[_Type] = typetostring(PbObjectType)
-
+				s4[_Path] = getpath(rootpath, len(Ret)) + ".note"
 				//s4[_Path] = rootpath + ".value"
 			}
 			continue
@@ -888,12 +892,30 @@ func par(p []interface{}) []byte {
 }
 
 func pmap(p map[string]interface{}) []Token {
+
 	Content := p[_Text]
 	_Number_ := p[_Tag].(float64)
 	_Type_ := stringtotype(p[_Type].(string))
 	var ret []Token
 	if _Type_ == PbObjectType {
 		ret = append(ret, Tag{Number: protowire.Number(_Number_), Type: BytesType})
+		isUseNoteObj := p[_useNote]
+		if isUseNoteObj != nil {
+			isUseNote := isUseNoteObj.(bool)
+			if isUseNote {
+				NoteObj := p[_Note]
+				if NoteObj != nil {
+					NoteStr := NoteObj.(string)
+					bs, e := base64.StdEncoding.DecodeString(NoteStr)
+					if e == nil {
+						ret = append(ret, Bytes(bs))
+						return ret
+					}
+				}
+				ret = append(ret, Bytes(""))
+				return ret
+			}
+		}
 		if Content == nil {
 			ret = append(ret, Bytes(""))
 		} else {

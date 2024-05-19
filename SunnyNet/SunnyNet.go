@@ -108,14 +108,18 @@ func (s *TargetInfo) Parse(HostName string, Port interface{}, IPV6 ...bool) {
 		switch v := Port.(type) {
 		case string:
 			a, _ := strconv.Atoi(v)
-			p = uint16(a)
+			if a > 0 {
+				p = uint16(a)
+			}
 			break
 		case uint16:
 			p = v
 			break
 		default:
 			a, _ := strconv.Atoi(fmt.Sprintf("%d", v))
-			p = uint16(a)
+			if a > 0 {
+				p = uint16(a)
+			}
 			break
 		}
 	} else {
@@ -123,10 +127,12 @@ func (s *TargetInfo) Parse(HostName string, Port interface{}, IPV6 ...bool) {
 		if len(arr) == 2 {
 			Host = arr[0]
 			a, _ := strconv.Atoi(arr[1])
-			p = uint16(a)
+			if a > 0 {
+				p = uint16(a)
+			}
 		}
 	}
-	if p != 0 {
+	if p > 0 {
 		s.Port = p
 	}
 	if Host != "" {

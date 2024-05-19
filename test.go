@@ -33,7 +33,7 @@ func Test() {
 	// s.ProcessALLName(true)
 
 	//s.ProcessAddName("WeChat.exe")
-	//s.ProcessAddName("abbbb.exe")
+	//s.ProcessAddName("msedge.exe")
 	//s.ProcessAddName("pop_dd_workbench.exe")
 	err := s.Error
 	if err != nil {
