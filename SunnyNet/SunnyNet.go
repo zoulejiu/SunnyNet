@@ -1270,7 +1270,15 @@ func (s *ProxyRequest) handleWss() bool {
 		return true
 	}
 	//判断是否是websocket的请求体 如果不是直接返回继续正常处理请求
-	if strings.ToLower(s.Request.Header.Get("Upgrade")) == "websocket" {
+
+	ok := strings.ToLower(s.Request.Header.Get("Upgrade")) == "websocket"
+	if !ok {
+		m := s.Request.Header["upgrade"]
+		if len(m) > 0 {
+			ok = strings.ToLower(m[0]) == "websocket"
+		}
+	}
+	if ok {
 		Method := "wss"
 		Url := s.Request.URL.String()
 		if strings.HasPrefix(Url, "net://") || strings.HasPrefix(Url, "http://") {
