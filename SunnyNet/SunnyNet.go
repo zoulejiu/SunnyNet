@@ -1156,6 +1156,9 @@ func (s *ProxyRequest) https() {
 	}
 	//是否开启了强制走TCP
 	if s.Global.isMustTcp || s.IsMustTcpRules(s.Target.Host) {
+		if s.Global.disableTCP {
+			return
+		}
 		//开启了强制走TCP，则按TCP流程处理
 		s.MustTcpProcessing(nil, public.TagMustTCP)
 		return
@@ -1191,6 +1194,9 @@ func (s *ProxyRequest) https() {
 		msg, _serverName, _err := tlsConn.ClientHello()
 		bs := tlsConn.Read_Handshake_bytes()
 		if _serverName != "" && s.IsMustTcpRules(_serverName) {
+			if s.Global.disableTCP {
+				return
+			}
 			s.MustTcpProcessing(bs, public.TagMustTCP)
 			return
 		}
@@ -1661,6 +1667,11 @@ func (s *ProxyRequest) SocketForward(dst bufio.Writer, src *public.ReadWriteObje
 							}
 						}
 					}
+					if s.Global.disableTCP {
+						_ = t1.Close()
+						_ = t2.Close()
+						return
+					}
 				}
 			}
 			firstRequest = false
@@ -1692,6 +1703,7 @@ func (s *ProxyRequest) SocketForward(dst bufio.Writer, src *public.ReadWriteObje
 // Sunny  请使用 NewSunny 方法 请不要直接构造
 type Sunny struct {
 	certCache             *Cache
+	disableTCP            bool                 //禁止TCP连接
 	certificates          []byte               //CA证书原始数据
 	rootCa                *x509.Certificate    //中间件CA证书
 	rootKey               *rsa.PrivateKey      // 证书私钥
@@ -1976,6 +1988,11 @@ func (s *Sunny) SetPort(Port int) *Sunny {
 	return s
 }
 
+// DisableTCP 禁用TCP
+func (s *Sunny) DisableTCP(disable bool) {
+	s.disableTCP = disable
+}
+
 // Port 获取端口号
 func (s *Sunny) Port() int {
 	return s.port
@@ -2217,6 +2234,9 @@ func (s *Sunny) handleClientConn(conn net.Conn, tgt *TargetInfo) {
 			return
 		}
 		if s.isMustTcp {
+			if s.disableTCP {
+				return
+			}
 			//如果开启了强制走TCP ，则按TCP处理流程处理
 			req.MustTcpProcessing(nil, public.TagMustTCP)
 			return
