@@ -29,7 +29,21 @@ func GetSceneWebSocketMsg(MessageId int) (*public.WebsocketMsg, bool) {
 // CallbackTCPRequest TCP请求处理回调
 func (s *ProxyRequest) CallbackTCPRequest(callType int, msg *public.TcpMsg) {
 	if s.Global.disableTCP {
-		return
+		//由于用户可能在软件中途禁用TCP,所有这里允许触发关闭的回调
+		if callType != public.SunnyNetMsgTypeTCPClose {
+			//这里如果禁用了TCP,那么这里就不允许触发回调了，并且手动关闭连接
+			TcpSceneLock.Lock()
+			w := TcpStorage[s.Theology]
+			TcpSceneLock.Unlock()
+			if w == nil {
+				return
+			}
+			w.L.Lock()
+			_ = w.ConnSend.Close()
+			_ = w.ConnServer.Close()
+			w.L.Unlock()
+			return
+		}
 	}
 	LocalAddr := s.Conn.RemoteAddr().String()
 	hostname := s.Target.String()
