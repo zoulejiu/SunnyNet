@@ -333,6 +333,14 @@ extern __declspec(dllexport) GoUintptr BrUnCompress(GoUintptr data, GoInt dataLe
 //
 extern __declspec(dllexport) GoUintptr BrCompress(GoUintptr data, GoInt dataLen);
 
+// ZSTD解压缩
+//
+extern __declspec(dllexport) GoUintptr ZSTDDecompress(GoUintptr data, GoInt dataLen);
+
+// ZSTD压缩
+//
+extern __declspec(dllexport) GoUintptr ZSTDCompress(GoUintptr data, GoInt dataLen);
+
 // br压缩
 //
 extern __declspec(dllexport) GoUintptr BrotliCompress(GoUintptr data, GoInt dataLen);
@@ -784,6 +792,10 @@ extern __declspec(dllexport) GoUint8 UdpSendToClient(GoInt theology, GoUintptr d
 // 指定的UDP连接 模拟客户端向服务器端主动发送数据
 //
 extern __declspec(dllexport) GoUint8 UdpSendToServer(GoInt theology, GoUintptr data, GoInt dataLen);
+
+// OtherCommands 2024-05-31 预留命令,后续版本如果有可能新增函数，可以直接使用这个命令新增命令,而不用每次更新DLL导出表
+//
+extern __declspec(dllexport) GoUintptr OtherCommands(GoUintptr cmd, GoUintptr Command1, GoUintptr Command2, GoUintptr Command3, GoUintptr Command4, GoUintptr Command5, GoUintptr Command6, GoUintptr Command7);
 
 #ifdef __cplusplus
 }
