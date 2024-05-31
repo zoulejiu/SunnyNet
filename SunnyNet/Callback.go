@@ -28,6 +28,9 @@ func GetSceneWebSocketMsg(MessageId int) (*public.WebsocketMsg, bool) {
 
 // CallbackTCPRequest TCP请求处理回调
 func (s *ProxyRequest) CallbackTCPRequest(callType int, msg *public.TcpMsg) {
+	if s.Global.disableTCP {
+		return
+	}
 	LocalAddr := s.Conn.RemoteAddr().String()
 	hostname := s.Target.String()
 	pid, _ := strconv.Atoi(s.Pid)
