@@ -459,6 +459,20 @@ func BrCompress(data uintptr, dataLen int) uintptr {
 	return Api.BrCompress(data, dataLen)
 }
 
+// ZSTD解压缩
+//
+//export ZSTDDecompress
+func ZSTDDecompress(data uintptr, dataLen int) uintptr {
+	return Api.ZSTDDecompress(data, dataLen)
+}
+
+// ZSTD压缩
+//
+//export ZSTDCompress
+func ZSTDCompress(data uintptr, dataLen int) uintptr {
+	return Api.ZSTDCompress(data, dataLen)
+}
+
 // br压缩
 //
 //export BrotliCompress
@@ -1270,4 +1284,11 @@ func UdpSendToClient(theology int, data uintptr, dataLen int) bool {
 func UdpSendToServer(theology int, data uintptr, dataLen int) bool {
 	bs := public.CStringToBytes(data, dataLen)
 	return Api.UdpSendToServer(theology, bs)
+}
+
+// OtherCommands 2024-05-31 预留命令,后续版本如果有可能新增函数，可以直接使用这个命令新增命令,而不用每次更新DLL导出表
+//
+//export OtherCommands
+func OtherCommands(cmd uintptr, Command1 uintptr, Command2 uintptr, Command3 uintptr, Command4 uintptr, Command5 uintptr, Command6 uintptr, Command7 uintptr) uintptr {
+	return Api.OtherCommands(cmd, Command1, Command2, Command3, Command4, Command5, Command6, Command7)
 }
