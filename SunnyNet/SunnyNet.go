@@ -21,6 +21,7 @@ import (
 	"github.com/qtgolang/SunnyNet/src/websocket"
 	"io"
 	"io/ioutil"
+	mrand "math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -187,8 +188,8 @@ func (s *ProxyRequest) setSocket5User(user string) {
 	sL.Unlock()
 }
 func (s *ProxyRequest) IsMustTcpRules(Host string) bool {
-	s.Global.connListLock.Lock()
-	defer s.Global.connListLock.Unlock()
+	s.Global.lock.Lock()
+	defer s.Global.lock.Unlock()
 	if s.Global.mustTcpRegexp == nil {
 		return false
 	}
@@ -629,6 +630,10 @@ func (s *ProxyRequest) MustTcpProcessing(aheadData []byte, Tag string) {
 		}
 		fig := &tls.Config{Certificates: []tls.Certificate{*certificate}, ServerName: HttpCertificate.ParsingHost(s.Target.String())}
 		fig.InsecureSkipVerify = true
+		obj := s.Global.GetTLSValues()
+		if obj != nil {
+			fig.CipherSuites = obj
+		}
 		tlsConn := tls.Client(RemoteTCP, fig)
 		err = tlsConn.Handshake()
 		RemoteTCP = tlsConn
@@ -878,7 +883,12 @@ func (s *ProxyRequest) transparentProcessing() {
 	//将数据全部取出，稍后重新放进去
 	_bytes, _ := s.RwObj.Peek(s.RwObj.Reader.Buffered())
 	//升级到TLS客户端
-	T := tls.Client(s.Conn, &tls.Config{InsecureSkipVerify: true})
+	fig := &tls.Config{InsecureSkipVerify: true}
+	obj := s.Global.GetTLSValues()
+	if obj != nil {
+		fig.CipherSuites = obj
+	}
+	T := tls.Client(s.Conn, fig)
 	//将数据重新写进去
 	T.Reset(_bytes)
 	//进行握手处理
@@ -1134,6 +1144,7 @@ func (s *ProxyRequest) doRequest() error {
 	if s.WinHttp == nil {
 		s.WinHttp = GoWinHttp.NewGoWinHttp()
 	}
+	s.WinHttp.GetTLSValues = s.Global.GetTLSValues
 	s.WinHttp.SetTlsConfig(cfg)
 	s.WinHttp.SetProxy(s.Proxy)
 	A, B := s.WinHttp.Do(s.Request)
@@ -1299,6 +1310,10 @@ func (s *ProxyRequest) handleWss() bool {
 			}
 			cfg.ServerName = HttpCertificate.ParsingHost(s.Request.URL.Host)
 			cfg.InsecureSkipVerify = true
+			obj := s.Global.GetTLSValues()
+			if obj != nil {
+				cfg.CipherSuites = obj
+			}
 			dialer = &websocket.Dialer{TLSClientConfig: cfg}
 		} else {
 			dialer = &websocket.Dialer{}
@@ -1713,7 +1728,7 @@ type Sunny struct {
 	tcpSocket             *net.Listener        //TcpSocket服务器
 	udpSocket             *net.UDPConn         //UdpSocket服务器
 	connList              map[int64]net.Conn   //会话连接客户端、停止服务器时可以全部关闭
-	connListLock          sync.Mutex           //会话连接互斥锁
+	lock                  sync.Mutex           //会话连接互斥锁
 	socket5VerifyUser     bool                 //S5代理是否需要验证账号密码
 	socket5VerifyUserList map[string]string    //S5代理需要验证的账号密码列表
 	socket5VerifyUserLock sync.Mutex           //S5代理验证时的锁
@@ -1730,6 +1745,9 @@ type Sunny struct {
 	proxyRegexp           *regexp.Regexp       //上游代理使用规则
 	mustTcpRegexp         *regexp.Regexp       //强制走TCP规则,如果 isMustTcp 打开状态,本功能则无效
 	isRun                 bool                 //是否在运行中
+	fixedTLS              []uint16             //固定的TLS指纹
+	isRandomTLS           bool                 //是否随机使用TLS指纹
+	randomTLSValue        []uint16             //tls 指纹选项合集
 	SunnyContext          int
 }
 
@@ -1748,6 +1766,8 @@ func NewSunny() *Sunny {
 	SunnyContext := NewMessageId()
 	a, _ := regexp.Compile("ALL")
 	s := &Sunny{SunnyContext: SunnyContext, certCache: NewCache(), connList: make(map[int64]net.Conn), socket5VerifyUserList: make(map[string]string), proxy: &GoWinHttp.Proxy{}, proxyRegexp: a}
+	s.randomTLSValue = make([]uint16, public.RandomTLSValueArrayLen)
+	copy(s.randomTLSValue, public.RandomTLSValueArray)
 	s.SetCert(defaultManager)
 	SunnyStorageLock.Lock()
 	SunnyStorage[s.SunnyContext] = s
@@ -1755,10 +1775,76 @@ func NewSunny() *Sunny {
 	return s
 }
 
+// SetRandomTLS 是否使用随机TLS指纹
+func (s *Sunny) SetRandomTLS(open bool) {
+	if s == nil {
+		return
+	}
+	s.lock.Lock()
+	s.isRandomTLS = open
+	s.fixedTLS = nil
+	s.lock.Unlock()
+}
+
+// GetTLSValues 获取固定的TLS指纹列表或随机TLS指纹列表,如果未开启使用随机TLS指纹,并且未设置固定TLS指纹,则返回nil
+func (s *Sunny) GetTLSValues() []uint16 {
+	if s == nil {
+		return nil
+	}
+	s.lock.Lock()
+	if !s.isRandomTLS {
+		if len(s.fixedTLS) > 0 {
+			s.lock.Unlock()
+			return s.fixedTLS
+		}
+		s.lock.Unlock()
+		return nil
+	}
+	n := mrand.Intn(public.RandomTLSValueArrayLen) + 1
+	for i := public.RandomTLSValueArrayLen - 1; i > 0; i-- {
+		j := mrand.Intn(i + 1)
+		s.randomTLSValue[i], s.randomTLSValue[j] = s.randomTLSValue[j], s.randomTLSValue[i]
+	}
+	shuffledArray := make([]uint16, n)
+	copy(shuffledArray, s.randomTLSValue[:n])
+	s.lock.Unlock()
+	return shuffledArray
+}
+
+// GetTLSTestValues 随机生成一个TLS指纹列表
+func (s *Sunny) GetTLSTestValues() []uint16 {
+	if s == nil {
+		return nil
+	}
+	s.lock.Lock()
+	n := mrand.Intn(public.RandomTLSValueArrayLen) + 1
+	for i := public.RandomTLSValueArrayLen - 1; i > 0; i-- {
+		j := mrand.Intn(i + 1)
+		s.randomTLSValue[i], s.randomTLSValue[j] = s.randomTLSValue[j], s.randomTLSValue[i]
+	}
+	shuffledArray := make([]uint16, n)
+	copy(shuffledArray, s.randomTLSValue[:n])
+	s.lock.Unlock()
+	return shuffledArray
+}
+
+// SetRandomFixedTLS 是否使用固定的TLS指纹 请注意这个函数是一个全局函数
+func (s *Sunny) SetRandomFixedTLS(value string) {
+	m := strings.Split(value, ",")
+	array := make([]uint16, 0)
+	for _, v := range m {
+		zm, _ := strconv.Atoi(strings.TrimSpace(v))
+		array = append(array, uint16(zm))
+	}
+	s.lock.Lock()
+	s.fixedTLS = array
+	s.lock.Unlock()
+}
+
 // SetMustTcpRegexp 设置强制走TCP规则,如果 打开了全部强制走TCP状态,本功能则无效
 func (s *Sunny) SetMustTcpRegexp(RegexpList string) error {
-	s.connListLock.Lock()
-	defer s.connListLock.Unlock()
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	r := strings.ReplaceAll("^"+strings.ReplaceAll(RegexpList, " ", "")+"$", "\r", "")
 	r = strings.ReplaceAll(r, "\t", "")
 	r = strings.ReplaceAll(r, "\n", ";")
@@ -2130,7 +2216,7 @@ func (s *Sunny) Close() *Sunny {
 	if s.udpSocket != nil {
 		_ = s.udpSocket.Close()
 	}
-	s.connListLock.Lock()
+	s.lock.Lock()
 	for k, conn := range s.connList {
 		_ = conn.Close()
 		delete(s.connList, k)
@@ -2138,7 +2224,7 @@ func (s *Sunny) Close() *Sunny {
 	if CrossCompiled.NFapi_SunnyPointer() == uintptr(unsafe.Pointer(s)) {
 		CrossCompiled.NFapi_ProcessPortInt(0)
 	}
-	s.connListLock.Unlock()
+	s.lock.Unlock()
 	return s
 }
 
@@ -2165,18 +2251,18 @@ func (s *Sunny) listenTcpGo() {
 func (s *Sunny) handleClientConn(conn net.Conn, tgt *TargetInfo) {
 	Theoni := atomic.AddInt64(&public.Theology, 1)
 	//存入会话列表 方便停止时，将所以连接断开
-	s.connListLock.Lock()
+	s.lock.Lock()
 	s.connList[Theoni] = conn
-	s.connListLock.Unlock()
+	s.lock.Unlock()
 	//构造一个请求中间件
 	req := &ProxyRequest{Global: s, TcpCall: s.tcpCallback, HttpCall: s.httpCallback, wsCall: s.websocketCallback, TcpGoCall: s.goTcpCallback, HttpGoCall: s.goHttpCallback, wsGoCall: s.goWebsocketCallback} //原始请求对象
 	defer req.delSocket5User()
 	defer func() {
 		//当 handleClientConn 函数 即将退出时 从会话列表中删除当前会话
 		_ = conn.Close()
-		s.connListLock.Lock()
+		s.lock.Lock()
 		delete(s.connList, Theoni)
-		s.connListLock.Unlock()
+		s.lock.Unlock()
 		//当 handleClientConn 函数 即将退出时 销毁 请求中间件 中的一些信息，避免内存泄漏
 		req.RwObj = nil
 		req.Conn = nil

@@ -24,9 +24,11 @@ func Test() {
 	//s.SetIeProxy(false)
 	//s.MustTcp(true)
 	Port := 2024
-	//s.SetMustTcpRegexp("*.bai
-	//du.com")
+	//s.SetMustTcpRegexp("*.baidu.com")
 	s = s.SetPort(Port).Start()
+	//开启随机TLS指纹
+	s.SetRandomTLS(true)
+
 	//fmt.Println(s.StartProcess())
 	// 请注意GoLang调试时候，请不要使用此(ProcessALLName)命令，因为不管开启或关闭，都会将当前所有TCP链接断开一次
 	// 因为如果不断开的一次的话,已经建立的TCP链接无法抓包。

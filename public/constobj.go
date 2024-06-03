@@ -10,10 +10,11 @@ package public
 
 import "C"
 import (
+	"math/rand"
 	"time"
 )
 
-const SunnyVersion = "2024-06-01"
+const SunnyVersion = "2024-06-03"
 
 // TCP请求相关
 const (
@@ -112,6 +113,13 @@ const (
 	Socks5typeDomainName = uint8(0x03)
 	Socks5typeIpv6       = uint8(0x04)
 )
+
+var RandomTLSValueArray = []uint16{0x0005, 0x000a, 0x002f, 0x0035, 0x003c, 0x009c, 0x009d, 0xc007, 0xc009, 0xc00a, 0xc011, 0xc012, 0xc013, 0xc014, 0xc023, 0xc027, 0xc02f, 0xc02b, 0xc030, 0xc02c, 0xcca8, 0xcca9, 0x1301, 0x1302, 0x1303, 0x5600}
+var RandomTLSValueArrayLen = len(RandomTLSValueArray)
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 // Sunny中间件自带默认证书
 const (

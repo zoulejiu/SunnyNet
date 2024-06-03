@@ -67,6 +67,7 @@ type WinHttp struct {
 	cfg               *tls.Config
 	WinPool           *PoolInfo
 	PoolName          string
+	GetTLSValues      func() []uint16
 }
 type Proxy struct {
 	S5TypeProxy bool
@@ -956,6 +957,12 @@ func (w *WinHttp) connect() (_a bool, _b bool, _c *http.Response, _d error) {
 		}
 		if cfg.ServerName == "" {
 			cfg.ServerName = fHost
+		}
+		if w.GetTLSValues != nil {
+			obj := w.GetTLSValues()
+			if len(obj) > 0 {
+				cfg.CipherSuites = obj
+			}
 		}
 		cfg.InsecureSkipVerify = true
 		tlsConn := tls.Client(w.WinPool.Conn, cfg)
