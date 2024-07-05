@@ -21,7 +21,7 @@
 * # 由于代码主要是做DLL使用,部分功能未封装给Go使用(例如添加证书,添加证书使用规则),请自行探索！
 * # <a href="https://github.com/jmeubank/tdm-gcc/releases/download/v10.3.0-tdm64-2/tdm64-gcc-10.3.0-2.exe">编译请使用 TDM-GCC</a> 
 <center><h2><a style="color: red;">BUG 反馈</a></center></h2></center>
-<center><h3>Sunny开源项目网站：https://esunny.vip></h3></center>
+<center><h3>Sunny开源项目网站：https://esunny.vip</h3></center>
 <center><h3>Sunny QQ交流群(一群)：751406884</h3></center>
 <center><h3>Sunny QQ交流群(二群)：545120699</h3></center>
 <center><h3>Sunny QQ交流群(三群)：170902713</h3></center>
