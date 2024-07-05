@@ -69,6 +69,7 @@ type WinHttp struct {
 	PoolName          string
 	GetTLSValues      func() []uint16
 }
+
 type Proxy struct {
 	S5TypeProxy bool
 	Address     string //127.0.0.1:8888
@@ -466,7 +467,11 @@ func (w *WinHttp) Open(method, _url string) *WinHttp {
 
 // SetHeader 设置协议头
 func (w *WinHttp) SetHeader(Name, Value string) *WinHttp {
-	w.request.Header[Name] = []string{Value}
+	if w.request.Header[Name] == nil {
+		w.request.Header[Name] = []string{Value}
+	} else {
+		w.request.Header[Name] = append(w.request.Header[Name], Value)
+	}
 	return w
 }
 
@@ -657,6 +662,7 @@ func (w *WinHttp) Send(data any) (_r *http.Response, _e error) {
 	}
 	_ = w.WinPool.Conn.SetWriteDeadline(time.Now().Add(w.SendTimeout))
 	SendData := w.formatMsg(data)
+
 	_, err = w.WinPool.Conn.Write(SendData)
 	//SendData = make([]byte, 0)
 	if err != nil {
@@ -724,7 +730,9 @@ func (w *WinHttp) formatMsg(data any) []byte {
 			continue
 		}
 		if len(v) > 0 {
-			buff.WriteString(k + ": " + v[0] + "\r\n")
+			for _, vvv := range v {
+				buff.WriteString(k + ": " + vvv + "\r\n")
+			}
 		} else {
 			buff.WriteString(k + ": \r\n")
 		}

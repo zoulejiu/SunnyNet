@@ -149,7 +149,7 @@ func (hs *serverHandshakeStateTLS13) processClientHello() error {
 
 	var preferenceList, supportedList []uint16
 	if c.config.PreferServerCipherSuites {
-		preferenceList = defaultCipherSuitesTLS13()
+		preferenceList = c.config.cipherSuites()
 		supportedList = hs.clientHello.cipherSuites
 
 		// If the client does not seem to have hardware support for AES-GCM,

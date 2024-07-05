@@ -813,7 +813,11 @@ func BuildRequest(RawData []byte, host, source, DefaultPort string, setProxyHost
 					//Expect: 100-continue
 					continue
 				}
-				req.Header[Name] = []string{value}
+				if req.Header[Name] != nil {
+					req.Header[Name] = append(req.Header[Name], value)
+				} else {
+					req.Header[Name] = []string{value}
+				}
 				if req.URL == nil && strings.ToUpper(HeadArr[0]) == "HOST" {
 					if strings.HasPrefix(Path, host) {
 						Path = CopyString(Path[len(host):])

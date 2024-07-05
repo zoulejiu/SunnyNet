@@ -23,7 +23,7 @@ func Test() {
 	s.SetGoCallback(HttpCallback, TcpCallback, WSCallback, UdpCallback)
 	//s.SetIeProxy(false)
 	//s.MustTcp(true)
-	Port := 2024
+	Port := 2023
 	//s.SetMustTcpRegexp("*.baidu.com")
 	s = s.SetPort(Port).Start()
 	//开启随机TLS指纹

@@ -884,10 +884,6 @@ func (s *ProxyRequest) transparentProcessing() {
 	_bytes, _ := s.RwObj.Peek(s.RwObj.Reader.Buffered())
 	//升级到TLS客户端
 	fig := &tls.Config{InsecureSkipVerify: true}
-	obj := s.Global.GetTLSValues()
-	if obj != nil {
-		fig.CipherSuites = obj
-	}
 	T := tls.Client(s.Conn, fig)
 	//将数据重新写进去
 	T.Reset(_bytes)
@@ -932,7 +928,6 @@ func (s *ProxyRequest) httpProcessing(aheadData []byte, DefaultPort, Tag string)
 	}()
 	//缓冲区读取字节流
 	ReadData, WhetherExceedsLength := s.ConnRead(aheadData, false)
-
 	//从字节流中取出HOST
 	host := public.GetHost(string(ReadData))
 	if host != public.NULL && host != s.Target.Host {
@@ -1184,6 +1179,7 @@ func (s *ProxyRequest) https() {
 	var HelloMsg *tls.ClientHelloMsg
 	//普通会话升级到TLS会话，并且设置生成的握手证书,限制tls最大版本为1.2,因为1.3可能存在算法不支持
 	//如果某些服务器只支持tls1.3,将会在 tlsConn.ClientHello() 函数中自动纠正为 tls1.3
+	//tlsConfig := &tls.Config{Certificates: []tls.Certificate{*certificate}, MaxVersion: tls.VersionTLS12, NextProtos: []string{"h2", "http/1.1"}}
 	tlsConfig := &tls.Config{Certificates: []tls.Certificate{*certificate}, MaxVersion: tls.VersionTLS12}
 	tlsConn = tls.Server(s.Conn, tlsConfig)
 	defer func() {
@@ -1203,11 +1199,11 @@ func (s *ProxyRequest) https() {
 		_ = tlsConn.SetDeadline(time.Now().Add(3 * time.Second))
 		//开始握手
 		msg, _serverName, _err := tlsConn.ClientHello()
-		bs := tlsConn.Read_Handshake_bytes()
 		if _serverName != "" && s.IsMustTcpRules(_serverName) {
 			if s.Global.disableTCP {
 				return
 			}
+			bs := tlsConn.Read_Handshake_bytes()
 			s.MustTcpProcessing(bs, public.TagMustTCP)
 			return
 		}

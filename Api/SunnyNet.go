@@ -39,6 +39,42 @@ func SetRequestHeader(MessageId int, name, val string) {
 	k.Request.Header[name] = []string{val}
 }
 
+// SetRequestALLHeader 设置HTTP/S请求体中的全部协议头
+func SetRequestALLHeader(MessageId int, value string) {
+	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
+	if ok == false {
+		return
+	}
+	if k == nil {
+		return
+	}
+	k.Lock.Lock()
+	defer k.Lock.Unlock()
+	if k.Request == nil {
+		return
+	}
+	if k.Request.Header == nil {
+		k.Request.Header = make(http.Header)
+	}
+	arr := strings.Split(strings.ReplaceAll(value, "\r", ""), "\n")
+	if len(arr) > 0 {
+		k.Request.Header = make(http.Header)
+		for _, v := range arr {
+			arr2 := strings.Split(v, ":")
+			if len(arr2) >= 1 {
+				if len(v) >= len(arr2[0])+1 {
+					data := strings.TrimSpace(v[len(arr2[0])+1:])
+					if len(k.Request.Header[arr2[0]]) > 0 {
+						k.Request.Header[arr2[0]] = append(k.Request.Header[arr2[0]], data)
+					} else {
+						k.Request.Header[arr2[0]] = []string{data}
+					}
+				}
+			}
+		}
+	}
+}
+
 // SetRequestProxy 设置HTTP/S请求代理，仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
 func SetRequestProxy(MessageId int, ProxyUrl string) bool {
 	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
@@ -321,12 +357,22 @@ func GetRequestHeader(MessageId int, name string) uintptr {
 		aegName := strings.ToLower(name)
 		for _Name, v := range k.Request.Header {
 			if strings.ToLower(_Name) == aegName {
-				return public.PointerPtr(v[0])
+				s := ""
+				for i, vv := range v {
+					if i == 0 {
+						s = vv
+					} else {
+						s += "\r\n" + vv
+					}
+				}
+				if len(s) > 0 {
+
+				}
+				return public.PointerPtr(s)
 			}
 		}
-		return public.NULLPtr
 	}
-	return public.PointerPtr(val[0])
+	return public.NULLPtr
 }
 
 // SetResponseHeader 修改、设置 HTTP/S当前返回数据中的指定协议头
@@ -372,7 +418,7 @@ func SetResponseAllHeader(MessageId int, value string) {
 	if k.Response.Header == nil {
 		k.Response.Header = make(http.Header)
 	}
-	arr := strings.Split(value, "\r\n")
+	arr := strings.Split(strings.ReplaceAll(value, "\r", ""), "\n")
 	if len(arr) > 0 {
 		k.Response.Header = make(http.Header)
 		for _, v := range arr {

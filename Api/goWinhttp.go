@@ -5,6 +5,7 @@ import (
 	"github.com/qtgolang/SunnyNet/src/Certificate"
 	"github.com/qtgolang/SunnyNet/src/GoWinHttp"
 	"io"
+	mrand "math/rand"
 	"net/http"
 	"net/url"
 	"sync"
@@ -267,4 +268,40 @@ func HTTPSetRedirect(Context int, Redirect bool) bool {
 	defer k.Lock.Unlock()
 	k.SetRedirect(Redirect)
 	return true
+}
+
+// HTTPSetRandomTLS
+// HTTP 客户端 设置随机使用TLS指纹
+func HTTPSetRandomTLS(Context int, Open bool) bool {
+	k := LoadHTTPClient(Context)
+	if k == nil {
+		return false
+	}
+	k.Lock.Lock()
+	defer k.Lock.Unlock()
+	if Open {
+		k.GetTLSValues = GetTLSValues
+	} else {
+		k.GetTLSValues = nil
+	}
+	return true
+}
+
+var _httpRandomTLSValue []uint16
+
+func init() {
+	_httpRandomTLSValue = make([]uint16, public.RandomTLSValueArrayLen)
+	copy(_httpRandomTLSValue, public.RandomTLSValueArray)
+}
+func GetTLSValues() []uint16 {
+	HTTPMapLock.Lock()
+	defer HTTPMapLock.Unlock()
+	n := mrand.Intn(public.RandomTLSValueArrayLen) + 1
+	for i := public.RandomTLSValueArrayLen - 1; i > 0; i-- {
+		j := mrand.Intn(i + 1)
+		_httpRandomTLSValue[i], _httpRandomTLSValue[j] = _httpRandomTLSValue[j], _httpRandomTLSValue[i]
+	}
+	shuffledArray := make([]uint16, n)
+	copy(shuffledArray, _httpRandomTLSValue[:n])
+	return shuffledArray
 }
