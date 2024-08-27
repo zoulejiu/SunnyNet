@@ -30,11 +30,10 @@
 ---
 
 ### <center><h3>示例文件以及抓包工具 下载地址 </center>
-<div style="text-align: center;"><h3>https://wwf.lanzouj.com/b02p3o56wj</h3></div>
-<div style="text-align: center;"><h3>密码:4rus</h3></div>
+<div style="text-align: center;"><h3>https://wwxa.lanzouj.com/b02p3w6txc</h3></div>
+<div style="text-align: center;"><h3>密码:4wzx</h3></div>
 <div style="text-align: center;"><h3></h3></div>
-
-
+  
 ---
 - > GoLang使用示例代码
 
