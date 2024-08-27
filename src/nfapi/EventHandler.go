@@ -5,7 +5,9 @@ package NFapi
 
 import "C"
 import (
+	"fmt"
 	"github.com/qtgolang/SunnyNet/public"
+	"github.com/qtgolang/SunnyNet/src/iphlpapi"
 	"net"
 	"regexp"
 	"strconv"
@@ -179,6 +181,14 @@ func tcpConnectRequest(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 		_, IP := pConnInfo.RemoteAddress.GetIP()
 		p4 := IP.To4()
 		if len(p4) != net.IPv4len {
+			if p4.String() == "127.0.0.1" || p4.String() == "::1" || p4.String() == "[::1]" {
+				__Port := fmt.Sprintf("%d", int(pConnInfo.RemoteAddress.GetPort()))
+				__pid := iphlpapi.GetTcpInfoPID(p4.String()+":"+__Port, 0)
+				__ProcessId := strconv.Itoa(int(pConnInfo.ProcessId.Get()))
+				if __pid == __ProcessId {
+					return
+				}
+			}
 			//这里是IPV6
 			Process := &ProcessInfo{Pid: strconv.Itoa(int(pConnInfo.ProcessId.Get())), RemoteAddress: IP.String(), RemoteProt: pConnInfo.RemoteAddress.GetPort(), Id: id, V6: true}
 			proxyLock.Lock()
@@ -187,6 +197,15 @@ func tcpConnectRequest(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 			pConnInfo.RemoteAddress.SetIP(false, net.ParseIP(getIPV6Lan()))
 			pConnInfo.RemoteAddress.SetPort(ProcessPortInt)
 			return
+		}
+
+		if p4.String() == "127.0.0.1" {
+			__Port := fmt.Sprintf("%d", int(pConnInfo.RemoteAddress.GetPort()))
+			__pid := iphlpapi.GetTcpInfoPID(p4.String()+":"+__Port, 0)
+			__ProcessId := strconv.Itoa(int(pConnInfo.ProcessId.Get()))
+			if __pid == __ProcessId {
+				return
+			}
 		}
 		//这里实际上还是IPV4
 		Process := &ProcessInfo{Pid: strconv.Itoa(int(pConnInfo.ProcessId.Get())), RemoteAddress: p4.String(), RemoteProt: pConnInfo.RemoteAddress.GetPort(), Id: id}
@@ -205,13 +224,20 @@ func tcpConnectRequest(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 
 	// 如果连接是 IPv4 的，则将连接的远程地址改为本地 IPv4 地址，并保存到代理列表中
 	_, i := pConnInfo.RemoteAddress.GetIP()
+	if i.String() == "127.0.0.1" {
+		__Port := fmt.Sprintf("%d", int(pConnInfo.RemoteAddress.GetPort()))
+		__pid := iphlpapi.GetTcpInfoPID(i.String()+":"+__Port, 0)
+		__ProcessId := strconv.Itoa(int(pConnInfo.ProcessId.Get()))
+		if __pid == __ProcessId {
+			return
+		}
+	}
 	Process := &ProcessInfo{Pid: strconv.Itoa(int(pConnInfo.ProcessId.Get())), RemoteAddress: i.String(), RemoteProt: pConnInfo.RemoteAddress.GetPort(), Id: id}
 	proxyLock.Lock()
 	proxy[pConnInfo.LocalAddress.GetPort()] = Process
 	proxyLock.Unlock()
 	pConnInfo.RemoteAddress.SetIP(true, net.ParseIP("127.0.0.1"))
 	pConnInfo.RemoteAddress.SetPort(ProcessPortInt)
-	return
 }
 
 func tcpConnected(id uint64, pConnInfo *NF_TCP_CONN_INFO) {

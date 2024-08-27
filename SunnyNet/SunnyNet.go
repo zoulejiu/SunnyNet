@@ -617,6 +617,7 @@ func (s *ProxyRequest) MustTcpProcessing(aheadData []byte, Tag string) {
 		RemoteTCP = c
 	} else {
 		RemoteTCP, err = net.DialTimeout("tcp", s.Target.String(), 15*time.Second)
+
 	}
 	defer func() {
 		if RemoteTCP != nil {
@@ -1495,7 +1496,6 @@ func (s *ProxyRequest) CompleteRequest(req *http.Request) {
 	if s.ProxyHost != public.NULL && s.ProxyHost != req.Host+":"+public.HttpDefaultPort && s.ProxyHost != req.Host+":"+public.HttpsDefaultPort && s.ProxyHost != req.Host {
 		s.Proxy.Address = s.ProxyHost
 	}
-
 	//通知回调 即将开始发送请求
 	s.CallbackBeforeRequest()
 	//回调中设置 不发送 直接响应指定数据 或终止发送
