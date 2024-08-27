@@ -29,13 +29,13 @@ func Test() {
 	//开启随机TLS指纹
 	s.SetRandomTLS(true)
 
-	fmt.Println(s.StartProcess())
+	//fmt.Println(s.StartProcess())
 	// 请注意GoLang调试时候，请不要使用此(ProcessALLName)命令，因为不管开启或关闭，都会将当前所有TCP链接断开一次
 	// 因为如果不断开的一次的话,已经建立的TCP链接无法抓包。
 	// Go程序调试，是通过TCP连接的，若使用此命令将无法调试。
 	// s.ProcessALLName(true)
 
-	s.ProcessAddName("WeChat.exe")
+	//s.ProcessAddName("WeChat.exe")
 	//s.ProcessAddName("msedge.exe")
 	//s.ProcessAddName("pop_dd_workbench.exe")
 	err := s.Error
