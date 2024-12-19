@@ -27,7 +27,7 @@
 
 ---
 
-### <center><h3>示例文件以及抓包工具 下载地址 </center>
+### <center><h3>此版本暂未提供其他示例，历史版本示例文件以及抓包工具 下载地址 </center>
 <div style="text-align: center;"><h3>https://wwf.lanzouj.com/b02p3o56wj</h3></div>
 <div style="text-align: center;"><h3>密码:4rus</h3></div>
 <div style="text-align: center;"><h3></h3></div>
@@ -58,62 +58,81 @@ func main() {
 	//避免程序退出
 	time.Sleep(24 * time.Hour)
 }
-func HttpCallback(Conn *SunnyNet.HttpConn) {
-	if Conn.Type == public.HttpSendRequest {
+
+func HttpCallback(Conn SunnyNet.ConnHTTP) {
+
+	if Conn.Type() == public.HttpSendRequest {
+		//fmt.Println(Conn.URL())
 		//发起请求
-		//这里可以对请求数据修改
-		if Conn.Request.Body != nil {
-			Body, _ := io.ReadAll(Conn.Request.Body)
-			_ = Conn.Request.Body.Close()
 
-			//这里可以对Body修改
+		//直接响应,不让其发送请求
+		//Conn.StopRequest(200, "Hello Word")
 
-			Body = []byte("Hello Sunny Request")
-
-			Conn.Request.Body = io.NopCloser(bytes.NewBuffer(Body))
-
-			//直接响应,不让其发送请求
-			//Conn.StopRequest(200, "Hello Word")
-		}
-		fmt.Println(Conn.Request.URL.String())
-	} else if Conn.Type == public.HttpResponseOK {
+	} else if Conn.Type() == public.HttpResponseOK {
 		//请求完成
-		if Conn.Response.Body != nil {
-			Body, _ := io.ReadAll(Conn.Response.Body)
-			_ = Conn.Response.Body.Close()
-
-			//这里可以对Body修改
-
-			Body = []byte("Hello Sunny Response")
-
-			Conn.Response.Body = io.NopCloser(bytes.NewBuffer(Body))
-		}
-
-	} else if Conn.Type == public.HttpRequestFail {
+		//log.Println("Call", Conn.URL())
+	} else if Conn.Type() == public.HttpRequestFail {
 		//请求错误
+		/*	fmt.Println(Conn.Request.URL.String(), Conn.GetError())
+		 */
 	}
 }
-func WSCallback(Conn *SunnyNet.WsConn) {
-	//捕获到数据可以修改,修改空数据,取消发送/接收
-	fmt.Println(Conn.Url)
+func WSCallback(Conn SunnyNet.ConnWebSocket) {
+
+	Conn.Context()
+	//fmt.Println(Conn.Url)
 }
-func TcpCallback(Conn *SunnyNet.TcpConn) {
-	//捕获到数据可以修改,修改空数据,取消发送/接收
-	
-	fmt.Println(Conn.Pid, Conn.LocalAddr, Conn.RemoteAddr, Conn.Type, Conn.GetBodyLen())
+func TcpCallback(Conn SunnyNet.ConnTCP) {
+
+	if Conn.Type() == public.SunnyNetMsgTypeTCPAboutToConnect {
+		//即将连接
+		mode := string(Conn.Body())
+		info.Println("PID", Conn.PID(), "TCP 即将连接到:", mode, Conn.LocalAddress(), "->", Conn.RemoteAddress())
+		//修改目标连接地址
+		//Conn.SetNewAddress("8.8.8.8:8080")
+		return
+	}
+
+	if Conn.Type() == public.SunnyNetMsgTypeTCPConnectOK {
+		info.Println("PID", Conn.PID(), "TCP 连接到:", Conn.LocalAddress(), "->", Conn.RemoteAddress(), "成功")
+		return
+	}
+
+	if Conn.Type() == public.SunnyNetMsgTypeTCPClose {
+		info.Println("PID", Conn.PID(), "TCP 断开连接:", Conn.LocalAddress(), "->", Conn.RemoteAddress())
+		return
+	}
+	if Conn.Type() == public.SunnyNetMsgTypeTCPClientSend {
+		info.Println("PID", Conn.PID(), "发送数据", Conn.LocalAddress(), Conn.RemoteAddress(), Conn.Type(), Conn.BodyLen(), Conn.Body())
+		return
+	}
+	if Conn.Type() == public.SunnyNetMsgTypeTCPClientReceive {
+		info.Println("PID", Conn.PID(), "收到数据", Conn.LocalAddress(), Conn.RemoteAddress(), Conn.Type(), Conn.BodyLen(), Conn.Body())
+		return
+	}
 }
-func UdpCallback(Conn *SunnyNet.UDPConn) {
-	//在 Windows 捕获UDP需要加载驱动,并且设置进程名
-	//其他情况需要设置Socket5代理,才能捕获到UDP
-	//捕获到数据可以修改,修改空数据,取消发送/接收
-	if public.SunnyNetUDPTypeReceive == Conn.Type {
-		fmt.Println("接收UDP", Conn.LocalAddress, Conn.RemoteAddress, len(Conn.Data))
+func UdpCallback(Conn SunnyNet.ConnUDP) {
+
+	if Conn.Type() == public.SunnyNetUDPTypeSend {
+		//客户端向服务器端发送数据
+		info.Println("PID", Conn.PID(), "发送UDP", Conn.LocalAddress(), Conn.RemoteAddress(), Conn.BodyLen())
+		//修改发送的数据
+		//Conn.SetBody([]byte("Hello Word"))
+
+		return
 	}
-	if public.SunnyNetUDPTypeSend == Conn.Type {
-		fmt.Println("发送UDP", Conn.LocalAddress, Conn.RemoteAddress, len(Conn.Data))
+	if Conn.Type() == public.SunnyNetUDPTypeReceive {
+		//服务器端向客户端发送数据
+		info.Println("PID", Conn.PID(), "接收UDP", Conn.LocalAddress(), Conn.RemoteAddress(), Conn.BodyLen())
+		//修改响应的数据
+		//Conn.SetBody([]byte("Hello Word"))
+		return
 	}
-	if public.SunnyNetUDPTypeClosed == Conn.Type {
-		fmt.Println("关闭UDP", Conn.LocalAddress, Conn.RemoteAddress)
+	if Conn.Type() == public.SunnyNetUDPTypeClosed {
+
+		info.Println("PID", Conn.PID(), "关闭UDP", Conn.LocalAddress(), Conn.RemoteAddress())
+		return
 	}
+
 }
 ```

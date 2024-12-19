@@ -13,7 +13,6 @@ import (
 	"bytes"
 	"github.com/qtgolang/SunnyNet/src/SunnyProxy"
 	"github.com/qtgolang/SunnyNet/src/websocket"
-	"io"
 	"net"
 	"sync"
 )
@@ -43,20 +42,4 @@ type TCP struct {
 	ConnServer net.Conn
 	SendBw     *bufio.Writer
 	ReceiveBw  *bufio.Writer
-}
-
-// ZlibCompress 主要用于Zlib 压缩
-type ZlibCompress struct {
-	io.Writer
-	b bytes.Buffer
-}
-
-func (w *ZlibCompress) Write(p []byte) (n int, err error) {
-	return w.b.Write(p)
-}
-func (w *ZlibCompress) Bytes() []byte {
-	return w.b.Bytes()
-}
-func (w *ZlibCompress) Close() {
-	w.b.Reset()
 }

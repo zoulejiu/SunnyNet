@@ -8,9 +8,13 @@ import (
 	"github.com/qtgolang/SunnyNet/src/public"
 	"log"
 	"os"
+	"unsafe"
 )
 
 func Test() {
+	bs := []byte("xxxxxxxxxxxx")
+	fmt.Println(DeflateCompress(uintptr(unsafe.Pointer(&bs[0])), len(bs)))
+
 	s := SunnyNet.NewSunny()
 	//i := CreateCertificate()
 	//ok := LoadP12Certificate(i, C.CString("C:\\Users\\qinka\\Desktop\\74fe394a37757545d8cfbd2ea264c7c3.p12"), C.CString("qyrhudhZ"))
@@ -38,7 +42,7 @@ func Test() {
 	s = s.SetPort(Port).Start()
 
 	//s.SetIeProxy(true)
-	s.SetHTTPRequestMaxUpdateLength(1000000)
+	s.SetHTTPRequestMaxUpdateLength(100000000)
 	//fmt.Println(s.StartProcess())
 	// 请注意GoLang调试时候，请不要使用此(ProcessALLName)命令，因为不管开启或关闭，都会将当前所有TCP链接断开一次
 	// 因为如果不断开的一次的话,已经建立的TCP链接无法抓包。
@@ -75,13 +79,12 @@ func HttpCallback(Conn SunnyNet.ConnHTTP) {
 	}
 }
 func WSCallback(Conn SunnyNet.ConnWebSocket) {
-	return
+
 	Conn.Context()
 	//fmt.Println(Conn.Url)
 }
 func TcpCallback(Conn SunnyNet.ConnTCP) {
 
-	return
 	if Conn.Type() == public.SunnyNetMsgTypeTCPAboutToConnect {
 		//即将连接
 		mode := string(Conn.Body())
@@ -110,7 +113,7 @@ func TcpCallback(Conn SunnyNet.ConnTCP) {
 	}
 }
 func UdpCallback(Conn SunnyNet.ConnUDP) {
-	return
+
 	if Conn.Type() == public.SunnyNetUDPTypeSend {
 		//客户端向服务器端发送数据
 		info.Println("PID", Conn.PID(), "发送UDP", Conn.LocalAddress(), Conn.RemoteAddress(), Conn.BodyLen())

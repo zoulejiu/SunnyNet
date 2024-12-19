@@ -5,7 +5,6 @@ package NFapi
 
 import "C"
 import (
-	"github.com/qtgolang/SunnyNet/src/VirtualFile"
 	"github.com/qtgolang/SunnyNet/src/public"
 	"net"
 	"regexp"
@@ -191,7 +190,7 @@ func tcpConnectRequest(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 		}
 		//这里实际上还是IPV4
 		Process := &ProcessInfo{Pid: strconv.Itoa(int(pConnInfo.ProcessId.Get())), RemoteAddress: p4.String(), RemoteProt: pConnInfo.RemoteAddress.GetPort(), Id: id}
-		Process.RemoteAddress = realDomain(pConnInfo.ProcessId.Get(), Process.RemoteAddress)
+ 
 		pConnInfo.RemoteAddress.Data2[12] = 127
 		pConnInfo.RemoteAddress.Data2[13] = 0
 		pConnInfo.RemoteAddress.Data2[14] = 0
@@ -207,7 +206,7 @@ func tcpConnectRequest(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 	// 如果连接是 IPv4 的，则将连接的远程地址改为本地 IPv4 地址，并保存到代理列表中
 	_, i := pConnInfo.RemoteAddress.GetIP()
 	Process := &ProcessInfo{Pid: strconv.Itoa(int(pConnInfo.ProcessId.Get())), RemoteAddress: i.String(), RemoteProt: pConnInfo.RemoteAddress.GetPort(), Id: id}
-	Process.RemoteAddress = realDomain(pConnInfo.ProcessId.Get(), Process.RemoteAddress)
+
 	proxyLock.Lock()
 	proxy[pConnInfo.LocalAddress.GetPort()] = Process
 	proxyLock.Unlock()
@@ -215,14 +214,7 @@ func tcpConnectRequest(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 	pConnInfo.RemoteAddress.SetPort(ProcessPortInt)
 	return
 }
-func realDomain(pid uint32, RemoteAddress string) string {
-	VirtualFilePath := "Global\\SunnyNetNsp_" + strconv.Itoa(int(pid)) + "_" + RemoteAddress
-	a, _ := VirtualFile.Read(VirtualFilePath, true)
-	if len(a) < 2 {
-		return RemoteAddress
-	}
-	return string(a)
-}
+
 func tcpConnected(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 	return
 }

@@ -7,7 +7,6 @@ import (
 	"compress/zlib"
 	"github.com/andybalholm/brotli"
 	"github.com/klauspost/compress/zstd"
-	"github.com/qtgolang/SunnyNet/src/public"
 	"io"
 	"io/ioutil"
 )
@@ -16,15 +15,14 @@ var _null_bytes = make([]byte, 0)
 
 // DeflateCompress Deflate压缩 (可能等同于zlib压缩)
 func DeflateCompress(data []byte) []byte {
-	var o = &public.ZlibCompress{}
-	f, _ := flate.NewWriter(o, flate.BestCompression)
+	var o bytes.Buffer
+	f, _ := flate.NewWriter(&o, flate.BestCompression)
 	if a, b := f.Write(data); a == 0 || b != nil {
 		return _null_bytes
 	}
 	if f.Flush() != nil {
 		return _null_bytes
 	}
-	o.Close()
 	return o.Bytes()
 }
 
