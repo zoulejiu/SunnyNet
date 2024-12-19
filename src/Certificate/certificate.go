@@ -1,11 +1,11 @@
 package Certificate
 
 import (
-	"crypto/tls"
 	"encoding/pem"
 	"errors"
-	"github.com/qtgolang/SunnyNet/public"
 	"github.com/qtgolang/SunnyNet/src/crypto/pkcs"
+	"github.com/qtgolang/SunnyNet/src/crypto/tls"
+	"github.com/qtgolang/SunnyNet/src/public"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -59,8 +59,8 @@ func getPrivateKey(privateKeyName, privatePassword string) ([]*pem.Block, error)
 var MessageIdLock sync.Mutex
 var messageId = 1000
 
-// 创建新的 messageId
-func newMessageId() int {
+// 创建新的 NewMessageId
+func NewMessageId() int {
 	MessageIdLock.Lock()
 	defer MessageIdLock.Unlock()
 	messageId++

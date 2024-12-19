@@ -5,8 +5,8 @@ package NFapi
 
 import "C"
 import (
-	"github.com/qtgolang/SunnyNet/public"
 	"github.com/qtgolang/SunnyNet/src/nfapi/Driver"
+	"github.com/qtgolang/SunnyNet/src/public"
 	"unsafe"
 )
 

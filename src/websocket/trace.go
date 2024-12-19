@@ -4,8 +4,8 @@
 package websocket
 
 import (
-	"crypto/tls"
-	"net/http/httptrace"
+	"github.com/qtgolang/SunnyNet/src/http/httptrace"
+	"github.com/qtgolang/SunnyNet/src/crypto/tls"
 )
 
 func doHandshakeWithTrace(trace *httptrace.ClientTrace, tlsConn *tls.Conn, cfg *tls.Config) error {

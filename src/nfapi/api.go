@@ -58,10 +58,10 @@ func MessageBox(caption, text string, style uintptr) (result int) {
 	user32, _ := syscall.LoadLibrary("user32.dll")
 	messageBox, _ := syscall.GetProcAddress(user32, "MessageBoxW")
 	ret, _, callErr := syscall.SyscallN(messageBox, 4,
-		0,                                                          // hwnd
+		0, // hwnd
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(text))),    // Text
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(caption))), // Caption
-		style,                                                      // type
+		style, // type
 		0,
 		0)
 	if callErr != 0 {
@@ -73,6 +73,7 @@ func MessageBox(caption, text string, style uintptr) (result int) {
 func ApiInit() bool {
 	if apiLoad == false {
 		DLLPath := Install()
+		//DLLPath := GetWindowsDirectory() + NF_DLLName + "64.dll"
 		er := Api.Load(DLLPath)
 		if er != nil {
 			fmt.Println("LoadDLLPathErr=", er)
@@ -88,16 +89,20 @@ func ApiInit() bool {
 			errorText = strings.ReplaceAll(errorText, "This sys has been blocked from loading", "此驱动程序已被阻止加载。\r\n\r\n可能使用了和 Windows 位数不配的驱动文件。")
 			errorText = strings.ReplaceAll(errorText, "The system cannot find the file specified.", "系统找不到指定的驱动文件。")
 			errorText = strings.ReplaceAll(errorText, "The specified service has been marked for deletion.", "指定的服务已标记为删除。")
-			MessageBox("载入驱动失败：", errorText, 0x00000010)
+			fmt.Println("载入驱动失败：", errorText)
 			return false
 		}
 		a, er := Api.NfInit()
 		if er != nil {
+			fmt.Println("NfInitErr=", er)
 			return false
 		}
 		if a != 0 {
+			fmt.Println("NfInitErr=", "可能已经有其他程序加载")
 			return false
 		}
+		//_, _ = MoveFileToTempDir(DriverFile, "Sunny_"+randomLetters(32)+extensionsTemp)
+
 		_, er = AddRule(false, IPPROTO_TCP, 0, D_OUT, 0, 0, AF_INET, "", "", "", "", NF_INDICATE_CONNECT_REQUESTS)  //TCP
 		_, er = AddRule(false, IPPROTO_TCP, 0, D_OUT, 0, 0, AF_INET6, "", "", "", "", NF_INDICATE_CONNECT_REQUESTS) //TCP
 
@@ -106,16 +111,6 @@ func ApiInit() bool {
 
 		_, er = AddRule(false, IPPROTO_UDP, 0, D_IN, 0, 0, AF_INET, "", "", "", "", NF_FILTER)  //UDP
 		_, er = AddRule(false, IPPROTO_UDP, 0, D_IN, 0, 0, AF_INET6, "", "", "", "", NF_FILTER) //UDP
-
-		//_, er = AddRule(false, IPPROTO_UDP, 0, 0, 0, 0, 0, "", "", "", "", NF_FILTER)                               //UDP
-		/*
-			_, er = AddRule(false, IPPROTO_UDP, 0, D_OUT, 0, 0, AF_INET, "", "", "", "", NF_FILTER)                     //UDP
-			_, er = AddRule(false, IPPROTO_UDP, 0, D_OUT, 0, 0, AF_INET6, "", "", "", "", NF_FILTER)                    //UDP
-			_, er = AddRule(false, IPPROTO_UDP, 0, D_IN, 0, 0, AF_INET, "", "", "", "", NF_FILTER)                      //UDP
-			_, er = AddRule(false, IPPROTO_UDP, 0, D_IN, 0, 0, AF_INET6, "", "", "", "", NF_FILTER)                     //UDP
-			_, er = AddRule(true, IPPROTO_UDP, 0, 0, 0, 0, AF_INET6, "", "", "", "", NF_PEND_CONNECT_REQUEST)           //UDP
-			_, er = AddRule(true, IPPROTO_UDP, 0, 0, 0, 0, AF_INET, "", "", "", "", NF_PEND_CONNECT_REQUEST)            //UDP
-		*/
 		if er != nil {
 			return false
 		}

@@ -1,15 +1,15 @@
 package SunnyNet
 
 import (
-	"github.com/qtgolang/SunnyNet/public"
+	"github.com/qtgolang/SunnyNet/src/public"
 	"sync"
 )
 
 var SunnyStorageLock sync.Mutex
-var SunnyStorage = make(map[int]*Sunny) //Sunny中间件储存对象
+var SunnyStorage = make(map[int]*Sunny)
 
 // httpStorage Sunny中间件http回调CALL时储存对象
-var httpStorage = make(map[int]*ProxyRequest)
+var httpStorage = make(map[int]*proxyRequest)
 
 // TcpStorage Sunny中间件tcp回调CALL时储存对象
 var TcpStorage = make(map[int]*public.TCP)

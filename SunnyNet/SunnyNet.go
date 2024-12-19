@@ -3,34 +3,39 @@ package SunnyNet
 import (
 	"bufio"
 	"bytes"
-	"crypto/rand"
 	"crypto/rsa"
-	crypto "crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/qtgolang/SunnyNet/Resource"
-	"github.com/qtgolang/SunnyNet/public"
 	"github.com/qtgolang/SunnyNet/src/Certificate"
 	"github.com/qtgolang/SunnyNet/src/CrossCompiled"
-	"github.com/qtgolang/SunnyNet/src/GoWinHttp"
+	"github.com/qtgolang/SunnyNet/src/GoScriptCode"
 	"github.com/qtgolang/SunnyNet/src/HttpCertificate"
+	"github.com/qtgolang/SunnyNet/src/Interface"
+	"github.com/qtgolang/SunnyNet/src/ReadWriteObject"
+	"github.com/qtgolang/SunnyNet/src/Resource"
+	"github.com/qtgolang/SunnyNet/src/SunnyProxy"
 	"github.com/qtgolang/SunnyNet/src/crypto/tls"
+	"github.com/qtgolang/SunnyNet/src/dns"
+	"github.com/qtgolang/SunnyNet/src/http"
+	"github.com/qtgolang/SunnyNet/src/httpClient"
+	"github.com/qtgolang/SunnyNet/src/public"
 	"github.com/qtgolang/SunnyNet/src/websocket"
 	"io"
 	"io/ioutil"
 	mrand "math/rand"
 	"net"
-	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 	"unsafe"
 )
@@ -48,6 +53,17 @@ type TargetInfo struct {
 	IPV6 bool
 }
 
+func (s *TargetInfo) Clone() *TargetInfo {
+	if s == nil {
+		return nil
+	}
+	return &TargetInfo{
+		Host: s.Host,
+		Port: s.Port,
+		IPV6: s.IPV6,
+	}
+}
+
 // Remove 清除信息
 func (s *TargetInfo) Remove() {
 	s.Host = public.NULL
@@ -55,7 +71,7 @@ func (s *TargetInfo) Remove() {
 }
 
 // 解析IPV6地址
-func parseIPv6Address(address string) (string, uint16) {
+func parseIPv6Address(address string) (string, uint16, net.IP) {
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
 		// 没有端口号
@@ -64,22 +80,27 @@ func parseIPv6Address(address string) (string, uint16) {
 
 	ip := net.ParseIP(host)
 	if ip == nil {
-		return "", 0
-	} else if ip.To4() != nil {
-		// 如果是IPv4地址，返回空字符串
-		return "", 0
+		ipAddr1, err1 := net.ResolveIPAddr("ip", host)
+		if err1 != nil {
+			return "", 0, nil
+		}
+		ip = ipAddr1.IP
 	}
-
+	if ip == nil {
+		return "", 0, nil
+	} else if ip.To4() != nil {
+		return "", 0, nil
+	}
 	var portNumber uint16
 	if port != "" {
 		portInt, err := strconv.ParseUint(port, 10, 16)
 		if err != nil {
-			return "", 0
+			return "", 0, nil
 		}
 		portNumber = uint16(portInt)
 	}
 
-	return ip.String(), portNumber
+	return ip.String(), portNumber, ip
 }
 
 // Parse 解析连接信息
@@ -97,14 +118,12 @@ func (s *TargetInfo) Parse(HostName string, Port interface{}, IPV6 ...bool) {
 	if s.IPV6 {
 		s.IPV6 = IPV6[0]
 	}
-
-	_s, _p := parseIPv6Address(Host)
+	_s, _p, _ := parseIPv6Address(Host)
 	if _s != "" {
 		s.Host = _s
 		p = _p
 		s.IPV6 = true
 	}
-
 	if strings.Index(Host, ":") == -1 || s.IPV6 {
 		switch v := Port.(type) {
 		case string:
@@ -141,7 +160,9 @@ func (s *TargetInfo) Parse(HostName string, Port interface{}, IPV6 ...bool) {
 			s.Host = Host
 		}
 	}
-
+	if strings.ToLower(s.Host) == "localhost" {
+		s.Host = "127.0.0.1"
+	}
 }
 
 // String 格式化信息返回格式127.0.0.1:8888
@@ -152,52 +173,47 @@ func (s *TargetInfo) String() string {
 	return fmt.Sprintf("%s:%d", s.Host, s.Port)
 }
 
-// ProxyRequest 请求信息
-type ProxyRequest struct {
-	Conn      net.Conn                //请求的原始TCP连接
-	RwObj     *public.ReadWriteObject //读写对象
-	Theology  int                     //中间件回调唯一ID
-	Target    *TargetInfo             //目标连接信息
-	ProxyHost string                  //请求之上的代理
-	Pid       string                  //s5连接过来的pid
-	Global    *Sunny                  //继承全局中间件信息
-	//WinHttp   *GoWinHttp.WinHttp      //WinHTTP请求对象
-	WinHttp      *GoWinHttp.WinHttp   //WinHTTP请求对象
-	Request      *http.Request        //要发送的请求体
-	Response     *http.Response       //HTTP响应体
-	TCP          public.TCP           //TCP收发数据
-	Websocket    *public.WebsocketMsg //Websocket会话
-	Proxy        *GoWinHttp.Proxy     //设置指定代理
-	HttpCall     int                  //http 请求回调地址
-	TcpCall      int                  //TCP请求回调地址
-	wsCall       int                  //ws回调地址
-	HttpGoCall   func(Conn *HttpConn) //http 请求回调地址
-	TcpGoCall    func(Conn *TcpConn)  //TCP请求回调地址
-	wsGoCall     func(Conn *WsConn)   //ws回调地址
-	NoRepairHttp bool                 //不要纠正Http
-	Lock         sync.Mutex
+// 请求信息
+type proxyRequest struct {
+	Conn          net.Conn                         //请求的原始TCP连接
+	RwObj         *ReadWriteObject.ReadWriteObject //读写对象
+	Theology      int                              //中间件回调唯一ID
+	Target        *TargetInfo                      //目标连接信息
+	ProxyHost     string                           //请求之上的代理
+	Pid           string                           //s5连接过来的pid
+	Global        *Sunny                           //继承全局中间件信息
+	Request       *http.Request                    //要发送的请求体
+	Response      response                         //HTTP响应体
+	TCP           public.TCP                       //TCP收发数据
+	Websocket     *public.WebsocketMsg             //Websocket会话
+	Proxy         *SunnyProxy.Proxy                //设置指定代理
+	HttpCall      int                              //http 请求回调地址
+	TcpCall       int                              //TCP请求回调地址
+	wsCall        int                              //ws回调地址
+	HttpGoCall    func(ConnHTTP)                   //http 请求回调地址
+	TcpGoCall     func(ConnTCP)                    //TCP请求回调地址
+	wsGoCall      func(ConnWebSocket)              //ws回调地址
+	NoRepairHttp  bool                             //不要纠正Http
+	Lock          sync.Mutex
+	defaultScheme string
+	SendTimeout   time.Duration
+	TlsConfig     *tls.Config
+	_Display      bool //是否允许显示到列表，也就是是否调用Call
+	ServerName    string
 }
 
 var sUser = make(map[int]string)
 var sL sync.Mutex
 
 // 设置s5连接账号
-func (s *ProxyRequest) setSocket5User(user string) {
+func (s *proxyRequest) setSocket5User(user string) {
 	sL.Lock()
 	sUser[s.Theology] = user
 	sL.Unlock()
 }
-func (s *ProxyRequest) IsMustTcpRules(Host string) bool {
-	s.Global.lock.Lock()
-	defer s.Global.lock.Unlock()
-	if s.Global.mustTcpRegexp == nil {
-		return false
-	}
-	return s.Global.mustTcpRegexp.MatchString(Host)
-}
 
 // 更新唯一ID以及s5连接账号
-func (s *ProxyRequest) updateSocket5User() {
+func (s *proxyRequest) updateSocket5User() {
 	sL.Lock()
 	user := sUser[s.Theology]
 	delete(sUser, s.Theology)
@@ -209,13 +225,13 @@ func (s *ProxyRequest) updateSocket5User() {
 }
 
 // 清除唯一ID对应的s5连接账号
-func (s *ProxyRequest) delSocket5User() {
+func (s *proxyRequest) delSocket5User() {
 	sL.Lock()
 	delete(sUser, s.Theology)
 	sL.Unlock()
 }
 
-// 获取唯一ID对应的s5连接账号
+// GetSocket5User 获取唯一ID对应的s5连接账号
 func GetSocket5User(TheologyId int) string {
 	sL.Lock()
 	user := sUser[TheologyId]
@@ -224,7 +240,7 @@ func GetSocket5User(TheologyId int) string {
 }
 
 // AuthMethod S5代理鉴权
-func (s *ProxyRequest) AuthMethod() (bool, string) {
+func (s *proxyRequest) AuthMethod() (bool, string) {
 	av, err := s.RwObj.ReadByte()
 	if err != nil || av != 1 {
 		//fmt.Println(ID, "Socks5 auth version invalid")
@@ -287,7 +303,7 @@ func (s *ProxyRequest) AuthMethod() (bool, string) {
 }
 
 // Socks5ProxyVerification S5代理验证
-func (s *ProxyRequest) Socks5ProxyVerification() bool {
+func (s *proxyRequest) Socks5ProxyVerification() bool {
 	version, err := s.RwObj.ReadByte()
 	if err != nil {
 		return false
@@ -482,11 +498,11 @@ func (s *ProxyRequest) Socks5ProxyVerification() bool {
 	_ = s.RwObj.WriteByte(0)
 
 	if err == nil {
-		host := GoWinHttp.IpDns(hostname)
+		host := IpDns(hostname)
 		if host == "" {
 			host = hostname
 		}
-		u, _ := url.Parse("https://" + host)
+		u, _ := url.Parse(public.HttpsRequestPrefix + host)
 		host = u.Hostname()
 		if public.IsIPv4(host) {
 			_ = s.RwObj.WriteByte(public.Socks5typeIpv4)
@@ -513,133 +529,157 @@ func (s *ProxyRequest) Socks5ProxyVerification() bool {
 	return true
 }
 
-type loop struct {
-	LastTime time.Time
-	Num      int
-}
-
-var LoopMap = make(map[string]*loop)
 var loopLock sync.Mutex
+var linkMap = make(map[string]string)
 
-func init() {
-	go loopCheckFunc()
+func linkAdd(o, n string) {
+	loopLock.Lock()
+	defer loopLock.Unlock()
+	linkMap[n] = o
 }
-func loopCheckFunc() {
-	for {
-		time.Sleep(time.Second * 2)
-		loopLock.Lock()
-		for k, v := range LoopMap {
-			if time.Now().Sub(v.LastTime) > time.Second {
-				delete(LoopMap, k)
+func linkDel(n string) {
+	loopLock.Lock()
+	defer loopLock.Unlock()
+	delete(linkMap, n)
+}
+func linkQuery(n string) string {
+	loopLock.Lock()
+	defer loopLock.Unlock()
+	return linkMap[n]
+}
+
+// 请求是否环路
+func (s *proxyRequest) isLoop() bool {
+	_, port, _ := public.SplitHostPort(s.RwObj.RemoteAddr().String())
+	ok := CrossCompiled.IsLoopRequest(port, s.Global.port)
+	if ok {
+		link := linkQuery(s.Conn.RemoteAddr().String())
+		if link != "" {
+			p := CrossCompiled.LoopRemotePort(link)
+			if p < 1 {
+				return false
 			}
 		}
-		loopLock.Unlock()
 	}
+	return ok
 }
-func loopAdd(Host string) bool {
-	ok := false
-	loopLock.Lock()
-	m := LoopMap[Host]
-	if m != nil {
-		m.Num++
-		m.LastTime = time.Now()
-		ok = m.Num > 5
-	} else {
-		LoopMap[Host] = &loop{
-			LastTime: time.Now(),
-			Num:      1,
+
+// 封装连接逻辑
+func dialTCP(proxyTools *SunnyProxy.Proxy, remoteAddr string) (net.Conn, error) {
+	return proxyTools.DialWithTimeout("tcp", remoteAddr, 2*time.Second)
+}
+func connectToTarget(s *proxyRequest, proxyTools *SunnyProxy.Proxy) net.Conn {
+	ip := net.ParseIP(s.Target.Host)
+	if ip != nil {
+		remoteAddr := SunnyProxy.FormatIP(ip, fmt.Sprintf("%d", s.Target.Port))
+		conn, _ := proxyTools.Dial("tcp", remoteAddr)
+		return conn
+	}
+
+	var ProxyHost string
+	var dial func(network string, addr string) (net.Conn, error)
+	if proxyTools != nil {
+		ProxyHost = proxyTools.Host
+		dial = proxyTools.Dial
+	}
+
+	ip = dns.GetFirstIP(s.Target.Host, ProxyHost)
+	if ip != nil {
+		remoteAddr := SunnyProxy.FormatIP(ip, fmt.Sprintf("%d", s.Target.Port))
+		conn, _ := dialTCP(proxyTools, remoteAddr)
+		if conn != nil {
+			return conn
 		}
 	}
-	loopLock.Unlock()
-	return ok
+
+	ips, _ := dns.LookupIP(s.Target.Host, ProxyHost, dial)
+
+	//优先尝试IPV4
+	for _, ip2 := range ips {
+		if ip4 := ip2.To4(); ip4 != nil {
+			remoteAddr := SunnyProxy.FormatIP(ip2, fmt.Sprintf("%d", s.Target.Port))
+			conn, _ := dialTCP(proxyTools, remoteAddr)
+			if conn != nil {
+				dns.SetFirstIP(s.Target.Host, ProxyHost, ip2)
+				return conn
+			}
+		}
+	}
+
+	//最后尝试IPV6
+	for _, ip2 := range ips {
+		if ip6 := ip2.To16(); ip6 != nil {
+			remoteAddr := SunnyProxy.FormatIP(ip2, fmt.Sprintf("%d", s.Target.Port))
+			conn, _ := dialTCP(proxyTools, remoteAddr)
+			if conn != nil {
+				dns.SetFirstIP(s.Target.Host, ProxyHost, ip2)
+				return conn
+			}
+		}
+	}
+	return nil
 }
 
 // MustTcpProcessing 强制走TCP处理过程
 // aheadData 提取获取的数据
-func (s *ProxyRequest) MustTcpProcessing(aheadData []byte, Tag string) {
+func (s *proxyRequest) MustTcpProcessing(Tag string) {
 	if s.Target == nil {
 		return
 	}
-	if s.Target.Port == uint16(s.Global.port) {
-		//检测环路循环检测
-		if loopAdd(s.Target.Host) {
-			return
-		}
+	if s.isLoop() {
+		return
 	}
 	var err error
 	var isClose = false
 	as := &public.TcpMsg{}
 	as.Data.WriteString(Tag)
-	s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPAboutToConnect, as)
+	s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPAboutToConnect, as, s.Target.String())
 	if Tag != as.Data.String() {
 		s.Target.Parse(as.Data.String(), 0)
 	}
-	Portly := &GoWinHttp.Proxy{Timeout: 60 * 1000}
-	if as.TcpIp != public.NULL {
-		Portly.S5TypeProxy = true
-		Portly.Address = as.TcpIp
-		Portly.User = as.TcpUser
-		Portly.Pass = as.TcpPass
+	var proxyTools *SunnyProxy.Proxy
+	if as.Proxy != nil {
+		proxyTools = as.Proxy
 	} else if s.Global.proxy != nil {
-		if !s.Global.proxyRegexp.MatchString(s.Target.Host) {
-			Portly.S5TypeProxy = s.Global.proxy.S5TypeProxy
-			Portly.Address = s.Global.proxy.Address
-			Portly.User = s.Global.proxy.User
-			Portly.Pass = s.Global.proxy.Pass
+		if !s.Global.proxyRules(s.Target.Host) {
+			proxyTools = s.Global.proxy.Clone()
+			if proxyTools != nil {
+				proxyTools.Regexp = s.Global.proxyRules
+			}
 		}
 	}
+	var RemoteTCP net.Conn
+	RemoteTCP = connectToTarget(s, proxyTools)
 	defer func() {
 		if !isClose {
-			s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil)
+			if RemoteTCP != nil {
+				s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil, RemoteTCP.RemoteAddr().String())
+			} else {
+				s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil, s.Target.String())
+			}
 		}
 		if as != nil {
 			as.Data.Reset()
 		}
 		as = nil
-		Portly = nil
-		aheadData = make([]byte, 0)
-		aheadData = nil
+		proxyTools = nil
 		s.releaseTcp()
-	}()
-	var RemoteTCP net.Conn
-	if Portly.S5TypeProxy {
-		if s.Target.Port == 0 {
-			return
-		}
-		c, err := net.DialTimeout("tcp", Portly.Address, 15*time.Second)
-		if err != nil {
-			return
-		}
-		if GoWinHttp.ConnectS5(&c, Portly, s.Target.Host, s.Target.Port) == false {
-			_ = c.Close()
-			return
-		}
-		RemoteTCP = c
-	} else {
-		RemoteTCP, err = net.DialTimeout("tcp", s.Target.String(), 15*time.Second)
-	}
-	defer func() {
 		if RemoteTCP != nil {
 			_ = RemoteTCP.Close()
+			linkDel(RemoteTCP.LocalAddr().String())
 		}
 	}()
+
+	if RemoteTCP != nil {
+		linkAdd(s.Conn.RemoteAddr().String(), RemoteTCP.LocalAddr().String())
+	}
 	if RemoteTCP != nil && Tag == public.TagTcpSSLAgreement {
-		certificate, er := s.Global.getCertificate(s.Target.String())
-		if er != nil {
-			return
-		}
-		fig := &tls.Config{Certificates: []tls.Certificate{*certificate}, ServerName: HttpCertificate.ParsingHost(s.Target.String())}
-		fig.InsecureSkipVerify = true
-		obj := s.Global.GetTLSValues()
-		if obj != nil {
-			fig.CipherSuites = obj
-		}
-		tlsConn := tls.Client(RemoteTCP, fig)
+		tlsConn := tls.Client(RemoteTCP, s.TlsConfig)
 		err = tlsConn.Handshake()
 		RemoteTCP = tlsConn
 	}
 	if err == nil && RemoteTCP != nil {
-		tw := public.NewReadWriteObject(RemoteTCP)
+		tw := ReadWriteObject.NewReadWriteObject(RemoteTCP)
 		{
 			//构造结构体数据,主动发送，关闭等操作时需要用
 			if s.TCP.Send == nil {
@@ -656,29 +696,19 @@ func (s *ProxyRequest) MustTcpProcessing(aheadData []byte, Tag string) {
 			TcpStorage[s.Theology] = &s.TCP
 			TcpSceneLock.Unlock()
 		}
-		s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPConnectOK, nil)
-		if len(aheadData) > 0 {
-			as.Data.Reset()
-			as.Data.Write(aheadData)
-			s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClientSend, as)
-			_, _ = RemoteTCP.Write(as.Data.Bytes())
-			if as != nil {
-				as.Data.Reset()
-			}
-			as = nil
-			aheadData = make([]byte, 0)
-			aheadData = nil
-		}
-		isClose = s.TcpCallback(&RemoteTCP, Tag, tw)
+		as.Data.Reset()
+		as.Data.Write([]byte(RemoteTCP.LocalAddr().String()))
+		s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPConnectOK, as, s.Target.String())
+		as.Data.Reset()
+		isClose = s.TcpCallback(&RemoteTCP, Tag, tw, s.Target.String())
 	} else {
 		_ = s.Conn.Close()
 	}
-
 	return
 }
 
 // 释放tcp关联的数据
-func (s *ProxyRequest) releaseTcp() {
+func (s *proxyRequest) releaseTcp() {
 	//================================================================================================================================
 	if s == nil {
 		return
@@ -703,7 +733,7 @@ func (s *ProxyRequest) releaseTcp() {
 }
 
 // TcpCallback TCP消息处理 返回 是否已经调用 通知 回调函数 TCP已经关闭
-func (s *ProxyRequest) TcpCallback(RemoteTCP *net.Conn, Tag string, tw *public.ReadWriteObject) bool {
+func (s *proxyRequest) TcpCallback(RemoteTCP *net.Conn, Tag string, tw *ReadWriteObject.ReadWriteObject, RemoteAddr string) bool {
 	if RemoteTCP == nil {
 		return false
 	}
@@ -715,22 +745,22 @@ func (s *ProxyRequest) TcpCallback(RemoteTCP *net.Conn, Tag string, tw *public.R
 	isHttpReq := false //是否纠正HTTP请求，可能由于某些原因 客户端发送数据不及时判断为了TCP请求，后续TCP处理时纠正为HTTP请求
 	//读取客户端消息转发给服务端
 	go func() {
-		s.SocketForward(*tw.Writer, s.RwObj, public.SunnyNetMsgTypeTCPClientSend, s.Conn, *RemoteTCP, &s.TCP, &isHttpReq)
+		s.SocketForward(*tw.Writer, s.RwObj, public.SunnyNetMsgTypeTCPClientSend, s.Conn, *RemoteTCP, &s.TCP, &isHttpReq, RemoteAddr)
 		wg.Done()
 	}()
 	//读取服务器消息转发给客户端
-	s.SocketForward(*s.RwObj.Writer, tw, public.SunnyNetMsgTypeTCPClientReceive, *RemoteTCP, s.Conn, &s.TCP, &isHttpReq)
+	s.SocketForward(*s.RwObj.Writer, tw, public.SunnyNetMsgTypeTCPClientReceive, *RemoteTCP, s.Conn, &s.TCP, &isHttpReq, RemoteAddr)
 	wg.Wait()
 	s.releaseTcp()
 	if isHttpReq {
 		//可能由于某些原因 客户端发送数据不及时判断为了TCP请求,此时纠正为HTTP请求
-		s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil)
+		s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil, RemoteAddr)
 		s.updateSocket5User()
 		//如果之前是HTTP请求识别错误 这里转由HTTP请求处理函数继续处理
 		if Tag == public.TagTcpSSLAgreement {
-			s.httpProcessing(nil, "443", Tag)
+			s.httpProcessing(nil, Tag)
 		} else {
-			s.httpProcessing(nil, "80", Tag)
+			s.httpProcessing(nil, Tag)
 		}
 		return true
 	}
@@ -740,7 +770,7 @@ func (s *ProxyRequest) TcpCallback(RemoteTCP *net.Conn, Tag string, tw *public.R
 // ConnRead
 // 从缓冲区读取字节流
 // Dosage 如果为true 多读取一会
-func (s *ProxyRequest) ConnRead(aheadData []byte, Dosage bool) (rs []byte, WhetherExceedsLength bool) {
+func (s *proxyRequest) ConnRead(aheadData []byte, Dosage bool) (rs []byte, WhetherExceedsLength bool) {
 	var st bytes.Buffer
 	st.Write(aheadData)
 	length := 512
@@ -839,7 +869,7 @@ func (s *ProxyRequest) ConnRead(aheadData []byte, Dosage bool) (rs []byte, Wheth
 				}
 				i++
 				islet, ok, bodyLen, ContentLength, isHttpRequest = public.LegitimateRequest(st.Bytes())
-				if ContentLength > public.MaxUploadLength {
+				if ContentLength > int(s.Global._http_max_body_len) {
 					last = public.CopyBytes(st.Bytes())
 					return last, true
 				}
@@ -879,7 +909,7 @@ func (s *ProxyRequest) ConnRead(aheadData []byte, Dosage bool) (rs []byte, Wheth
 }
 
 // transparentProcessing 透明代理请求 处理过程
-func (s *ProxyRequest) transparentProcessing() {
+func (s *proxyRequest) transparentProcessing() {
 	//将数据全部取出，稍后重新放进去
 	_bytes, _ := s.RwObj.Peek(s.RwObj.Reader.Buffered())
 	//升级到TLS客户端
@@ -897,22 +927,31 @@ func (s *ProxyRequest) transparentProcessing() {
 		}
 		//将地址写到请求中间件连接信息中
 		s.Target.Parse(serverName, public.HttpsDefaultPort)
+		var certificate *tls.Certificate
+		var er error
+		if s.isLoop() {
+			certificate, _, er = WhoisLoopCache(s.Global, s.Target.String(), s.Global.rootCa, s.Global.rootKey)
+		} else {
+			certificate, _, er = WhoisCache(s.Global, "null", s.Target.String(), s.Global.rootCa, s.Global.rootKey)
+		}
 		//进行生成证书，用于服务器返回握手信息
-		certificate, er := s.Global.getCertificate(s.Target.String())
 		if er != nil {
 			_ = T.Close()
 			return
 		}
 		//将证书和域名信息设置到TLS客户端中
-		T.SetServer(&tls.Config{Certificates: []tls.Certificate{*certificate}, ServerName: HttpCertificate.ParsingHost(s.Target.String())})
+		cfg := &tls.Config{Certificates: []tls.Certificate{*certificate}, ServerName: HttpCertificate.ParsingHost(s.Target.String()), InsecureSkipVerify: true}
+		T.SetServer(cfg)
 		//进行与客户端握手
 		e = T.ServerHandshake(msg)
 		if e == nil {
 			//如果握手过程中没有发生意外， 则重写客户端会话
-			s.Conn = T                             //将TLS会话替换原始会话
-			s.RwObj = public.NewReadWriteObject(T) //重新包装读写对象
+			s.Conn = T                                      //将TLS会话替换原始会话
+			s.RwObj = ReadWriteObject.NewReadWriteObject(T) //重新包装读写对象
 			//开始按照HTTP请求流程处理
-			s.httpProcessing(nil, public.HttpsDefaultPort, public.TagTcpSSLAgreement)
+			s.TlsConfig = cfg
+			s.ServerName = s.Target.Host
+			s.httpProcessing(nil, public.TagTcpSSLAgreement)
 		}
 	} else {
 		//如果握手失败 直接返回，不做任何处理
@@ -920,157 +959,47 @@ func (s *ProxyRequest) transparentProcessing() {
 }
 
 // httpProcessing http请求处理过程
-func (s *ProxyRequest) httpProcessing(aheadData []byte, DefaultPort, Tag string) {
-
-	defer func() {
-		aheadData = make([]byte, 0)
-		aheadData = nil
-	}()
-	//缓冲区读取字节流
-	ReadData, WhetherExceedsLength := s.ConnRead(aheadData, false)
-	//从字节流中取出HOST
-	host := public.GetHost(string(ReadData))
-	if host != public.NULL && host != s.Target.Host {
-		s.Target.Parse(host, DefaultPort)
+func (s *proxyRequest) httpProcessing(aheadData []byte, Tag string) {
+	var hh []byte
+	var h2 []byte
+	if len(aheadData) < 11 {
+		h2, _ = s.RwObj.Peek(11 - len(aheadData))
 	}
-	//提交数据是否超过 public.MaxUploadLength 字节，若是超过  public.MaxUploadLength  设定的最大字节数，改请求将转为TCP方式请求
-	//或者符合强制TCP的规则
-	if WhetherExceedsLength || s.IsMustTcpRules(s.Target.Host) {
-		s.NoRepairHttp = true
-		s.MustTcpProcessing(ReadData, Tag)
-		s.NoRepairHttp = false
+	hh = []byte(string(aheadData) + string(h2))
+	if string(hh) == "PRI * HTTP/" {
+		s.defaultScheme = "https"
+		s.h2Request(aheadData)
 		return
 	}
-	//继续HTTP处理
-	s.StartHTTPProcessing(public.CopyBytes(ReadData), public.NULL, Tag, DefaultPort)
-	//不去循环监听 一次请求完成直接断开连接
-	//return
-	//下面这样写是因为 HTTP/s 请求 发送一次请求之后 TCP不会断开连接（长连接）下次请求会直接发送
-	for {
-		s.Response = nil
-		s.Request = nil
-		s.WinHttp = nil
-		s.updateSocket5User()
-		//超过3秒无数据的长连接就直接断开吧
-		_ = s.Conn.SetDeadline(time.Now().Add(public.WaitingTime))
-		_, e := s.RwObj.Peek(1)
-		if e != nil {
-			return
-		}
-		ReadData, WhetherExceedsLength = s.ConnRead(nil, false)
-		host = public.GetHost(string(ReadData))
-		if host != "" {
-			s.Target.Parse(host, DefaultPort)
-		}
-		//提交数据是否超过 public.MaxUploadLength 字节，若是超过  public.MaxUploadLength  设定的最大字节数，改请求将转为TCP方式请求
-		if WhetherExceedsLength {
-			s.NoRepairHttp = true
-			s.MustTcpProcessing(ReadData, Tag)
-			s.NoRepairHttp = false
-			return
-		}
-		s.StartHTTPProcessing(public.CopyBytes(ReadData), public.NULL, Tag, DefaultPort)
-	}
-}
-
-// StartHTTPProcessing ...
-func (s *ProxyRequest) StartHTTPProcessing(RawBytes []byte, sProxy, Tag, DefaultPort string) {
-	var setProxyHost = func(sS string) {
-		s.ProxyHost = sS
-	}
-	method := public.NULL
-	if len(RawBytes) > 12 {
-		//从原始数据中取出 Method
-		method = public.GetMethod(RawBytes)
-	}
-	//判断是否开启了强制走TCP 和 method 是否符合正常HTTP/S Method 否则按照TCP处理
-	if (s.Global.isMustTcp && method != public.HttpMethodCONNECT) || !public.IsHttpMethod(method) {
-		if s.Target.Host == "" {
-			return
-		}
-		if s.Global.isMustTcp {
-			s.MustTcpProcessing(RawBytes, public.TagMustTCP)
-			return
-		}
-		s.MustTcpProcessing(RawBytes, Tag)
-		return
-	}
-	source := ""
-	arr := strings.Split(s.Conn.RemoteAddr().String(), ":")
-	if len(arr) >= 1 {
-		source = arr[0] + ""
-	}
-	arr = nil
-	req, BodyLen := public.BuildRequest(RawBytes, s.Target.String(), source, DefaultPort, setProxyHost, s.RwObj)
-	defer func() {
-		if req != nil {
-			if req.Header != nil {
-				//如果请求期望的是短连接，则关闭会话
-				if req.Header.Get("Connection") == "close" {
-					_ = s.Conn.Close()
-				}
-			} else {
-				_ = s.Conn.Close()
-			}
-
-			if req.URL != nil {
-				req.URL = nil
-			}
+	if public.IsHttpMethod(public.GetMethod(hh)) {
+		if Tag == public.TagTcpSSLAgreement {
+			s.defaultScheme = "https"
 		} else {
-			_ = s.Conn.Close()
+			s.defaultScheme = "http"
 		}
-
-		if req != nil {
-			if req.Body != nil {
-				_ = req.Body.Close()
-			}
-			if req.URL != nil {
-				req.URL = nil
-			}
-			req = nil
-		}
-	}()
-	if req == nil {
+		s.h1Request(aheadData)
 		return
 	}
-	if req.URL == nil {
-		return
+	s.NoRepairHttp = true
+	if len(aheadData) > 0 {
+		s.RwObj = ReadWriteObject.NewReadWriteObject(newObjHook(s.RwObj, aheadData))
 	}
-	if req.ContentLength > 0 && BodyLen == 0 {
-		_, _ = s.RwObj.WriteString(public.HttpResponseStatus100)
-		if req.Body != nil {
-			_ = req.Body.Close()
-		}
-		BytesRaw, WhetherExceedsLength := s.ConnRead(nil, true)
-		//提交数据是否超过 public.MaxUploadLength 字节，若是超过  public.MaxUploadLength  设定的最大字节数，改请求将转为TCP方式请求
-		if WhetherExceedsLength {
-			s.NoRepairHttp = true
-			s.MustTcpProcessing(BytesRaw, Tag)
-			s.NoRepairHttp = false
-			return
-		}
-		req.Body = ioutil.NopCloser(bytes.NewBuffer(BytesRaw))
-		req.ContentLength = int64(len(BytesRaw))
-	}
-	if method == public.HttpMethodCONNECT {
-		s.ProxyHost = sProxy
-		s.sendHttps(req)
-		return
-	}
-	s.sendHttp(req)
+	s.MustTcpProcessing(Tag)
+	s.NoRepairHttp = false
 	return
 }
 
-func (s *ProxyRequest) isCerDownloadPage(request *http.Request) bool {
-	if public.IsCerRequest(request, s.Global.port) {
+func (s *proxyRequest) isCerDownloadPage(request *http.Request) bool {
+	if s.isLoop() {
 		if request.URL != nil {
 			defer func() { _ = s.Conn.Close() }()
 			if request.URL.Path == "/favicon.ico" {
-
+				_, _ = s.RwObj.Write(public.LocalBuildBody("image/x-icon", Resource.Icon))
+				return true
 			}
 
 			if request.URL.Path == "/" || request.URL.Path == "/ssl" || request.URL.Path == public.NULL {
-				_, _ = s.RwObj.Write(public.LocalBuildBody("text/html", `<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>证书安装</title></head><body style="font-family: arial,sans-serif;"><h1>[Sunny中间件] 证书安装</h1><br /><ul><li>您可以下载 <a href="SunnyRoot.cer">SunnyRoot 证书</a></ul><ul><li>您也可以下载 <a href="install.html">查看证书安装教程</a></ul></body></html>`))
+				_, _ = s.RwObj.Write(public.LocalBuildBody("text/html", `<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>证书安装</title></head><body style="font-family: arial,sans-serif;"><h1>[SunnyNet网络中间件] 证书安装</h1><br /><ul><li>您可以下载 <a href="SunnyRoot.cer">SunnyRoot 证书</a></ul><ul><li>您也可以 <a href="install.html">查看证书安装教程</a></ul></body></html>`))
 				return true
 			}
 			if request.URL.Path == "/SunnyRoot.cer" || request.URL.Path == "SunnyRoot.cer" {
@@ -1078,75 +1007,106 @@ func (s *ProxyRequest) isCerDownloadPage(request *http.Request) bool {
 				return true
 			}
 			if request.URL.Path == "/install.html" || request.URL.Path == "install.html" {
-				_, _ = s.RwObj.Write(public.LocalBuildBody("text/html", Resource.CertInstallDocument))
+				bs := bytes.ReplaceAll(Resource.FrontendIndex, []byte(`/assets/index`), []byte(`install/assets/index`))
+				_, _ = s.RwObj.Write(public.LocalBuildBody("text/html", bs))
 				return true
 			}
-			_, _ = s.RwObj.Write(public.LocalBuildBody("text/html", "404 Not Found"))
-
+			if strings.HasPrefix(request.URL.Path, "/install/assets/") || strings.HasPrefix(request.URL.Path, "install/assets/") {
+				data, err := Resource.ReadVueFile(strings.ReplaceAll(request.URL.Path, "/install/", ""))
+				if err == nil {
+					_FileType := strings.ToLower(request.URL.Path)
+					_, _ = s.RwObj.WriteString("HTTP/1.1 200 OK\r\nCache-Control: no-cache, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\nContent-Length: ")
+					if strings.HasSuffix(_FileType, ".css") {
+						mData := bytes.ReplaceAll(data, []byte("url(/assets/codicon"), []byte(strings.ReplaceAll("url("+"install/assets/codicon", "//", "/")))
+						data = mData
+						_, _ = s.RwObj.WriteString(fmt.Sprintf("%d\r\nContent-Type:  text/css\r\n\r\n", len(data)))
+					}
+					if strings.HasSuffix(_FileType, ".js") {
+						_, _ = s.RwObj.WriteString(fmt.Sprintf("%d\r\nContent-Type:  application/x-javascript\r\n\r\n", len(data)))
+					}
+					if strings.HasSuffix(_FileType, ".ttf") {
+						_, _ = s.RwObj.WriteString(fmt.Sprintf("%d\r\nContent-Type:  application/application/x-font-ttf\r\n\r\n", len(data)))
+					}
+					_, _ = s.RwObj.Write(data)
+					return true
+				}
+			}
+			if !s.isUserScriptCodeEditRequest(request) {
+				_, _ = s.RwObj.Write(public.LocalBuildBody("text/html", "404 Not Found"))
+			}
 			return true
 		}
 	}
 	return false
 }
-func (s *ProxyRequest) Error(error error) {
-	if error != public.ProvideForwardingServiceOnly {
-		if s.Response != nil {
-			if s.Response.Body != nil {
-				_ = s.Response.Body.Close()
-			}
-			s.Response = nil
-		}
+func (s *proxyRequest) Error(error error, _Display bool) {
+	s._Display = _Display
+	s.CallbackError(public.ProcessError(error))
+	if errors.Is(error, public.ProvideForwardingServiceOnly) {
+		return
 	}
-	s.CallbackError(error)
-	if error != public.ProvideForwardingServiceOnly {
-		if s.Response != nil {
+	if s.Response.Response != nil {
+		if s.Response.Body != nil {
+			_ = s.Response.Body.Close()
+		}
+		s.Response.Response = nil
+	}
+	if s.Response.rw == nil {
+		s.Response.rw = &errorRW{conn: s.RwObj}
+	}
+	if !errors.Is(error, public.ProvideForwardingServiceOnly) {
+		if s.Response.Response != nil {
 			_ = s.Conn.SetDeadline(time.Now().Add(10 * time.Second))
-			_, _ = s.RwObj.Write(public.StructureBody(s.Response))
-			_ = s.RwObj.Flush()
+			for k, v := range s.Response.Header {
+				s.Response.rw.Header()[k] = v
+			}
+			s.Response.rw.WriteHeader(s.Response.StatusCode)
+			if s.Response.Body != nil {
+				bodyBytes, _ := ioutil.ReadAll(s.Response.Body)
+				_, _ = s.Response.rw.Write(bodyBytes)
+			}
 			return
 		}
-	}
-	if error == public.ProvideForwardingServiceOnly {
-		return
 	}
 	if s.Request.Header.Get("ErrorClose") == "true" {
 		return
 	}
-	if s.RwObj != nil {
-		er := []byte("")
-		if error != nil {
-			er = []byte(error.Error())
-		}
-		_ = s.Conn.SetDeadline(time.Now().Add(10 * time.Second))
-		_, _ = s.RwObj.WriteString(fmt.Sprintf("HTTP/1.1 %d %s\r\nContent-Length: %d\r\n\r\n", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), len(er)))
-		_, _ = s.RwObj.Write(er)
-		_ = s.RwObj.Flush()
+	er := []byte("")
+	if error != nil {
+		er = []byte(public.ProcessError(error))
 	}
+	if s.Response.rw == nil {
+		return
+	}
+	_ = s.Conn.SetDeadline(time.Now().Add(10 * time.Second))
+	s.Response.rw.Header().Set("Content-Length", fmt.Sprintf("%d", len(er)))
+	s.Response.rw.WriteHeader(http.StatusInternalServerError)
+	_, _ = s.Response.rw.Write(er)
 }
-func (s *ProxyRequest) doRequest() error {
+
+func (s *proxyRequest) doRequest() error {
 	if s.Request == nil {
 		return errors.New("request is nil")
 	}
 	if s.Request.URL == nil {
 		return errors.New("request.url is nil")
 	}
-	cfg := HttpCertificate.GetTlsConfigCrypto(s.Request.URL.Host, public.CertificateRequestManagerRulesSend)
-	if cfg == nil {
-		cfg = &crypto.Config{}
+	var do *http.Response
+	var n net.Conn
+	var err error
+	var Close func()
+	do, n, err, Close = httpClient.Do(s.Request, s.Proxy, false, s.TlsConfig, s.SendTimeout, s.Global.GetTLSValues)
+	s.Response.Conn = n
+	if n != nil {
+		s.Response.ServerIP = n.RemoteAddr().String()
+	} else {
+		s.Response.ServerIP = "unknown"
 	}
-	cfg.ServerName = HttpCertificate.ParsingHost(s.Request.URL.Host)
-	cfg.InsecureSkipVerify = true
-	if s.WinHttp == nil {
-		s.WinHttp = GoWinHttp.NewGoWinHttp()
-	}
-	s.WinHttp.GetTLSValues = s.Global.GetTLSValues
-	s.WinHttp.SetTlsConfig(cfg)
-	s.WinHttp.SetProxy(s.Proxy)
-	A, B := s.WinHttp.Do(s.Request)
-	s.Response = A
-	return B
+	s.Response.Response = do
+	s.Response.Close = Close
+	return err
 }
-func (s *ProxyRequest) sendHttps(req *http.Request) {
+func (s *proxyRequest) sendHttps(req *http.Request) {
 	s.Target.Parse(req.Host, public.HttpsDefaultPort)
 	if req.URL.Port() != public.NULL {
 		Port, _ := strconv.Atoi(req.URL.Port())
@@ -1155,39 +1115,40 @@ func (s *ProxyRequest) sendHttps(req *http.Request) {
 	_, _ = s.RwObj.WriteString(public.TunnelConnectionEstablished)
 	s.https()
 }
-func (s *ProxyRequest) https() {
+
+func (s *proxyRequest) https() {
+	s.ServerName = s.Target.Host
 	//判断有没有连接信息，没有连接地址信息就直接返回
-	if s.Target.Host == public.NULL || s.Target.Port < 1 {
+	if s.ServerName == public.NULL || s.Target.Port < 1 {
 		return
 	}
 	//是否开启了强制走TCP
-	if s.Global.isMustTcp || s.IsMustTcpRules(s.Target.Host) {
+	if s.Global.isMustTcp {
 		if s.Global.disableTCP {
 			return
 		}
 		//开启了强制走TCP，则按TCP流程处理
-		s.MustTcpProcessing(nil, public.TagMustTCP)
+		s.MustTcpProcessing(public.TagMustTCP)
 		return
 	}
-	//创建要握手的证书
-	certificate, err := s.Global.getCertificate(s.Target.String())
-	if err != nil {
-		return
-	}
-	var tlsConn *tls.Conn
+	var err error
 	var serverName string
+	var tlsConn *tls.Conn
 	var HelloMsg *tls.ClientHelloMsg
 	//普通会话升级到TLS会话，并且设置生成的握手证书,限制tls最大版本为1.2,因为1.3可能存在算法不支持
 	//如果某些服务器只支持tls1.3,将会在 tlsConn.ClientHello() 函数中自动纠正为 tls1.3
-	//tlsConfig := &tls.Config{Certificates: []tls.Certificate{*certificate}, MaxVersion: tls.VersionTLS12, NextProtos: []string{"h2", "http/1.1"}}
-	tlsConfig := &tls.Config{Certificates: []tls.Certificate{*certificate}, MaxVersion: tls.VersionTLS12}
-	tlsConn = tls.Server(s.Conn, tlsConfig)
+	//tlsConfig := &tls.Config{MaxVersion: tls.VersionTLS13, NextProtos: []string{http.H11Proto}, InsecureSkipVerify: true}
+	tlsConfig := &tls.Config{MaxVersion: tls.VersionTLS13, NextProtos: []string{http.H2Proto, http.H11Proto}, InsecureSkipVerify: true}
+	//tlsConfig := &tls.Config{MaxVersion: tls.VersionTLS13, NextProtos: []string{http.H11Proto}, InsecureSkipVerify: true}
+	var hook bytes.Buffer
+	s.RwObj.Hook = &hook
+	tlsConn = tls.Server(s.RwObj, tlsConfig)
 	defer func() {
 		//函数退出时 清理TLS会话
-		tlsConn.RReset()
 		_ = tlsConn.Close()
 		tlsConn = nil
 	}()
+	host := s.Target.String()
 	//设置1秒的超时 来判断是否 https 请求 因为正常的非HTTPS TCP 请求也会进入到这里来，需要判断一下
 	_ = tlsConn.SetDeadline(time.Now().Add(1 * time.Second))
 	//取出第一个字节，判断是否TLS
@@ -1198,44 +1159,92 @@ func (s *ProxyRequest) https() {
 		//如果是TLS请求设置3秒超时来处理握手信息
 		_ = tlsConn.SetDeadline(time.Now().Add(3 * time.Second))
 		//开始握手
-		msg, _serverName, _err := tlsConn.ClientHello()
-		if _serverName != "" && s.IsMustTcpRules(_serverName) {
-			if s.Global.disableTCP {
-				return
-			}
-			bs := tlsConn.Read_Handshake_bytes()
-			s.MustTcpProcessing(bs, public.TagMustTCP)
-			return
-		}
-		HelloMsg = msg
+		HelloMsg, serverName, err = tlsConn.ClientHello()
+		s.RwObj.Hook = nil
 		//得到握手信息后 恢复30秒的读写超时
 		_ = tlsConn.SetDeadline(time.Now().Add(30 * time.Second))
-		serverName = _serverName
-		err = _err
-		if HelloMsg != nil {
-			//如果得到了握手信息
-			if err != nil {
-				//但是有错误 ，就直接返回，不在继续处理
+		if err == nil {
+			res := ClientIsHttps(s.Target.String())
+			if res == whoisUndefined {
+				res = ClientRequestIsHttps(s.Global, s.Target.String(), hook.Bytes())
+			}
+			if res != whoisHTTPS && res != whoisUndefined {
+				_, _ = s.RwObj.WriteString(public.NoHTTPSVerb)
+				_ = s.RwObj.Close()
 				return
 			}
-			//没有错误 则继续握手
-			if serverName != public.NULL {
-				s.Target.Parse(serverName, 0)
-				//根据握手的服务器域名 重新创建证书
-				certificate, err = s.Global.getCertificate(s.Target.String())
-				if certificate != nil {
-					//因为tlsConfig是指针类型，所以这里可以直接对它进行修改,而不用重新赋值
-					tlsConfig.Certificates = []tls.Certificate{*certificate}
-					tlsConfig.ServerName = HttpCertificate.ParsingHost(s.Target.String())
-					//tlsConn.SetServer(&tls.Config{MaxVersion: tlsConfig.MaxVersion, Certificates: []tls.Certificate{*certificate}, ServerName: HttpCertificate.ParsingHost(s.Target.String())})
+			name := ""
+			if serverName != "" {
+				s.ServerName = serverName
+				name = fmt.Sprintf("%s:%d", serverName, s.Target.Port)
+			}
+			var certificate *tls.Certificate
+			var DNSNames []string
+			if s.isLoop() {
+				certificate, DNSNames, _ = WhoisLoopCache(s.Global, host, s.Global.rootCa, s.Global.rootKey)
+			} else {
+				certificate, DNSNames, _ = WhoisCache(s.Global, name, host, s.Global.rootCa, s.Global.rootKey)
+			}
+			isRules := s.Global.tcpRules(serverName, s.Target.Host, DNSNames...)
+			if isRules {
+				if s.Global.disableTCP {
+					return
+				}
+				s.NoRepairHttp = true
+				s.RwObj = ReadWriteObject.NewReadWriteObject(newObjHook(s.RwObj, hook.Bytes()))
+				s.MustTcpProcessing(public.TagMustTCP)
+				return
+			}
+			for _, v := range DNSNames {
+				if ip := net.ParseIP(v); ip == nil {
+					if !strings.Contains(v, "*") {
+						s.ServerName = v
+						//s.Target.Parse(v, 0)
+					}
 				}
 			}
-			//继续握手
-			err = tlsConn.ServerHandshake(HelloMsg)
+			if certificate == nil {
+				err = noHttps
+			} else {
+				tlsConfig.Certificates = []tls.Certificate{*certificate}
+				tlsConfig.ServerName = s.ServerName
+				tlsConfig.InsecureSkipVerify = true
+				//继续握手
+				err = tlsConn.ServerHandshake(HelloMsg)
+				if err == nil {
+					_ = tlsConn.SetDeadline(time.Now().Add(3 * time.Second))
+					peek = tlsConn.Peek(1)
+					if len(peek) < 1 {
+						s.Target.Parse(serverName, "")
+						s.Request = new(http.Request)
+						s.Request.URL, _ = url.Parse(public.HttpsRequestPrefix + strings.ReplaceAll(s.Target.Host, public.Space, public.NULL))
+						s.Request.Host = strings.ReplaceAll(s.Target.Host, public.Space, public.NULL)
+						s.Error(clientCertificateVerifyFail, true)
+						return
+					}
+				} else {
+					s.Target.Parse(serverName, "")
+					s.Request = new(http.Request)
+					s.Request.URL, _ = url.Parse(public.HttpsRequestPrefix + strings.ReplaceAll(s.Target.Host, public.Space, public.NULL))
+					s.Request.Host = strings.ReplaceAll(s.Target.Host, public.Space, public.NULL)
+					ess := err.Error()
+					if strings.Index(ess, "unknown certificate") != -1 ||
+						strings.Index(ess, "An existing connection was forcibly closed by the remote host") != -1 ||
+						strings.Index(ess, "An established connection was aborted by the software in your host machine") != -1 ||
+						strings.Index(ess, "client offered only unsupported versions") != -1 {
+						s.Error(clientHandshakeFail, true)
+						return
+					}
+					s.Error(clientHandshakeFail, true)
+					return
+				}
+				_ = tlsConn.SetDeadline(time.Now().Add(30 * time.Second))
+			}
 		}
 	} else {
-		err = errors.New("No HTTPS ")
+		err = noHttps
 	}
+	s.RwObj.Hook = nil
 	if err != nil {
 		//以上握手过程中 有错误产生 有错误则不是TLS
 		//判断这些错误信息，是否还能继续处理
@@ -1243,15 +1252,16 @@ func (s *ProxyRequest) https() {
 			s.Request = new(http.Request)
 			s.Request.URL, _ = url.Parse(public.HttpsRequestPrefix + strings.ReplaceAll(s.Target.Host, public.Space, public.NULL))
 			s.Request.Host = strings.ReplaceAll(s.Target.Host, public.Space, public.NULL)
-			s.Error(errors.New("The client closes the connection "))
+			s._Display = true
+			s.Error(errors.New("The client closes the connection "), true)
 			return
 		}
 		//将TLS握手过程中的信息取出来
-		bs := tlsConn.Read_last_time_bytes()
+		bs := hook.Bytes()
 		if len(bs) == 0 {
 			//如果没有客户端没有主动发送数据的话
 			//强制走TCP，按TCP流程处理
-			s.MustTcpProcessing(nil, public.TagTcpAgreement)
+			s.MustTcpProcessing(public.TagTcpAgreement)
 			return
 		}
 		//证书无效
@@ -1264,23 +1274,31 @@ func (s *ProxyRequest) https() {
 				s.Request.URL, _ = url.Parse(public.HttpsRequestPrefix + serverName)
 				s.Request.Host = strings.ReplaceAll(serverName, public.Space, public.NULL)
 			}
-			s.Error(err)
+			s.Error(err, true)
 			return
 		}
 		//如果是其他错误，进行http处理流程，继续判断
-		tlsConn.RReset()
-		s.httpProcessing(bs, public.HttpDefaultPort, public.TagTcpAgreement)
+		s.httpProcessing(bs, public.TagTcpAgreement)
 		return
 	}
 	// 以上握手过程中 没有错误产生 说明是https 或TLS-TCP
-	s.Conn = tlsConn                             //重新保存TLS会话
-	s.RwObj = public.NewReadWriteObject(tlsConn) //重新包装读写对象
+	s.Conn = tlsConn                                      //重新保存TLS会话
+	s.RwObj = ReadWriteObject.NewReadWriteObject(tlsConn) //重新包装读写对象
 	//s.MustTcpProcessing(nil, public.TagTcpSSLAgreement)
-	s.httpProcessing(nil, public.HttpsDefaultPort, public.TagTcpSSLAgreement)
+	s.TlsConfig = tlsConfig
+	s.httpProcessing(nil, public.TagTcpSSLAgreement)
 }
-func (s *ProxyRequest) handleWss() bool {
+
+var clientHandshakeFail = errors.New("与客户端握手失败")
+var clientCertificateVerifyFail = errors.New("客户端验证证书失败")
+var noHttps = errors.New("No HTTPS ")
+
+func (s *proxyRequest) handleWss() bool {
 	if s.Request == nil || s.Request.Header == nil {
 		return true
+	}
+	if s.Request.ProtoMajor != 1 {
+		return false
 	}
 	//判断是否是websocket的请求体 如果不是直接返回继续正常处理请求
 
@@ -1299,34 +1317,14 @@ func (s *ProxyRequest) handleWss() bool {
 		}
 		var dialer *websocket.Dialer
 		if s.Request.URL.Scheme == "https" {
-			//选择是否使用指定的证书
-			cfg := HttpCertificate.GetTlsConfigCrypto(s.Request.URL.Host, public.CertificateRequestManagerRulesSend)
-			if cfg == nil {
-				cfg = &crypto.Config{}
-			}
-			cfg.ServerName = HttpCertificate.ParsingHost(s.Request.URL.Host)
-			cfg.InsecureSkipVerify = true
-			obj := s.Global.GetTLSValues()
-			if obj != nil {
-				cfg.CipherSuites = obj
-			}
-			dialer = &websocket.Dialer{TLSClientConfig: cfg}
+			s.TlsConfig.NextProtos = []string{"http/1.1"}
+			dialer = &websocket.Dialer{TLSClientConfig: s.TlsConfig}
 		} else {
 			dialer = &websocket.Dialer{}
 		}
-		//构造代理信息
-		ProxyUrl := ""
-		if len(s.Proxy.Address) > 3 {
-			if s.Proxy.S5TypeProxy {
-				ProxyUrl = "socks5://"
-			} else {
-				ProxyUrl = public.HttpRequestPrefix
-			}
-			ProxyUrl += s.Proxy.User + ":" + s.Proxy.Pass + "@" + s.Proxy.Address
-		}
 		//发送请求
-		Server, r, er := dialer.ConnDialContext(s.Request, ProxyUrl)
-		s.Response = r
+		Server, r, er := dialer.ConnDialContext(s.Request, s.Proxy)
+		s.Response.Response = r
 		defer func() {
 			if Server != nil {
 				_ = Server.Close()
@@ -1334,14 +1332,15 @@ func (s *ProxyRequest) handleWss() bool {
 		}()
 		if er != nil {
 			//如果发送错误
-			s.Error(er)
+			s.Error(er, true)
 			return true
 		}
+		_ = s.Conn.SetDeadline(time.Time{})
 		//通知http请求完成回调
 		s.CallbackBeforeResponse()
 		//将当前客户端的连接升级为Websocket会话
 		upgrade := &websocket.Upgrader{}
-		Client, er := upgrade.UpgradeClient(s.Request, r, s.Conn)
+		Client, er := upgrade.UpgradeClient(s.Request, r, s.RwObj)
 		if er != nil {
 			return true
 		}
@@ -1454,133 +1453,191 @@ func (s *ProxyRequest) handleWss() bool {
 	}
 	return false
 }
-func (s *ProxyRequest) CompleteRequest(req *http.Request) {
+func (s *Sunny) proxyRules(Host string) bool {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if s.proxyRegexp == nil {
+		return false
+	}
+	if Host == "" {
+		return false
+	}
+	x := s.proxyRegexp.MatchString(Host)
+	//fmt.Println("proxyRegexp", Host, x)
+	return x
+}
+func (s *Sunny) tcpRules(server, Host string, dns ...string) bool {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if s.isMustTcp {
+		return true
+	}
+	if s.mustTcpRulesAllow {
+		//规则内走TCP
+		{
+			if s.mustTcpRegexp == nil {
+				return false
+			}
+			if server != "" {
+				if s.mustTcpRegexp.MatchString(server) {
+					return true
+				}
+			}
+			if Host != "" {
+				if s.mustTcpRegexp.MatchString(Host) {
+					return true
+				}
+			}
+
+			for _, v := range dns {
+				if v == "" {
+					continue
+				}
+				x := s.mustTcpRegexp.MatchString(v)
+				if x {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	//规则内不走TCP
+	{
+		if s.mustTcpRegexp == nil {
+			return true
+		}
+		if s.mustTcpRegexp.MatchString(server) {
+			return false
+		}
+		if s.mustTcpRegexp.MatchString(Host) {
+			return false
+		}
+		for _, v := range dns {
+			if v == "" {
+				continue
+			}
+			x := s.mustTcpRegexp.MatchString(v)
+			if x {
+				return false
+			}
+		}
+	}
+	return true
+}
+func (s *proxyRequest) CompleteRequest(req *http.Request) {
 	//储存 要发送的请求体
 	s.Request = req
 	defer func() {
-		if s.WinHttp != nil {
-			s.WinHttp.Save()
-		}
-		s.WinHttp = nil
 		if s.Request != nil {
 			if s.Request.Body != nil {
 				_ = s.Request.Body.Close()
 			}
+			RawBody, isRawBody := s.Request.Context().Value(public.SunnyNetRawRequestBody).(io.ReadCloser)
+			if isRawBody {
+				_ = RawBody.Close()
+				s.Request.SetContext(public.SunnyNetRawRequestBody, nil)
+			}
 		}
 		s.Request = nil
-
-		if s.Response != nil {
+		if s.Response.Response != nil {
 			if s.Response.Body != nil {
 				_ = s.Response.Body.Close()
 			}
+			s.Response.Response = nil
 		}
-		s.Response = nil
 		s.Proxy = nil
 		req = nil
 	}()
 	//继承全局上游代理
-	if !s.Global.proxyRegexp.MatchString(s.Target.Host) {
-		if s.Proxy == nil {
-			s.Proxy = &GoWinHttp.Proxy{Address: s.Global.proxy.Address, S5TypeProxy: s.Global.proxy.S5TypeProxy, User: s.Global.proxy.User, Pass: s.Global.proxy.Pass, Timeout: s.Global.proxy.Timeout}
-		} else {
-			s.Proxy.S5TypeProxy = s.Global.proxy.S5TypeProxy
-			s.Proxy.User = s.Global.proxy.User
-			s.Proxy.Address = s.Global.proxy.Address
-			s.Proxy.Pass = s.Global.proxy.Pass
-			s.Proxy.Timeout = s.Global.proxy.Timeout
+	if !s.Global.proxyRules(s.Target.Host) {
+		s.Proxy = s.Global.proxy.Clone()
+		if s.Proxy != nil {
+			s.Proxy.Regexp = s.Global.proxyRules
 		}
-	} else if s.Proxy == nil {
-		s.Proxy = &GoWinHttp.Proxy{Timeout: 60 * 1000}
 	}
-	if s.ProxyHost != public.NULL && s.ProxyHost != req.Host+":"+public.HttpDefaultPort && s.ProxyHost != req.Host+":"+public.HttpsDefaultPort && s.ProxyHost != req.Host {
-		s.Proxy.Address = s.ProxyHost
+	if s.Request != nil && s.Request.URL != nil {
+		if s.Request.URL.Scheme == "https" {
+			s.TlsConfig = HttpCertificate.GetTlsConfig(s.Request.URL.Host, public.CertificateRequestManagerRulesSend).Clone()
+			if s.TlsConfig == nil {
+				s.TlsConfig = &tls.Config{InsecureSkipVerify: true}
+			}
+			tv := s.Global.GetTLSValues()
+			if len(tv) > 0 {
+				s.TlsConfig.CipherSuites = tv
+			}
+			s.TlsConfig.NextProtos = []string{http.H11Proto, http.H2Proto}
+		}
+	}
+	{
+		//记录原始Body
+		var RequestBody = s.Request.Body
+		{
+			if s.IsRequestRawBody() {
+				s.Request.Body = io.NopCloser(bytes.NewBuffer(public.MaxUploadMsg)) //替换为提示信息在回调中显示
+			}
+		}
+		//通知回调 即将开始发送请求
+		s.CallbackBeforeRequest()
+		{
+			if s.IsRequestRawBody() {
+				//当回调中处理完毕后,替换为原始Body
+				if s.Request.Body != nil {
+					_ = s.Request.Body.Close()
+				}
+				s.Request.Body = RequestBody
+				RawRequestBodyLength, isRawRequestBodyLength := s.Request.Context().Value(public.SunnyNetRawRequestBodyLength).(int64)
+				if isRawRequestBodyLength {
+					s.Request.SetHeaderLength(RawRequestBodyLength)
+				}
+			}
+		}
 	}
 
-	//通知回调 即将开始发送请求
-	s.CallbackBeforeRequest()
 	//回调中设置 不发送 直接响应指定数据 或终止发送
-	if s.Response != nil {
-		_, _ = s.RwObj.Write(public.StructureBody(s.Response))
+	if s.Response.Response != nil {
+		s.Response.ServerIP = fmt.Sprintf("%s:%d", "127.0.0.1", s.Global.port)
+		s.Response.Response.ProtoMajor, s.Response.Response.ProtoMinor = 1, 1
+		s.Response.Response.Proto = "HTTP/1.1"
+		s.CallbackBeforeResponse()
+		s.Response.Done()
 		return
 	}
-	var err error
 	//验证处理是否websocket请求,如果是直接处理
 	if s.handleWss() {
 		return
 	}
-	err = s.doRequest()
-
-	if err != nil || s.Response == nil {
-		if s.Response == nil && err == nil {
+	//为了保证在请求完成时,还能获取到到请求的提交信息,先备份数据
+	bakBytes := s.Request.GetData()
+	err := s.doRequest()
+	//为了保证在请求完成时,还能获取到到请求的提交信息,这里还原数据
+	s.Request.SetData(bakBytes)
+	defer func() {
+		if s.Response.Close != nil {
+			s.Response.Close()
+		}
+	}()
+	if err != nil || s.Response.Response == nil {
+		if s.Response.Response == nil && err == nil {
 			err = errors.New("[Sunny]No data obtained")
 		}
-		s.Error(err)
+		s.Error(err, true)
 		return
 	}
+
 	if s.Response.Header == nil {
 		err = errors.New("[Sunny]Response.Header=null")
-		s.Error(err)
+		s.Error(err, true)
 		return
-	}
-	setOut := func() {
-		//大数据转发时调用，避免超时问题
-		if s.WinHttp != nil {
-			if s.WinHttp.WinPool != nil {
-				_ = s.WinHttp.WinPool.SetDeadline(time.Time{})
-			}
-		}
-
-		if s.Conn != nil {
-			_ = s.Conn.SetDeadline(time.Time{})
-		}
-	}
-	SetReqHeadsValue := func(DataLen string) []byte {
-		if s.Response != nil {
-			if s.Response.Header != nil {
-				for k, _ := range s.Response.Header {
-					ks := strings.ToUpper(k)
-					if ks == "CONTENT-LENGTH" {
-						delete(s.Response.Header, k)
-					}
-				}
-			}
-		}
-		if DataLen != "-1" {
-			s.Response.Header.Set("Content-Length", DataLen)
-		}
-		return public.ResponseToHeader(s.Response)
-	}
-	SetBodyValue := func(bs []byte, err error) []byte {
-		if s.Response == nil {
-			return []byte{}
-		}
-		if err != nil {
-			s.Error(err)
-			return nil
-		}
-		if s.Response.Body != nil {
-			_ = s.Response.Body.Close()
-		}
-		s.Response.Body = ioutil.NopCloser(bytes.NewBuffer(bs))
-		//通知回调，已经请求完成
-		s.CallbackBeforeResponse()
-		b, _ := s.ReadAll(s.Response.Body)
-		if s.Response.Body != nil {
-			_ = s.Response.Body.Close()
-		}
-		return b
 	}
 	Length, _ := strconv.Atoi(s.Response.Header.Get("Content-Length"))
 	if Length < 1 {
-		if s.Response != nil {
-			if s.Response.Header != nil {
-				for k, v := range s.Response.Header {
-					ks := strings.ToUpper(k)
-					if ks == "CONTENT-LENGTH" {
-						if len(v) > 0 {
-							Length, _ = strconv.Atoi(v[0])
-							break
-						}
+		if s.Response.Header != nil {
+			for k, v := range s.Response.Header {
+				ks := strings.ToUpper(k)
+				if ks == "CONTENT-LENGTH" {
+					if len(v) > 0 {
+						Length, _ = strconv.Atoi(v[0])
+						break
 					}
 				}
 			}
@@ -1590,20 +1647,164 @@ func (s *ProxyRequest) CompleteRequest(req *http.Request) {
 	if req != nil {
 		Method = req.Method
 	}
-
-	public.CopyBuffer(s.RwObj, s.Response.Body, s.Conn, s.WinHttp.WinPool, SetBodyValue, Length, SetReqHeadsValue, s.Response.Header.Get("Content-Type"), setOut, Method)
+	s.copyBuffer(Method, Length)
+	//	s.copyBuffer(s.Response.Body, s.Conn, s.ResponseConn, SetBodyValue, Length, SetReqHeadsValue, s.Response.Header.Get("Content-Type"), setOut, Method)
 }
-func (s *ProxyRequest) sendHttp(req *http.Request) {
+func (s *proxyRequest) RawRequestDataToFile(SaveFilePath string) bool {
+	if s == nil {
+		return false
+	}
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+	if s.Request == nil {
+		return false
+	}
+	s.Request.SetContext(public.SunnyNetRawBodySaveFilePath, SaveFilePath)
+	return true
+}
+
+// IsRequestRawBody 此请求是否为原始body 如果是 将无法修改提交的Body，请使用 RawRequestDataToFile 命令来储存到文件
+func (s *proxyRequest) IsRequestRawBody() bool {
+	if s == nil {
+		return false
+	}
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+	if s.Request == nil {
+		return false
+	}
+	return s.Request.IsRawBody
+}
+
+// CopyBuffer 转发数据
+// rw http.ResponseWriter, src io.Reader, dstConn net.Conn, srcConn net.Conn, SetBodyValue func([]byte, error) []byte, ExpectLen int, SetReqHeadsValue func(string) []byte, ContentType string, setOut func(), Method string
+func (s *proxyRequest) copyBuffer(Method string, ExpectLen int) {
+	ContentType := s.Response.Header.Get("Content-Type")
+	if ContentType == "" {
+		for k, v := range s.Response.Header {
+			if strings.EqualFold(k, "Content-Type") {
+				if len(v) > 0 {
+					ContentType = v[0]
+					break
+				}
+			}
+		}
+	}
+
+	dstConn := s.Response.Conn
+	size := 512
+	MaxSize := 5 * 1024 * 1024 //5M
+	IsText := public.ContentTypeIsText(ContentType)
+	if IsText && ExpectLen < 1 {
+		MaxSize = 5 * 1024 * 1024 * 10 //50M
+		size = 32 * 1024
+	}
+	buf := make([]byte, size)
+	var buff bytes.Buffer
+	defer func() {
+		buff.Reset()
+		buf = make([]byte, 0)
+		buf = nil
+	}()
+	var isForward = false
+	// 是否是大文件类型 是的话,不判断长度直接转发 并且长度大于指定值(5M) 则直接转发
+	var ToIsForward = public.IsForward(ContentType) && (ExpectLen < 1 || ExpectLen > 5*1024*1024) //5M
+
+	if Method == public.HttpMethodHEAD {
+		s.Response.WriteHeader(strconv.Itoa(ExpectLen))
+		_ = dstConn.SetDeadline(time.Now().Add(5 * time.Second))
+		return
+	}
+	for {
+		_ = s.Response.Conn.SetDeadline(time.Now().Add(time.Duration(30) * time.Second))
+		nr, er := s.Response.Body.Read(buf)
+		if nr > 0 {
+			buff.Write(buf[0:nr])
+			if ToIsForward || (isForward || ExpectLen > MaxSize || (ExpectLen < 1 && buff.Len() > MaxSize)) {
+				_ = dstConn.SetDeadline(time.Now().Add(5 * time.Second))
+				if isForward == false {
+					isForward = true
+					_ = dstConn.SetDeadline(time.Time{})
+					s.Error(public.ProvideForwardingServiceOnly, s._Display)
+					s.Response.DelHeader("content-length")
+					s.Response.WriteHeader(strconv.Itoa(ExpectLen))
+
+				}
+				nr = buff.Len()
+				nw, ew := s.Response.Write(public.CopyBytes(buff.Bytes()))
+				buff.Reset()
+				buf = make([]byte, 40960)
+				if nw < 0 || nr < nw {
+					nw = 0
+					if ew == nil {
+						ew = errors.New("invalid write result")
+					}
+				}
+				if ew != nil {
+					return
+				}
+				if nr != nw {
+					return
+				}
+				if er != nil {
+					return
+				}
+				continue
+			} else if ExpectLen > 0 && ExpectLen == buff.Len() {
+				er = io.EOF
+			}
+		}
+		if er != nil {
+			if buff.Len() >= 0 {
+				if s.Response.Body != nil {
+					_ = s.Response.Body.Close()
+				}
+				s.Response.Body = ioutil.NopCloser(bytes.NewBuffer(buff.Bytes()))
+
+				s.CallbackBeforeResponse()
+
+				_body, _ := s.ReadAll(s.Response.Body)
+				_ = s.Conn.SetDeadline(time.Time{})
+				s.Response.WriteHeader(strconv.Itoa(len(_body)))
+				_, _ = s.Response.Write(_body)
+				_body = make([]byte, 0)
+			}
+			return
+		}
+	}
+}
+func (s *proxyRequest) sendHttp(req *http.Request) {
 	if req.URL == nil {
+		return
+	}
+	if req.Method == public.HttpMethodCONNECT {
+		s.sendHttps(req)
 		return
 	}
 	if s.isCerDownloadPage(req) { // 安装移动端证书
 		return
 	}
-	s.CompleteRequest(req) // HTTP 请求
-
+	if req.URL.Scheme == "http" {
+		if s.Target.Host == "" {
+			if req.URL.Port() == "" {
+				s.Target.Parse(req.Host, "80")
+			} else {
+				s.Target.Parse(req.Host, req.URL.Port())
+			}
+		}
+		if s.Global.tcpRules(req.Host, s.Target.String()) {
+			var buff bytes.Buffer
+			_ = req.Write(&buff)
+			s.NoRepairHttp = true
+			s.RwObj = ReadWriteObject.NewReadWriteObject(newObjHook(s.RwObj, buff.Bytes()))
+			s.MustTcpProcessing(public.TagMustTCP)
+			return
+		}
+	}
+	s.CompleteRequest(req)
 }
-func (s *ProxyRequest) ReadAll(r io.Reader) ([]byte, error) {
+
+func (s *proxyRequest) ReadAll(r io.Reader) ([]byte, error) {
 	var bufBuffer bytes.Buffer
 	b := make([]byte, 4096)
 	defer func() {
@@ -1629,9 +1830,14 @@ SocketForward
 MsgType ==1 dst=服务器端 src=客户端
 MsgType ==2 dst=客户端 src=服务器端
 */
-func (s *ProxyRequest) SocketForward(dst bufio.Writer, src *public.ReadWriteObject, MsgType int, t1, t2 net.Conn, TCP *public.TCP, isHttpReq *bool) {
+func (s *proxyRequest) SocketForward(dst bufio.Writer, src *ReadWriteObject.ReadWriteObject, MsgType int, t1, t2 net.Conn, TCP *public.TCP, isHttpReq *bool, RemoteAddr string) {
 	as := &public.TcpMsg{}
-	buf := make([]byte, 4096)
+	length := 4096
+	MaxLength := 40960
+	MaxMaxLength := MaxLength * 2
+	MaxCount1 := 0
+	MaxCount2 := 0
+	buf := make([]byte, length)
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Println("SocketForward 出了错：", err)
@@ -1648,6 +1854,7 @@ func (s *ProxyRequest) SocketForward(dst bufio.Writer, src *public.ReadWriteObje
 				_ = t2.Close()
 			}
 		}
+		buf = make([]byte, 0)
 	}()
 	if t1 == nil {
 		return
@@ -1687,12 +1894,31 @@ func (s *ProxyRequest) SocketForward(dst bufio.Writer, src *public.ReadWriteObje
 			}
 			firstRequest = false
 		}
-
 		nr, er := src.Read(buf[0:]) // io.ReadAtLeast(src, buf[0:], 1)
+		{
+			//自动扩容，优化响应速度
+			if nr == length {
+				//如果连续10次接收大小为 4096 装满默认容器，那么就扩容到 40960
+				MaxCount1++
+				if MaxCount1 >= 10 {
+					buf = resize(buf, MaxLength)
+				}
+			} else if nr == MaxLength {
+				//如果连续10次接收大小为 40960 装满默认容器，那么就扩容到 81920，尽量不要扩容太大，否则可能会导致内存占用太高
+				MaxCount2++
+				if MaxCount2 >= 10 {
+					buf = resize(buf, MaxMaxLength)
+				}
+			} else if MaxCount1 < 10 {
+				MaxCount1 = 0
+			} else if MaxCount2 < 10 {
+				MaxCount2 = 0
+			}
+		}
 		if nr > 0 {
 			as.Data.Reset()
 			as.Data.Write(buf[0:nr])
-			s.CallbackTCPRequest(MsgType, as)
+			s.CallbackTCPRequest(MsgType, as, RemoteAddr)
 			if as.Data.Len() < 1 {
 				continue
 			}
@@ -1707,68 +1933,136 @@ func (s *ProxyRequest) SocketForward(dst bufio.Writer, src *public.ReadWriteObje
 		if er != nil {
 			return
 		}
-
 	}
+}
+func resize(slice []byte, newLength int) []byte {
+	if newLength <= cap(slice) {
+		return slice[:newLength] // 如果容量足够，直接返回切片
+	}
+
+	// 创建一个新的切片，大小为 newLength
+	newSlice := make([]byte, newLength)
+
+	// 复制原始数据到新切片
+	copy(newSlice, slice)
+
+	// 释放原始切片
+	slice = nil // 将原始切片设置为 nil，帮助垃圾回收器回收
+
+	return newSlice
 }
 
 // Sunny  请使用 NewSunny 方法 请不要直接构造
 type Sunny struct {
-	certCache             *Cache
-	disableTCP            bool                 //禁止TCP连接
-	certificates          []byte               //CA证书原始数据
-	rootCa                *x509.Certificate    //中间件CA证书
-	rootKey               *rsa.PrivateKey      // 证书私钥
-	initCertOK            bool                 // 是否已经初始化证书
-	port                  int                  //启动的端口号
-	Error                 error                //错误信息
-	tcpSocket             *net.Listener        //TcpSocket服务器
-	udpSocket             *net.UDPConn         //UdpSocket服务器
-	connList              map[int64]net.Conn   //会话连接客户端、停止服务器时可以全部关闭
-	lock                  sync.Mutex           //会话连接互斥锁
-	socket5VerifyUser     bool                 //S5代理是否需要验证账号密码
-	socket5VerifyUserList map[string]string    //S5代理需要验证的账号密码列表
-	socket5VerifyUserLock sync.Mutex           //S5代理验证时的锁
-	isMustTcp             bool                 //强制走TCP
-	httpCallback          int                  //http 请求回调地址
-	tcpCallback           int                  //TCP请求回调地址
-	websocketCallback     int                  //ws请求回调地址
-	udpCallback           int                  //udp请求回调地址
-	goHttpCallback        func(Conn *HttpConn) //http请求GO回调地址
-	goTcpCallback         func(Conn *TcpConn)  //TCP请求GO回调地址
-	goWebsocketCallback   func(Conn *WsConn)   //ws请求GO回调地址
-	goUdpCallback         func(Conn *UDPConn)  //UDP请求GO回调地址
-	proxy                 *GoWinHttp.Proxy     //全局上游代理
-	proxyRegexp           *regexp.Regexp       //上游代理使用规则
-	mustTcpRegexp         *regexp.Regexp       //强制走TCP规则,如果 isMustTcp 打开状态,本功能则无效
-	isRun                 bool                 //是否在运行中
-	fixedTLS              []uint16             //固定的TLS指纹
-	isRandomTLS           bool                 //是否随机使用TLS指纹
-	randomTLSValue        []uint16             //tls 指纹选项合集
+	disableTCP            bool                //禁止TCP连接
+	certificates          []byte              //CA证书原始数据
+	rootCa                *x509.Certificate   //中间件CA证书
+	rootKey               *rsa.PrivateKey     // 证书私钥
+	initCertOK            bool                // 是否已经初始化证书
+	port                  int                 //启动的端口号
+	Error                 error               //错误信息
+	tcpSocket             *net.Listener       //TcpSocket服务器
+	udpSocket             *net.UDPConn        //UdpSocket服务器
+	connList              map[int64]net.Conn  //会话连接客户端、停止服务器时可以全部关闭
+	lock                  sync.Mutex          //会话连接互斥锁
+	socket5VerifyUser     bool                //S5代理是否需要验证账号密码
+	socket5VerifyUserList map[string]string   //S5代理需要验证的账号密码列表
+	socket5VerifyUserLock sync.Mutex          //S5代理验证时的锁
+	isMustTcp             bool                //强制走TCP
+	httpCallback          int                 //http 请求回调地址
+	tcpCallback           int                 //TCP请求回调地址
+	websocketCallback     int                 //ws请求回调地址
+	udpCallback           int                 //udp请求回调地址
+	goHttpCallback        func(ConnHTTP)      //http请求GO回调地址
+	goTcpCallback         func(ConnTCP)       //TCP请求GO回调地址
+	goWebsocketCallback   func(ConnWebSocket) //ws请求GO回调地址
+	goUdpCallback         func(ConnUDP)       //UDP请求GO回调地址
+	proxy                 *SunnyProxy.Proxy   //全局上游代理
+	proxyRegexp           *regexp.Regexp      //上游代理使用规则
+	mustTcpRegexp         *regexp.Regexp      //强制走TCP规则,如果 isMustTcp 打开状态,本功能则无效
+	mustTcpRulesAllow     bool                // true 表示 mustTcpRegexp 规则内的强制走TCP，反之不在规则内的强制都TCP
+	isRun                 bool                //是否在运行中
 	SunnyContext          int
+	fixedTLS              []uint16 //固定的TLS指纹
+	isRandomTLS           bool     //是否随机使用TLS指纹
+	randomTLSValue        []uint16 //tls 指纹选项合集
+	userScriptCode        []byte   //用户脚本代码
+	_http_max_body_len    int64    //最大的用户提交数据长度
+	script                struct {
+		http         GoScriptCode.GoScriptTypeHTTP  //脚本代码	HTTP		事件入口函数
+		tcp          GoScriptCode.GoScriptTypeTCP   //脚本代码	TCP			事件入口函数
+		udp          GoScriptCode.GoScriptTypeUDP   //脚本代码	UDP			事件入口函数
+		websocket    GoScriptCode.GoScriptTypeWS    //脚本代码	Websocket	事件入口函数
+		SaveCallback GoScriptCode.SaveFuncInterface //保存代码执行的回调函数
+		LogCallback  GoScriptCode.LogFuncInterface  //日志输出执行的回调函数
+		AdminPage    string                         //管理页面
+	}
 }
 
-var defaultManager = func() int {
-	i := Certificate.CreateCertificate()
-	c := Certificate.LoadCertificateContext(i)
-	if c == nil {
-		panic(errors.New("创建证书管理器错误！！"))
+func (s *Sunny) TcpRulesString() string {
+	if s.isMustTcp {
+		return "当前强制所有走TCP"
 	}
-	c.LoadX509Certificate(public.NULL, public.RootCa, public.RootKey)
-	return i
-}()
+	if s.mustTcpRulesAllow {
+		return "规则内的-强制走TCP：" + s.mustTcpRegexp.String()
+	} else {
+		return "规则内的-不走TCP：" + s.mustTcpRegexp.String()
+	}
+}
+func (s *Sunny) scriptHTTPCall(arg Interface.ConnHTTPScriptCall) {
+	s.lock.Lock()
+	_call := s.script.http
+	s.lock.Unlock()
+	if _call != nil {
+		defer func() {
+			if err := recover(); err != nil {
+				//fmt.Println("script HTTP Call 出了错：", err)
+			}
+		}()
+		_call(arg)
+	}
+}
+func (s *Sunny) scriptTCPCall(arg Interface.ConnTCPScriptCall) {
+	s.lock.Lock()
+	_call := s.script.tcp
+	s.lock.Unlock()
+	if _call != nil {
+		defer func() {
+			if err := recover(); err != nil {
+				//fmt.Println("script TCP Call 出了错：", err)
+			}
+		}()
+		_call(arg)
+	}
+}
 
-// NewSunny 创建一个中间件
-func NewSunny() *Sunny {
-	SunnyContext := NewMessageId()
-	a, _ := regexp.Compile("ALL")
-	s := &Sunny{SunnyContext: SunnyContext, certCache: NewCache(), connList: make(map[int64]net.Conn), socket5VerifyUserList: make(map[string]string), proxy: &GoWinHttp.Proxy{}, proxyRegexp: a}
-	s.randomTLSValue = make([]uint16, public.RandomTLSValueArrayLen)
-	copy(s.randomTLSValue, public.RandomTLSValueArray)
-	s.SetCert(defaultManager)
-	SunnyStorageLock.Lock()
-	SunnyStorage[s.SunnyContext] = s
-	SunnyStorageLock.Unlock()
-	return s
+func (s *Sunny) scriptUDPCall(arg Interface.ConnUDPScriptCall) {
+	s.lock.Lock()
+	_call := s.script.udp
+	s.lock.Unlock()
+	if _call != nil {
+		defer func() {
+			if err := recover(); err != nil {
+				//fmt.Println("script UDP Call 出了错：", err)
+			}
+		}()
+		_call(arg)
+	}
+
+}
+
+func (s *Sunny) scriptWebsocketCall(arg Interface.ConnWebSocketScriptCall) {
+	s.lock.Lock()
+	_call := s.script.websocket
+	s.lock.Unlock()
+	if _call != nil {
+		defer func() {
+			if err := recover(); err != nil {
+				//fmt.Println("script Websocket Call 出了错：", err)
+			}
+		}()
+		_call(arg)
+	}
 }
 
 // SetRandomTLS 是否使用随机TLS指纹
@@ -1788,12 +2082,11 @@ func (s *Sunny) GetTLSValues() []uint16 {
 		return nil
 	}
 	s.lock.Lock()
+	defer s.lock.Unlock()
 	if !s.isRandomTLS {
 		if len(s.fixedTLS) > 0 {
-			s.lock.Unlock()
 			return s.fixedTLS
 		}
-		s.lock.Unlock()
 		return nil
 	}
 	n := mrand.Intn(public.RandomTLSValueArrayLen) + 1
@@ -1803,7 +2096,6 @@ func (s *Sunny) GetTLSValues() []uint16 {
 	}
 	shuffledArray := make([]uint16, n)
 	copy(shuffledArray, s.randomTLSValue[:n])
-	s.lock.Unlock()
 	return shuffledArray
 }
 
@@ -1837,8 +2129,35 @@ func (s *Sunny) SetRandomFixedTLS(value string) {
 	s.lock.Unlock()
 }
 
-// SetMustTcpRegexp 设置强制走TCP规则,如果 打开了全部强制走TCP状态,本功能则无效
-func (s *Sunny) SetMustTcpRegexp(RegexpList string) error {
+var defaultManager = func() int {
+	i := Certificate.CreateCertificate()
+	c := Certificate.LoadCertificateContext(i)
+	if c == nil {
+		panic(errors.New("创建证书管理器错误！！"))
+	}
+	c.LoadX509Certificate(public.NULL, public.RootCa, public.RootKey)
+	return i
+}()
+
+// NewSunny 创建一个中间件
+func NewSunny() *Sunny {
+	SunnyContext := NewMessageId()
+	a, _ := regexp.Compile("ALL")
+	s := &Sunny{SunnyContext: SunnyContext, connList: make(map[int64]net.Conn), socket5VerifyUserList: make(map[string]string), proxyRegexp: a, _http_max_body_len: public.MaxUploadLength, mustTcpRegexp: a, mustTcpRulesAllow: true}
+	s.userScriptCode = GoScriptCode.DefaultCode
+	s.script.AdminPage = "SunnyNetScriptEdit"
+	_, s.script.http, s.script.websocket, s.script.tcp, s.script.udp = GoScriptCode.RunCode(s.userScriptCode, nil)
+	s.SetCert(defaultManager)
+	s.randomTLSValue = make([]uint16, public.RandomTLSValueArrayLen)
+	copy(s.randomTLSValue, public.RandomTLSValueArray)
+	SunnyStorageLock.Lock()
+	SunnyStorage[s.SunnyContext] = s
+	SunnyStorageLock.Unlock()
+	return s
+}
+
+// SetMustTcpRegexp 设置强制走TCP规则,如果 打开了全部强制走TCP状态,本功能则无效 Rules=false 规则之外走TCP  Rules=true 规则之内走TCP
+func (s *Sunny) SetMustTcpRegexp(RegexpList string, Rules bool) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	r := strings.ReplaceAll("^"+strings.ReplaceAll(RegexpList, " ", "")+"$", "\r", "")
@@ -1851,6 +2170,7 @@ func (s *Sunny) SetMustTcpRegexp(RegexpList string) error {
 		r = "ALL"
 	}
 	a, e := regexp.Compile(r)
+	s.mustTcpRulesAllow = Rules
 	if e == nil {
 		s.mustTcpRegexp = a
 	} else {
@@ -1871,6 +2191,8 @@ func (s *Sunny) CompileProxyRegexp(Regexp string) error {
 		r = "ALL" //让其全部匹配失败，也就是全部使用上游代理代理
 	}
 	a, e := regexp.Compile(r)
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	if e == nil {
 		s.proxyRegexp = a
 	} else {
@@ -1882,78 +2204,22 @@ func (s *Sunny) CompileProxyRegexp(Regexp string) error {
 
 // MustTcp 设置是否强制全部走TCP
 func (s *Sunny) MustTcp(open bool) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	s.isMustTcp = open
-}
-func (s *Sunny) generatePem(host string) ([]byte, []byte, error) {
-	serialNumber, _ := rand.Int(rand.Reader, public.MaxBig)
-	template := x509.Certificate{
-		SerialNumber: serialNumber, // SerialNumber 是 CA 颁布的唯一序列号，在此使用一个大随机数来代表它
-		Subject: pkix.Name{ //Name代表一个X.509识别名。只包含识别名的公共属性，额外的属性被忽略。
-			CommonName: host,
-		},
-		NotBefore:      time.Now().AddDate(0, 0, -1),
-		NotAfter:       time.Now().AddDate(0, 0, 365),
-		KeyUsage:       x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature, //KeyUsage 与 ExtKeyUsage 用来表明该证书是用来做服务器认证的
-		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},               // 密钥扩展用途的序列
-		EmailAddresses: []string{"forward.nice.cp@gmail.com"},
-	}
-	if ip := net.ParseIP(host); ip != nil {
-		template.IPAddresses = []net.IP{ip}
-	} else {
-		template.DNSNames = []string{host}
-	}
-
-	cer, err := x509.CreateCertificate(rand.Reader, &template, s.rootCa, &s.rootKey.PublicKey, s.rootKey)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return pem.EncodeToMemory(&pem.Block{ // 证书
-			Type:  "CERTIFICATE",
-			Bytes: cer,
-		}), pem.EncodeToMemory(&pem.Block{ // 私钥
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(s.rootKey),
-		}), err
-}
-
-func (s *Sunny) getCertificate(host string) (*tls.Certificate, error) {
-	in := HttpCertificate.GetTlsConfigSunny(host, public.CertificateRequestManagerRulesReceive)
-	if in != nil {
-		if len(in.Certificates) > 0 {
-			return &in.Certificates[0], nil
-		}
-	}
-	certificate, err := s.certCache.GetOrStore(host, func() (interface{}, error) {
-		mHost, _, err := public.SplitHostPort(host)
-		if err != nil {
-			return nil, err
-		}
-		certByte, priByte, err := s.generatePem(mHost)
-		if err != nil {
-			return nil, err
-		}
-		certificate, err := tls.X509KeyPair(certByte, priByte)
-		if err != nil {
-			return nil, err
-		}
-		return certificate, nil
-	})
-	if certificate == nil {
-		return nil, err
-	}
-	i := certificate.(tls.Certificate)
-	return &i, err
 }
 
 // Socket5VerifyUser S5代理是否需要验证账号密码
 func (s *Sunny) Socket5VerifyUser(n bool) *Sunny {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	s.socket5VerifyUser = n
 	return s
 }
 
 // Socket5AddUser S5代理添加需要验证的账号密码
 func (s *Sunny) Socket5AddUser(u, p string) *Sunny {
+
 	s.socket5VerifyUserLock.Lock()
 	s.socket5VerifyUserList[u] = p
 	s.socket5VerifyUserLock.Unlock()
@@ -1986,36 +2252,9 @@ func (s *Sunny) SetIeProxy(Off bool) bool {
 }
 
 // SetGlobalProxy 设置全局上游代理 仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
-func (s *Sunny) SetGlobalProxy(ProxyUrl string) bool {
-	if s.proxy == nil {
-		s.proxy = &GoWinHttp.Proxy{Timeout: 60 * 1000}
-	}
-	s.proxy.Address = ""
-	s.proxy.Pass = ""
-	s.proxy.User = ""
-	proxy, err := url.Parse(ProxyUrl)
-	if err != nil || proxy == nil {
-		return false
-	}
-
-	if proxy.Scheme != "http" && proxy.Scheme != "socks5" && proxy.Scheme != "socket5" && proxy.Scheme != "socket" {
-		return false
-	}
-	if len(proxy.Host) < 3 {
-		s.proxy.S5TypeProxy = false
-		s.proxy.Address = ""
-		s.proxy.User = ""
-		s.proxy.Pass = ""
-		return false
-	}
-	s.proxy.S5TypeProxy = proxy.Scheme != "http"
-	s.proxy.Address = proxy.Host
-	s.proxy.User = proxy.User.Username()
-	p, ok := proxy.User.Password()
-	if ok {
-		s.proxy.Pass = p
-	}
-	return true
+func (s *Sunny) SetGlobalProxy(ProxyUrl string, outTime int) bool {
+	s.proxy, _ = SunnyProxy.ParseProxy(ProxyUrl, outTime)
+	return s.proxy != nil
 }
 
 // InstallCert 安装证书 将证书安装到Windows系统内
@@ -2066,12 +2305,24 @@ func (s *Sunny) SetCert(ManagerId int) *Sunny {
 
 // SetPort 设置端口号
 func (s *Sunny) SetPort(Port int) *Sunny {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	s.port = Port
+	return s
+}
+
+// SetHTTPRequestMaxUpdateLength 设置HTTP请求,提交数据,最大的长度
+func (s *Sunny) SetHTTPRequestMaxUpdateLength(max int64) *Sunny {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s._http_max_body_len = max
 	return s
 }
 
 // DisableTCP 禁用TCP
 func (s *Sunny) DisableTCP(disable bool) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	s.disableTCP = disable
 }
 
@@ -2082,6 +2333,8 @@ func (s *Sunny) Port() int {
 
 // SetCallback 设置回调地址
 func (s *Sunny) SetCallback(httpCall, tcpCall, wsCall, udpCall int) *Sunny {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	s.httpCallback = httpCall
 	s.tcpCallback = tcpCall
 	s.websocketCallback = wsCall
@@ -2090,7 +2343,9 @@ func (s *Sunny) SetCallback(httpCall, tcpCall, wsCall, udpCall int) *Sunny {
 }
 
 // SetGoCallback 设置Go回调地址
-func (s *Sunny) SetGoCallback(httpCall func(Conn *HttpConn), tcpCall func(Conn *TcpConn), wsCall func(Conn *WsConn), udpCall func(Conn *UDPConn)) *Sunny {
+func (s *Sunny) SetGoCallback(httpCall func(ConnHTTP), tcpCall func(ConnTCP), wsCall func(ConnWebSocket), udpCall func(ConnUDP)) *Sunny {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	s.goHttpCallback = httpCall
 	s.goTcpCallback = tcpCall
 	s.goWebsocketCallback = wsCall
@@ -2102,7 +2357,7 @@ func (s *Sunny) SetGoCallback(httpCall func(Conn *HttpConn), tcpCall func(Conn *
 func (s *Sunny) StartProcess() bool {
 	if CrossCompiled.NFapi_IsInit() {
 		if CrossCompiled.NFapi_ProcessPortInt() != 0 && CrossCompiled.NFapi_SunnyPointer() != uintptr(unsafe.Pointer(s)) {
-			CrossCompiled.NFapi_MessageBox("启动失败：", "已在其他Sunny对象启动\r\n\r\n不能多次加载驱动", 0x00000010)
+			CrossCompiled.NFapi_MessageBox("启动失败：", "已在其他 SunnyNet 对象启动\r\n\r\n同一进程不能多次加载驱动", 0x00000010)
 			return false
 		}
 		CrossCompiled.NFapi_SunnyPointer(uintptr(unsafe.Pointer(s)))
@@ -2160,20 +2415,71 @@ func (s *Sunny) ProcessCancelAll() *Sunny {
 	return s
 }
 
+// SetScriptCall 设置脚本代码的回调函数
+func (s *Sunny) SetScriptCall(log GoScriptCode.LogFuncInterface, save GoScriptCode.SaveFuncInterface) {
+	s.lock.Lock()
+	s.script.SaveCallback = save
+	s.script.LogCallback = log
+	s.lock.Unlock()
+}
+
+// SetScriptCode 设置脚本代码
+func (s *Sunny) SetScriptCode(code string) string {
+	Code := []byte(code)
+	if len(strings.TrimSpace(code)) < 1 {
+		Code = GoScriptCode.DefaultCode
+	}
+	err, _ScriptFuncHTTP, _ScriptFuncWS, _ScriptFuncTCP, _ScriptFuncUDP := GoScriptCode.RunCode(Code, s.script.LogCallback)
+	if err == "" {
+		s.lock.Lock()
+		s.userScriptCode = Code
+		s.script.http = _ScriptFuncHTTP
+		s.script.websocket = _ScriptFuncWS
+		s.script.tcp = _ScriptFuncTCP
+		s.script.udp = _ScriptFuncUDP
+		s.lock.Unlock()
+		if s.script.SaveCallback != nil {
+			s.script.SaveCallback(Code)
+		}
+	}
+	return err
+}
+
+// 添加 Windows 防火墙规则
+func (s *Sunny) addFirewallRule() {
+	if runtime.GOOS == "windows" {
+		executablePath, _ := os.Executable()
+		// 删除现有规则
+		cmd := exec.Command("netsh", "advfirewall", "firewall", "delete", "rule", "name=SunnyNet")
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} // 隐藏窗口
+		_ = cmd.Run()
+
+		// 添加入站规则
+		cmd = exec.Command("netsh", "advfirewall", "firewall", "add", "rule", "name=SunnyNet", "dir=in", "action=allow", "program="+executablePath)
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} // 隐藏窗口
+		_ = cmd.Run()
+
+		// 添加出站规则
+		cmd = exec.Command("netsh", "advfirewall", "firewall", "add", "rule", "name=SunnyNetOut", "dir=out", "action=allow", "program="+executablePath)
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} // 隐藏窗口
+		_ = cmd.Run()
+	}
+}
+
 // Start 开始启动  调用 Error 获取错误信息 成功=nil
 func (s *Sunny) Start() *Sunny {
 	if s.isRun {
 		s.Error = errors.New("已在运行中")
 		return s
 	}
-
 	if s.port == 0 {
-		s.Error = errors.New("The port number is not set ")
+		s.Error = errors.New("未设置的端口号")
 		return s
 	}
 	if !s.initCertOK {
 		return s
 	}
+	s.addFirewallRule()
 	tcpListen, err := net.Listen("tcp", "0.0.0.0:"+strconv.Itoa(s.port))
 	if err != nil {
 		s.Error = err
@@ -2199,6 +2505,7 @@ func (s *Sunny) Start() *Sunny {
 		CrossCompiled.NFapi_ProcessPortInt(uint16(s.port))
 		CrossCompiled.NFapi_UdpSendReceiveFunc(s.udpNFSendReceive)
 	}
+
 	go s.listenTcpGo()
 	go s.listenUdpGo()
 	return s
@@ -2239,48 +2546,88 @@ func (s *Sunny) listenTcpGo() {
 			break
 		}
 		if err == nil {
-			go s.handleClientConn(c, nil)
+			go s.handleClientConn(c)
 		}
 	}
 }
 
-func (s *Sunny) handleClientConn(conn net.Conn, tgt *TargetInfo) {
+func (s *proxyRequest) clone() *proxyRequest {
+	req := &proxyRequest{
+		Global:        s.Global,
+		TcpCall:       s.Global.tcpCallback,
+		HttpCall:      s.Global.httpCallback,
+		wsCall:        s.Global.websocketCallback,
+		TcpGoCall:     s.Global.goTcpCallback,
+		HttpGoCall:    s.Global.goHttpCallback,
+		wsGoCall:      s.Global.goWebsocketCallback,
+		Theology:      s.Theology,
+		Conn:          s.Conn,
+		RwObj:         s.RwObj,
+		Target:        s.Target.Clone(),
+		ProxyHost:     s.ProxyHost,
+		Pid:           s.Pid,
+		Request:       s.Request,
+		Response:      response{},
+		Websocket:     s.Websocket,
+		Proxy:         s.Proxy,
+		NoRepairHttp:  s.NoRepairHttp,
+		defaultScheme: s.defaultScheme,
+		SendTimeout:   s.SendTimeout,
+		ServerName:    s.ServerName,
+	}
+	req.updateSocket5User()
+	Theoni := int64(req.Theology)
+	s.Global.lock.Lock()
+	s.Global.connList[Theoni] = s.Conn
+	delete(s.Global.connList, Theoni)
+	s.Global.lock.Unlock()
+	return req
+}
+func (s *proxyRequest) free() {
+	if s == nil {
+		return
+	}
+	if s.Global == nil {
+		return
+	}
+	s.delSocket5User()
+	s.Global.lock.Lock()
+	delete(s.Global.connList, int64(s.Theology))
+	s.Global.lock.Unlock()
+	//当 handleClientConn 函数 即将退出时 销毁 请求中间件 中的一些信息，避免内存泄漏
+	s.RwObj = nil
+	s.Conn = nil
+	s.Global = nil
+	s.Response.Response = nil
+	s.Request = nil
+	s.Target = nil
+}
+func (s *Sunny) handleClientConn(conn net.Conn) {
 	Theoni := atomic.AddInt64(&public.Theology, 1)
 	//存入会话列表 方便停止时，将所以连接断开
 	s.lock.Lock()
 	s.connList[Theoni] = conn
 	s.lock.Unlock()
 	//构造一个请求中间件
-	req := &ProxyRequest{Global: s, TcpCall: s.tcpCallback, HttpCall: s.httpCallback, wsCall: s.websocketCallback, TcpGoCall: s.goTcpCallback, HttpGoCall: s.goHttpCallback, wsGoCall: s.goWebsocketCallback} //原始请求对象
-	defer req.delSocket5User()
+	req := &proxyRequest{Global: s, TcpCall: s.tcpCallback, HttpCall: s.httpCallback, wsCall: s.websocketCallback, TcpGoCall: s.goTcpCallback, HttpGoCall: s.goHttpCallback, wsGoCall: s.goWebsocketCallback, SendTimeout: 30 * time.Second} //原始请求对象
+
 	defer func() {
 		//当 handleClientConn 函数 即将退出时 从会话列表中删除当前会话
 		_ = conn.Close()
 		s.lock.Lock()
 		delete(s.connList, Theoni)
 		s.lock.Unlock()
-		//当 handleClientConn 函数 即将退出时 销毁 请求中间件 中的一些信息，避免内存泄漏
-		req.RwObj = nil
-		req.Conn = nil
-		req.Global = nil
-		req.WinHttp = nil
-		req.Response = nil
-		req.Request = nil
-		req.Target = nil
+		req.free()
 		conn = nil
-		req = nil
 	}()
 	//请求中间件一些必要参数赋值
-	req.Conn = conn                             //请求会话
-	req.RwObj = public.NewReadWriteObject(conn) //构造客户端读写对象
-	req.Theology = int(Theoni)                  //当前请求唯一ID
-	if tgt == nil {
-		req.Target = &TargetInfo{} //构建一个请求连接信息，后续解析到值后会进行赋值
-	} else {
-		req.Target = tgt
-	}
-	switch addr := conn.RemoteAddr().(type) {
-	case *net.TCPAddr:
+	req.Conn = conn                                      //请求会话
+	req.Target = &TargetInfo{}                           //构建一个请求连接信息，后续解析到值后会进行赋值
+	req.RwObj = ReadWriteObject.NewReadWriteObject(conn) //构造客户端读写对象
+	req.Theology = int(Theoni)                           //当前请求唯一ID
+	req.Response = response{}
+	addr, ok := conn.RemoteAddr().(*net.TCPAddr)
+	if ok {
 		u := uint16(addr.Port)
 		//这里是判断 是否是通过 NFapi 驱动进来的数据
 		if runtime.GOOS == "windows" {
@@ -2297,9 +2644,6 @@ func (s *Sunny) handleClientConn(conn net.Conn, tgt *TargetInfo) {
 				return
 			}
 		}
-		break
-	default:
-		break
 	}
 	req.Pid = CrossCompiled.GetTcpInfoPID(conn.RemoteAddr().String(), s.port)
 	//若不是 通过 NFapi 驱动进来的数据 那么就是通过代理传递过来的数据
@@ -2320,7 +2664,7 @@ func (s *Sunny) handleClientConn(conn net.Conn, tgt *TargetInfo) {
 				return
 			}
 			//如果开启了强制走TCP ，则按TCP处理流程处理
-			req.MustTcpProcessing(nil, public.TagMustTCP)
+			req.MustTcpProcessing(public.TagMustTCP)
 			return
 		}
 		//如果没有开启强制走TCP，则按https 数据进行处理
@@ -2336,6 +2680,9 @@ func (s *Sunny) handleClientConn(conn net.Conn, tgt *TargetInfo) {
 	//如果没有开启用户身份验证 且 第一个字节符合HTTP/S 请求头
 	if s.socket5VerifyUser == false && public.IsHTTPRequest(peek[0], req.RwObj) {
 		//按照http请求处理
-		req.httpProcessing(nil, "80", public.TagTcpAgreement)
+		req.httpProcessing(nil, public.TagTcpAgreement)
 	}
+}
+func SetDnsServer(server string) {
+	dns.SetDnsServer(server)
 }

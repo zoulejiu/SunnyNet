@@ -75,727 +75,978 @@ extern "C" {
 #endif
 
 
-// 获取SunnyNet版本
-//
+/*
+GetSunnyVersion 获取SunnyNet版本
+*/
 extern __declspec(dllexport) GoUintptr GetSunnyVersion();
 
-// 释放指针
-//
+/*
+Free 释放指针
+*/
 extern __declspec(dllexport) void Free(GoUintptr ptr);
 
-// 创建Sunny中间件对象,可创建多个
-//
+/*
+CreateSunnyNet 创建Sunny中间件对象,可创建多个
+*/
 extern __declspec(dllexport) GoInt CreateSunnyNet();
 
-// ReleaseSunnyNet 释放SunnyNet
-//
+/*
+ReleaseSunnyNet ReleaseSunnyNet 释放SunnyNet
+*/
 extern __declspec(dllexport) GoUint8 ReleaseSunnyNet(GoInt SunnyContext);
 
-// 启动Sunny中间件 成功返回true
-//
+/*
+SunnyNetStart 启动Sunny中间件 成功返回true
+*/
 extern __declspec(dllexport) GoUint8 SunnyNetStart(GoInt SunnyContext);
 
-// 设置指定端口 Sunny中间件启动之前调用
-//
+/*
+SunnyNetSetPort 设置指定端口 Sunny中间件启动之前调用
+*/
 extern __declspec(dllexport) GoUint8 SunnyNetSetPort(GoInt SunnyContext, GoInt Port);
 
-// 关闭停止指定Sunny中间件
-//
+/*
+SunnyNetClose 关闭停止指定Sunny中间件
+*/
 extern __declspec(dllexport) GoUint8 SunnyNetClose(GoInt SunnyContext);
 
-// 设置自定义证书
-//
+/*
+SunnyNetSetCert 设置自定义证书
+*/
 extern __declspec(dllexport) GoUint8 SunnyNetSetCert(GoInt SunnyContext, GoInt CertificateManagerId);
 
-// 安装证书 将证书安装到Windows系统内
-//
+/*
+SunnyNetInstallCert 安装证书 将证书安装到Windows系统内
+*/
 extern __declspec(dllexport) GoUintptr SunnyNetInstallCert(GoInt SunnyContext);
 
-// 设置中间件回调地址 httpCallback
-//
+/*
+SunnyNetSetCallback 设置中间件回调地址 httpCallback
+*/
 extern __declspec(dllexport) GoUint8 SunnyNetSetCallback(GoInt SunnyContext, GoInt httpCallback, GoInt tcpCallback, GoInt wsCallback, GoInt udpCallback);
 
-// 添加 S5代理需要验证的用户名
-//
+/*
+SunnyNetSocket5AddUser 添加 S5代理需要验证的用户名
+*/
 extern __declspec(dllexport) GoUint8 SunnyNetSocket5AddUser(GoInt SunnyContext, char* User, char* Pass);
 
-// 开启身份验证模式
-//
+/*
+SunnyNetVerifyUser 开启身份验证模式
+*/
 extern __declspec(dllexport) GoUint8 SunnyNetVerifyUser(GoInt SunnyContext, GoUint8 open);
 
-// 删除 S5需要验证的用户名
-//
+/*
+SunnyNetSocket5DelUser 删除 S5需要验证的用户名
+*/
 extern __declspec(dllexport) GoUint8 SunnyNetSocket5DelUser(GoInt SunnyContext, char* User);
 
-// 开启身份验证模式后 获取授权的S5账号,注意UDP请求无法获取到授权的s5账号
-//
+/*
+SunnyNetGetSocket5User 开启身份验证模式后 获取授权的S5账号,注意UDP请求无法获取到授权的s5账号
+*/
 extern __declspec(dllexport) GoUintptr SunnyNetGetSocket5User(GoInt Theology);
 
-// 设置中间件是否开启强制走TCP
-//
+/*
+SunnyNetMustTcp 设置中间件是否开启强制走TCP
+*/
 extern __declspec(dllexport) void SunnyNetMustTcp(GoInt SunnyContext, GoUint8 open);
 
-// 设置中间件上游代理使用规则
-//
+/*
+CompileProxyRegexp 设置中间件上游代理使用规则
+*/
 extern __declspec(dllexport) GoUint8 CompileProxyRegexp(GoInt SunnyContext, char* Regexp);
 
-// 设置强制走TCP规则,如果 打开了全部强制走TCP状态,本功能则无效
-//
-extern __declspec(dllexport) GoUint8 SetMustTcpRegexp(GoInt SunnyContext, char* Regexp);
+/*
+SetMustTcpRegexp 设置强制走TCP规则,如果 打开了全部强制走TCP状态,本功能则无效
+*/
+extern __declspec(dllexport) GoUint8 SetMustTcpRegexp(GoInt SunnyContext, char* Regexp, GoUint8 RulesAllow);
 
-// 获取中间件启动时的错误信息
-//
+/*
+SunnyNetError 获取中间件启动时的错误信息
+*/
 extern __declspec(dllexport) GoUintptr SunnyNetError(GoInt SunnyContext);
 
-// 设置全局上游代理 仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
+/*
+SetGlobalProxy 设置全局上游代理 仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
+*/
 //
-extern __declspec(dllexport) GoUint8 SetGlobalProxy(GoInt SunnyContext, char* ProxyAddress);
+extern __declspec(dllexport) GoUint8 SetGlobalProxy(GoInt SunnyContext, char* ProxyAddress, GoInt outTime);
 
-// 导出已设置的证书
-//
+/*
+GetRequestProto 获取 HTTPS 请求的协议版本
+*/
+extern __declspec(dllexport) GoUintptr GetRequestProto(GoInt MessageId);
+
+/*
+GetResponseProto 获取 HTTPS 响应的协议版本
+*/
+extern __declspec(dllexport) GoUintptr GetResponseProto(GoInt MessageId);
+
+/*
+ExportCert 导出已设置的证书
+*/
 extern __declspec(dllexport) GoUintptr ExportCert(GoInt SunnyContext);
 
-// 设置IE代理 Off=true 取消 反之 设置 在中间件设置端口后调用
-//
+/*
+SetHTTPRequestMaxUpdateLength 设置HTTP请求,提交数据,最大的长度
+*/
+extern __declspec(dllexport) GoUint8 SetHTTPRequestMaxUpdateLength(GoInt SunnyContext, GoInt64 i);
+
+/*
+SetIeProxy 设置IE代理 Off=true 取消 反之 设置 在中间件设置端口后调用
+*/
 extern __declspec(dllexport) GoUint8 SetIeProxy(GoInt SunnyContext, GoUint8 Off);
 
-// 修改、设置 HTTP/S当前请求数据中指定Cookie
-//
+/*
+SetRequestCookie 修改、设置 HTTP/S当前请求数据中指定Cookie
+*/
 extern __declspec(dllexport) void SetRequestCookie(GoInt MessageId, char* name, char* val);
 
-// 修改、设置 HTTP/S当前请求数据中的全部Cookie
-//
+/*
+SetRequestAllCookie 修改、设置 HTTP/S当前请求数据中的全部Cookie
+*/
 extern __declspec(dllexport) void SetRequestAllCookie(GoInt MessageId, char* val);
 
-// 获取 HTTP/S当前请求数据中指定的Cookie
-//
+/*
+GetHttpServerName 获取HTTP请求远程服务器名称
+*/
+extern __declspec(dllexport) GoUintptr GetHttpServerName(GoInt MessageId);
+
+/*
+GetRequestCookie 获取 HTTP/S当前请求数据中指定的Cookie
+*/
 extern __declspec(dllexport) GoUintptr GetRequestCookie(GoInt MessageId, char* name);
 
-// 获取 HTTP/S 当前请求全部Cookie
-//
+/*
+GetRequestALLCookie 获取 HTTP/S 当前请求全部Cookie
+*/
 extern __declspec(dllexport) GoUintptr GetRequestALLCookie(GoInt MessageId);
 
-// 删除HTTP/S返回数据中指定的协议头
-//
+/*
+DelResponseHeader 删除HTTP/S返回数据中指定的协议头
+*/
 extern __declspec(dllexport) void DelResponseHeader(GoInt MessageId, char* name);
 
-// 删除HTTP/S请求数据中指定的协议头
-//
+/*
+DelRequestHeader 删除HTTP/S请求数据中指定的协议头
+*/
 extern __declspec(dllexport) void DelRequestHeader(GoInt MessageId, char* name);
 
-// 请求设置超时-毫秒
-//
+/*
+SetRequestOutTime 请求设置超时-毫秒
+*/
 extern __declspec(dllexport) void SetRequestOutTime(GoInt MessageId, GoInt times);
 
-// 设置HTTP/S请求体中的协议头
-//
+/*
+SetRequestALLHeader SetRequestALLHeader 设置HTTP/ S请求体中的全部协议头
+*/
+extern __declspec(dllexport) void SetRequestALLHeader(GoInt MessageId, char* val);
+
+/*
+SetRequestHeader 设置HTTP/S请求体中的协议头
+*/
 extern __declspec(dllexport) void SetRequestHeader(GoInt MessageId, char* name, char* val);
 
-// 修改、设置 HTTP/S当前返回数据中的指定协议头
-//
+/*
+RandomRequestCipherSuites RandomRequestCipherSuites 随机设置请求 CipherSuites
+*/
+extern __declspec(dllexport) GoUint8 RandomRequestCipherSuites(GoInt MessageId);
+
+/*
+SetRequestHTTP2Config  设置HTTP 2.0 请求指纹配置 (若服务器支持则使用,若服务器不支持,设置了也不会使用)
+*/
+extern __declspec(dllexport) GoUint8 SetRequestHTTP2Config(GoInt MessageId, char* h2Config);
+
+/*
+GetRequestCipherSuites GetRequestCipherSuites 获取请求 CipherSuites
+*/
+extern __declspec(dllexport) GoUintptr GetRequestCipherSuites(GoInt MessageId);
+
+/*
+SetResponseHeader 修改、设置 HTTP/S当前返回数据中的指定协议头
+*/
 extern __declspec(dllexport) void SetResponseHeader(GoInt MessageId, char* name, char* val);
 
-// 获取 HTTP/S当前请求数据中的指定协议头
-//
+/*
+GetRequestHeader 获取 HTTP/S当前请求数据中的指定协议头
+*/
 extern __declspec(dllexport) GoUintptr GetRequestHeader(GoInt MessageId, char* name);
 
-// 获取 HTTP/S 当前返回数据中指定的协议头
-//
+/*
+GetResponseHeader 获取 HTTP/S 当前返回数据中指定的协议头
+*/
 extern __declspec(dllexport) GoUintptr GetResponseHeader(GoInt MessageId, char* name);
 
-// 修改、设置 HTTP/S当前返回数据中的全部协议头，例如设置返回两条Cookie 使用本命令设置 使用设置、修改 单条命令无效
-//
+/*
+GetResponseServerAddress 获取 HTTP/S 相应的服务器地址
+*/
+extern __declspec(dllexport) GoUintptr GetResponseServerAddress(GoInt MessageId);
+
+/*
+SetResponseAllHeader 修改、设置 HTTP/S当前返回数据中的全部协议头，例如设置返回两条Cookie 使用本命令设置 使用设置、修改 单条命令无效
+*/
 extern __declspec(dllexport) void SetResponseAllHeader(GoInt MessageId, char* value);
 
-// 获取 HTTP/S 当前返回全部协议头
-//
+/*
+GetResponseAllHeader 获取 HTTP/S 当前返回全部协议头
+*/
 extern __declspec(dllexport) GoUintptr GetResponseAllHeader(GoInt MessageId);
 
-// 获取 HTTP/S 当前请求数据全部协议头
-//
+/*
+GetRequestAllHeader 获取 HTTP/S 当前请求数据全部协议头
+*/
 extern __declspec(dllexport) GoUintptr GetRequestAllHeader(GoInt MessageId);
 
-// 设置HTTP/S请求代理，仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
+/*
+SetRequestProxy 设置HTTP/S请求代理，仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
+*/
 //
-extern __declspec(dllexport) GoUint8 SetRequestProxy(GoInt MessageId, char* ProxyUrl);
+extern __declspec(dllexport) GoUint8 SetRequestProxy(GoInt MessageId, char* ProxyUrl, GoInt outTime);
 
-// 获取HTTP/S返回的状态码
-//
+/*
+GetResponseStatusCode 获取HTTP/S返回的状态码
+*/
 extern __declspec(dllexport) GoInt GetResponseStatusCode(GoInt MessageId);
 
-// 获取当前HTTP/S请求由哪个IP发起
-//
+/*
+GetRequestClientIp 获取当前HTTP/S请求由哪个IP发起
+*/
 extern __declspec(dllexport) GoUintptr GetRequestClientIp(GoInt MessageId);
 
-// 获取HTTP/S返回的状态文本 例如 [200 OK]
-//
+/*
+GetResponseStatus 获取HTTP/S返回的状态文本 例如 [200 OK]
+*/
 extern __declspec(dllexport) GoUintptr GetResponseStatus(GoInt MessageId);
 
-// 修改HTTP/S返回的状态码
-//
+/*
+SetResponseStatus 修改HTTP/S返回的状态码
+*/
 extern __declspec(dllexport) void SetResponseStatus(GoInt MessageId, GoInt code);
 
-// 修改HTTP/S当前请求的URL
-//
+/*
+SetRequestUrl 修改HTTP/S当前请求的URL
+*/
 extern __declspec(dllexport) GoUint8 SetRequestUrl(GoInt MessageId, char* URI);
 
-// 获取 HTTP/S 当前请求POST提交数据长度
-//
+/*
+GetRequestBodyLen 获取 HTTP/S 当前请求POST提交数据长度
+*/
 extern __declspec(dllexport) GoInt GetRequestBodyLen(GoInt MessageId);
 
-// 获取 HTTP/S 当前返回  数据长度
-//
+/*
+GetResponseBodyLen 获取 HTTP/S 当前返回  数据长度
+*/
 extern __declspec(dllexport) GoInt GetResponseBodyLen(GoInt MessageId);
 
-// 设置、修改 HTTP/S 当前请求返回数据 如果再发起请求时调用本命令，请求将不会被发送，将会直接返回 data=数据指针  dataLen=数据长度
-//
+/*
+SetResponseData 设置、修改 HTTP/S 当前请求返回数据 如果再发起请求时调用本命令，请求将不会被发送，将会直接返回 data=数据指针  dataLen=数据长度
+*/
 extern __declspec(dllexport) GoUint8 SetResponseData(GoInt MessageId, GoUintptr data, GoInt dataLen);
 
-// 设置、修改 HTTP/S 当前请求POST提交数据  data=数据指针  dataLen=数据长度
-//
-extern __declspec(dllexport) GoInt SetRequestData(GoInt MessageId, GoUintptr data, GoInt dataLen);
+/*
+SetRequestData 设置、修改 HTTP/S 当前请求POST提交数据  data=数据指针  dataLen=数据长度
+*/
+extern __declspec(dllexport) GoUint8 SetRequestData(GoInt MessageId, GoUintptr data, GoInt dataLen);
 
-// 获取 HTTP/S 当前POST提交数据 返回 数据指针
-//
+/*
+GetRequestBody 获取 HTTP/S 当前POST提交数据 返回 数据指针
+*/
 extern __declspec(dllexport) GoUintptr GetRequestBody(GoInt MessageId);
 
-// 获取 HTTP/S 当前返回数据  返回 数据指针
-//
+/*
+IsRequestRawBody 此请求是否为原始body 如果是 将无法修改提交的Body，请使用 RawRequestDataToFile 命令来储存到文件
+*/
+extern __declspec(dllexport) GoUint8 IsRequestRawBody(GoInt MessageId);
+
+/*
+RawRequestDataToFile 获取 HTTP/ S 当前POST提交数据原始Data,传入保存文件名路径,例如"c:\1.txt"
+*/
+extern __declspec(dllexport) GoUint8 RawRequestDataToFile(GoInt MessageId, GoUintptr saveFileName, GoInt len);
+
+/*
+GetResponseBody 获取 HTTP/S 当前返回数据  返回 数据指针
+*/
 extern __declspec(dllexport) GoUintptr GetResponseBody(GoInt MessageId);
 
-// 获取 WebSocket消息长度
-//
+/*
+GetWebsocketBodyLen 获取 WebSocket消息长度
+*/
 extern __declspec(dllexport) GoInt GetWebsocketBodyLen(GoInt MessageId);
 
-// 主动关闭Websocket
-//
+/*
+CloseWebsocket 主动关闭Websocket
+*/
 extern __declspec(dllexport) GoUint8 CloseWebsocket(GoInt Theology);
 
-// 获取 WebSocket消息 返回数据指针
-//
+/*
+GetWebsocketBody 获取 WebSocket消息 返回数据指针
+*/
 extern __declspec(dllexport) GoUintptr GetWebsocketBody(GoInt MessageId);
 
-// 修改 WebSocket消息 data=数据指针  dataLen=数据长度
-//
+/*
+SetWebsocketBody 修改 WebSocket消息 data=数据指针  dataLen=数据长度
+*/
 extern __declspec(dllexport) GoUint8 SetWebsocketBody(GoInt MessageId, GoUintptr data, GoInt dataLen);
 
-// 主动向Websocket服务器发送消息 MessageType=WS消息类型 data=数据指针  dataLen=数据长度
-//
+/*
+SendWebsocketBody 主动向Websocket服务器发送消息 MessageType=WS消息类型 data=数据指针  dataLen=数据长度
+*/
 extern __declspec(dllexport) GoUint8 SendWebsocketBody(GoInt Theology, GoInt MessageType, GoUintptr data, GoInt dataLen);
 
-// SendWebsocketClientBody 主动向Websocket客户端发送消息 MessageType=WS消息类型 data=数据指针  dataLen=数据长度
-//
+/*
+SendWebsocketClientBody SendWebsocketClientBody 主动向Websocket客户端发送消息 MessageType=WS消息类型 data=数据指针  dataLen=数据长度
+*/
 extern __declspec(dllexport) GoUint8 SendWebsocketClientBody(GoInt Theology, GoInt MessageType, GoUintptr data, GoInt dataLen);
 
-// 修改 TCP消息数据 MsgType=1 发送的消息 MsgType=2 接收的消息 如果 MsgType和MessageId不匹配，将不会执行操作  data=数据指针  dataLen=数据长度
-//
+/*
+SetTcpBody 修改 TCP消息数据 MsgType=1 发送的消息 MsgType=2 接收的消息 如果 MsgType和MessageId不匹配，将不会执行操作  data=数据指针  dataLen=数据长度
+*/
 extern __declspec(dllexport) GoUint8 SetTcpBody(GoInt MessageId, GoInt MsgType, GoUintptr data, GoInt dataLen);
 
-// 给当前TCP连接设置代理 仅限 TCP回调 即将连接时使用 仅支持S5代理 例如 socket5://admin:123456@127.0.0.1:8888
+/*
+SetTcpAgent 给当前TCP连接设置代理 仅限 TCP回调 即将连接时使用 仅支持S5代理 例如 socket5://admin:123456@127.0.0.1:8888
+*/
 //
 extern __declspec(dllexport) GoUint8 SetTcpAgent(GoInt MessageId, char* ProxyUrl);
 
-// 根据唯一ID关闭指定的TCP连接  唯一ID在回调参数中
-//
+/*
+TcpCloseClient 根据唯一ID关闭指定的TCP连接  唯一ID在回调参数中
+*/
 extern __declspec(dllexport) GoUint8 TcpCloseClient(GoInt theology);
 
-// 给指定的TCP连接 修改目标连接地址 目标地址必须带端口号 例如 baidu.com:443
-//
+/*
+SetTcpConnectionIP 给指定的TCP连接 修改目标连接地址 目标地址必须带端口号 例如 baidu.com:443
+*/
 extern __declspec(dllexport) GoUint8 SetTcpConnectionIP(GoInt MessageId, char* address);
 
-// 指定的TCP连接 模拟客户端向服务器端主动发送数据
-//
+/*
+TcpSendMsg 指定的TCP连接 模拟客户端向服务器端主动发送数据
+*/
 extern __declspec(dllexport) GoInt TcpSendMsg(GoInt theology, GoUintptr data, GoInt dataLen);
 
-// 指定的TCP连接 模拟服务器端向客户端主动发送数据
-//
-extern __declspec(dllexport) GoInt TcpSendMsgClient(GoInt theology, GoUintptr data, GoInt dataLen);
-
-/*字节数组转字符串 返回格式如下
-00000000  53 75 6E 6E 79 4E 65 74  54 65 73 74 45 78 61 6D  |SunnyNetTestExam|
-00000010  70 6C 65                                          |ple|
+/*
+TcpSendMsgClient 指定的TCP连接 模拟服务器端向客户端主动发送数据
 */
+extern __declspec(dllexport) GoInt TcpSendMsgClient(GoInt theology, GoUintptr data, GoInt dataLen);
 extern __declspec(dllexport) GoUintptr HexDump(GoUintptr data, GoInt dataLen);
 
-// 将Go int的Bytes 转为int
-//
+/*
+BytesToInt 将Go int的Bytes 转为int
+*/
 extern __declspec(dllexport) GoInt BytesToInt(GoUintptr data, GoInt dataLen);
 
-// Gzip解压缩
-//
+/*
+GzipUnCompress Gzip解压缩
+*/
 extern __declspec(dllexport) GoUintptr GzipUnCompress(GoUintptr data, GoInt dataLen);
 
-// br解压缩
-//
+/*
+BrUnCompress br解压缩
+*/
 extern __declspec(dllexport) GoUintptr BrUnCompress(GoUintptr data, GoInt dataLen);
 
-// br压缩
-//
+/*
+BrCompress br压缩
+*/
 extern __declspec(dllexport) GoUintptr BrCompress(GoUintptr data, GoInt dataLen);
 
-// ZSTD解压缩
-//
+/*
+ZSTDDecompress ZSTD解压缩
+*/
 extern __declspec(dllexport) GoUintptr ZSTDDecompress(GoUintptr data, GoInt dataLen);
 
-// ZSTD压缩
-//
+/*
+ZSTDCompress ZSTD压缩
+*/
 extern __declspec(dllexport) GoUintptr ZSTDCompress(GoUintptr data, GoInt dataLen);
 
-// br压缩
-//
+/*
+BrCompress br压缩
+*/
 extern __declspec(dllexport) GoUintptr BrotliCompress(GoUintptr data, GoInt dataLen);
 
-// Gzip压缩
-//
+/*
+GzipCompress Gzip压缩
+*/
 extern __declspec(dllexport) GoUintptr GzipCompress(GoUintptr data, GoInt dataLen);
 
-// Zlib压缩
-//
+/*
+ZlibCompress Zlib压缩
+*/
 extern __declspec(dllexport) GoUintptr ZlibCompress(GoUintptr data, GoInt dataLen);
 
-// Zlib解压缩
-//
+/*
+ZlibUnCompress Zlib解压缩
+*/
 extern __declspec(dllexport) GoUintptr ZlibUnCompress(GoUintptr data, GoInt dataLen);
 
-// Deflate解压缩 (可能等同于zlib解压缩)
-//
+/*
+DeflateUnCompress Deflate解压缩 (可能等同于zlib解压缩)
+*/
 extern __declspec(dllexport) GoUintptr DeflateUnCompress(GoUintptr data, GoInt dataLen);
 
-// Deflate压缩 (可能等同于zlib压缩)
-//
+/*
+DeflateCompress Deflate压缩 (可能等同于zlib压缩)
+*/
 extern __declspec(dllexport) GoUintptr DeflateCompress(GoUintptr data, GoInt dataLen);
 
-// Webp图片转JEG图片字节数组 SaveQuality=质量(默认75)
-//
+/*
+WebpToJpegBytes Webp图片转JEG图片字节数组 SaveQuality=质量(默认75)
+*/
 extern __declspec(dllexport) GoUintptr WebpToJpegBytes(GoUintptr data, GoInt dataLen, GoInt SaveQuality);
 
-// Webp图片转Png图片字节数组
-//
+/*
+WebpToPngBytes Webp图片转Png图片字节数组
+*/
 extern __declspec(dllexport) GoUintptr WebpToPngBytes(GoUintptr data, GoInt dataLen);
 
-// Webp图片转JEG图片 根据文件名 SaveQuality=质量(默认75)
-//
+/*
+WebpToJpeg Webp图片转JEG图片 根据文件名 SaveQuality=质量(默认75)
+*/
 extern __declspec(dllexport) GoUint8 WebpToJpeg(char* webpPath, char* savePath, GoInt SaveQuality);
 
-// Webp图片转Png图片 根据文件名
-//
+/*
+WebpToPng Webp图片转Png图片 根据文件名
+*/
 extern __declspec(dllexport) GoUint8 WebpToPng(char* webpPath, char* savePath);
 
-// 适配火山PC CALL 火山直接CALL X64没有问题，X86环境下有问题，所以搞了这个命令
-//
-extern __declspec(dllexport) GoInt GoCall(GoInt address, GoInt a1, GoInt a2, GoInt a3, GoInt a4, GoInt a5, GoInt a6, GoInt a7, GoInt a8, GoInt a9);
-
-// 执行JS代码执行前 先调用 SetScript  设置JS代码
-//
-extern __declspec(dllexport) GoUintptr ScriptCall(GoInt i, char* Request);
-
-// 设置JS代码
-//
-extern __declspec(dllexport) GoUintptr SetScript(char* Request);
-
-// 设置JSLog函数回调地址
-//
-extern __declspec(dllexport) void SetScriptLogCallAddress(GoInt i);
-
-// 开启进程代理 加载 nf api 驱动
-//
+/*
+StartProcess 开启进程代理 加载 nf api 驱动
+*/
 extern __declspec(dllexport) GoUint8 StartProcess(GoInt SunnyContext);
 
-// 进程代理 添加进程名
-//
+/*
+ProcessAddName 进程代理 添加进程名
+*/
 extern __declspec(dllexport) void ProcessAddName(GoInt SunnyContext, char* Name);
 
-// 进程代理 删除进程名
-//
+/*
+ProcessDelName 进程代理 删除进程名
+*/
 extern __declspec(dllexport) void ProcessDelName(GoInt SunnyContext, char* Name);
 
-// 进程代理 添加PID
-//
+/*
+ProcessAddPid 进程代理 添加PID
+*/
 extern __declspec(dllexport) void ProcessAddPid(GoInt SunnyContext, GoInt pid);
 
-// 进程代理 删除PID
-//
+/*
+ProcessDelPid 进程代理 删除PID
+*/
 extern __declspec(dllexport) void ProcessDelPid(GoInt SunnyContext, GoInt pid);
 
-// 进程代理 取消全部已设置的进程名
-//
+/*
+ProcessCancelAll 进程代理 取消全部已设置的进程名
+*/
 extern __declspec(dllexport) void ProcessCancelAll(GoInt SunnyContext);
 
-// 进程代理 设置是否全部进程通过
-//
+/*
+ProcessALLName 进程代理 设置是否全部进程通过
+*/
 extern __declspec(dllexport) void ProcessALLName(GoInt SunnyContext, GoUint8 open);
 
-// 证书管理器 获取证书 CommonName 字段
-//
+/*
+GetCommonName 证书管理器 获取证书 CommonName 字段
+*/
 extern __declspec(dllexport) GoUintptr GetCommonName(GoInt Context);
 
-// 证书管理器 导出为P12
-//
+/*
+ExportP12 证书管理器 导出为P12
+*/
 extern __declspec(dllexport) GoUint8 ExportP12(GoInt Context, char* path, char* pass);
 
-// 证书管理器 导出公钥
-//
+/*
+ExportPub 证书管理器 导出公钥
+*/
 extern __declspec(dllexport) GoUintptr ExportPub(GoInt Context);
 
-// 证书管理器 导出私钥
-//
+/*
+ExportKEY 证书管理器 导出私钥
+*/
 extern __declspec(dllexport) GoUintptr ExportKEY(GoInt Context);
 
-// 证书管理器 导出证书
-//
+/*
+ExportCA 证书管理器 导出证书
+*/
 extern __declspec(dllexport) GoUintptr ExportCA(GoInt Context);
 
-// 证书管理器 创建证书
-//
+/*
+CreateCA 证书管理器 创建证书
+*/
 extern __declspec(dllexport) GoUint8 CreateCA(GoInt Context, char* Country, char* Organization, char* OrganizationalUnit, char* Province, char* CommonName, char* Locality, GoInt bits, GoInt NotAfter);
 
-// 证书管理器 设置ClientAuth
-//
+/*
+AddClientAuth 证书管理器 设置ClientAuth
+*/
 extern __declspec(dllexport) GoUint8 AddClientAuth(GoInt Context, GoInt val);
 
-// 证书管理器 设置信任的证书 从 文本
-//
+/*
+SetCipherSuites SetCipherSuites 证书管理器 设置CipherSuites
+*/
+extern __declspec(dllexport) GoUint8 SetCipherSuites(GoInt Context, char* val);
+
+/*
+AddCertPoolText 证书管理器 设置信任的证书 从 文本
+*/
 extern __declspec(dllexport) GoUint8 AddCertPoolText(GoInt Context, char* cer);
 
-// 证书管理器 设置信任的证书 从 文件
-//
+/*
+AddCertPoolPath 证书管理器 设置信任的证书 从 文件
+*/
 extern __declspec(dllexport) GoUint8 AddCertPoolPath(GoInt Context, char* cer);
 
-// 证书管理器 取ServerName
-//
+/*
+GetServerName 证书管理器 取ServerName
+*/
 extern __declspec(dllexport) GoUintptr GetServerName(GoInt Context);
 
-// 证书管理器 设置ServerName
-//
+/*
+SetServerName 证书管理器 设置ServerName
+*/
 extern __declspec(dllexport) GoUint8 SetServerName(GoInt Context, char* name);
 
-// 证书管理器 设置跳过主机验证
-//
+/*
+SetInsecureSkipVerify 证书管理器 设置跳过主机验证
+*/
 extern __declspec(dllexport) GoUint8 SetInsecureSkipVerify(GoInt Context, GoUint8 b);
 
-// 证书管理器 载入X509证书
-//
+/*
+LoadX509Certificate 证书管理器 载入X509证书
+*/
 extern __declspec(dllexport) GoUint8 LoadX509Certificate(GoInt Context, char* Host, char* CA, char* KEY);
 
-// 证书管理器 载入X509证书2
-//
+/*
+LoadX509KeyPair 证书管理器 载入X509证书2
+*/
 extern __declspec(dllexport) GoUint8 LoadX509KeyPair(GoInt Context, char* CaPath, char* KeyPath);
 
-// 证书管理器 载入p12证书
-//
+/*
+LoadP12Certificate 证书管理器 载入p12证书
+*/
 extern __declspec(dllexport) GoUint8 LoadP12Certificate(GoInt Context, char* Name, char* Password);
 
-// 释放 证书管理器 对象
-//
+/*
+RemoveCertificate 释放 证书管理器 对象
+*/
 extern __declspec(dllexport) void RemoveCertificate(GoInt Context);
 
-// 创建 证书管理器 对象
-//
+/*
+CreateCertificate 创建 证书管理器 对象
+*/
 extern __declspec(dllexport) GoInt CreateCertificate();
 
-// GoMap 写字符串
-//
+/*
+KeysWriteStr GoMap 写字符串
+*/
 extern __declspec(dllexport) void KeysWriteStr(GoInt KeysHandle, char* name, GoUintptr val, GoInt len);
 
-// GoMap 转为JSON字符串
-//
+/*
+KeysGetJson GoMap 转为JSON字符串
+*/
 extern __declspec(dllexport) GoUintptr KeysGetJson(GoInt KeysHandle);
 
-// GoMap 取数量
-//
+/*
+KeysGetCount GoMap 取数量
+*/
 extern __declspec(dllexport) GoInt KeysGetCount(GoInt KeysHandle);
 
-// GoMap 清空
-//
+/*
+KeysEmpty GoMap 清空
+*/
 extern __declspec(dllexport) void KeysEmpty(GoInt KeysHandle);
 
-// GoMap 读整数
-//
+/*
+KeysReadInt GoMap 读整数
+*/
 extern __declspec(dllexport) GoInt KeysReadInt(GoInt KeysHandle, char* name);
 
-// GoMap 写整数
-//
+/*
+KeysWriteInt GoMap 写整数
+*/
 extern __declspec(dllexport) void KeysWriteInt(GoInt KeysHandle, char* name, GoInt val);
 
-// GoMap 读长整数
-//
+/*
+KeysReadLong GoMap 读长整数
+*/
 extern __declspec(dllexport) GoInt64 KeysReadLong(GoInt KeysHandle, char* name);
 
-// GoMap 写长整数
-//
+/*
+KeysWriteLong GoMap 写长整数
+*/
 extern __declspec(dllexport) void KeysWriteLong(GoInt KeysHandle, char* name, GoInt64 val);
 
-// GoMap 读浮点数
-//
+/*
+KeysReadFloat GoMap 读浮点数
+*/
 extern __declspec(dllexport) GoFloat64 KeysReadFloat(GoInt KeysHandle, char* name);
 
-// GoMap 写浮点数
-//
+/*
+KeysWriteFloat GoMap 写浮点数
+*/
 extern __declspec(dllexport) void KeysWriteFloat(GoInt KeysHandle, char* name, GoFloat64 val);
 
-// GoMap 写字节数组
-//
+/*
+KeysWrite GoMap 写字节数组
+*/
 extern __declspec(dllexport) void KeysWrite(GoInt KeysHandle, char* name, GoUintptr val, GoInt length);
 
-// GoMap 写读字符串/字节数组
-//
+/*
+KeysRead GoMap 写读字符串/字节数组
+*/
 extern __declspec(dllexport) GoUintptr KeysRead(GoInt KeysHandle, char* name);
 
-// GoMap 删除
-//
+/*
+KeysDelete GoMap 删除
+*/
 extern __declspec(dllexport) void KeysDelete(GoInt KeysHandle, char* name);
 
-// GoMap 删除GoMap
-//
+/*
+RemoveKeys GoMap 删除GoMap
+*/
 extern __declspec(dllexport) void RemoveKeys(GoInt KeysHandle);
 
-// GoMap 创建
-//
+/*
+CreateKeys GoMap 创建
+*/
 extern __declspec(dllexport) GoInt CreateKeys();
 
-// HTTP 客户端 设置重定向
-//
+/*
+HTTPSetRedirect HTTP 客户端 设置重定向
+*/
 extern __declspec(dllexport) GoUint8 HTTPSetRedirect(GoInt Context, GoUint8 Redirect);
 
-// HTTP 客户端 返回响应状态码
-//
+/*
+HTTPGetCode HTTP 客户端 返回响应状态码
+*/
 extern __declspec(dllexport) GoInt HTTPGetCode(GoInt Context);
 
-// HTTP 客户端 设置证书管理器
-//
+/*
+HTTPSetCertManager HTTP 客户端 设置证书管理器
+*/
 extern __declspec(dllexport) GoUint8 HTTPSetCertManager(GoInt Context, GoInt CertManagerContext);
 
-// HTTP 客户端 返回响应内容
-//
+/*
+HTTPGetBody HTTP 客户端 返回响应内容
+*/
 extern __declspec(dllexport) GoUintptr HTTPGetBody(GoInt Context);
 
-// HTTP 客户端 返回响应全部Heads
-//
+/*
+HTTPGetHeads HTTP 客户端 返回响应全部Heads
+*/
 extern __declspec(dllexport) GoUintptr HTTPGetHeads(GoInt Context);
 
-// HTTP 客户端 返回响应长度
-//
+/*
+HTTPGetBodyLen HTTP 客户端 返回响应长度
+*/
 extern __declspec(dllexport) GoInt HTTPGetBodyLen(GoInt Context);
 
-// HTTP 客户端 发送Body
-//
+/*
+HTTPSendBin HTTP 客户端 发送Body
+*/
 extern __declspec(dllexport) void HTTPSendBin(GoInt Context, GoUintptr body, GoInt bodyLength);
 
-// HTTP 客户端 设置超时 毫秒
-//
+/*
+HTTPSetTimeouts HTTP 客户端 设置超时 毫秒
+*/
 extern __declspec(dllexport) void HTTPSetTimeouts(GoInt Context, GoInt t1, GoInt t2, GoInt t3);
 
-// HTTP 客户端 设置代理IP 仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
+/*
+HTTPSetProxyIP HTTP 客户端 设置代理IP 仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
+*/
 //
 extern __declspec(dllexport) void HTTPSetProxyIP(GoInt Context, char* ProxyUrl);
 
-// HTTP 客户端 设置协议头
-//
+/*
+HTTPSetHeader HTTP 客户端 设置协议头
+*/
 extern __declspec(dllexport) void HTTPSetHeader(GoInt Context, char* name, char* value);
 
-// HTTP 客户端 Open
-//
+/*
+HTTPOpen HTTP 客户端 Open
+*/
 extern __declspec(dllexport) void HTTPOpen(GoInt Context, char* Method, char* URL);
 
-// HTTP 客户端 取错误
-//
+/*
+HTTPClientGetErr HTTP 客户端 取错误
+*/
 extern __declspec(dllexport) GoUintptr HTTPClientGetErr(GoInt Context);
 
-// 释放 HTTP客户端
-//
+/*
+RemoveHTTPClient 释放 HTTP客户端
+*/
 extern __declspec(dllexport) void RemoveHTTPClient(GoInt Context);
 
-// 创建 HTTP 客户端
-//
+/*
+CreateHTTPClient 创建 HTTP 客户端
+*/
 extern __declspec(dllexport) GoInt CreateHTTPClient();
 
-// JSON格式的protobuf数据转为protobuf二进制数据
-//
+/*
+JsonToPB JSON格式的protobuf数据转为protobuf二进制数据
+*/
 extern __declspec(dllexport) GoUintptr JsonToPB(GoUintptr bin, GoInt binLen);
 
-// protobuf数据转为JSON格式
-//
+/*
+PbToJson protobuf数据转为JSON格式
+*/
 extern __declspec(dllexport) GoUintptr PbToJson(GoUintptr bin, GoInt binLen);
 
-// 队列弹出
-//
+/*
+QueuePull 队列弹出
+*/
 extern __declspec(dllexport) GoUintptr QueuePull(char* name);
 
-// 加入队列
-//
+/*
+QueuePush 加入队列
+*/
 extern __declspec(dllexport) void QueuePush(char* name, GoUintptr val, GoInt valLen);
 
-// 取队列长度
-//
+/*
+QueueLength 取队列长度
+*/
 extern __declspec(dllexport) GoInt QueueLength(char* name);
 
-// 清空销毁队列
-//
+/*
+QueueRelease 清空销毁队列
+*/
 extern __declspec(dllexport) void QueueRelease(char* name);
 
-// 队列是否为空
-//
+/*
+QueueIsEmpty 队列是否为空
+*/
 extern __declspec(dllexport) GoUint8 QueueIsEmpty(char* name);
 
-// 创建队列
-//
+/*
+CreateQueue 创建队列
+*/
 extern __declspec(dllexport) void CreateQueue(char* name);
 
-// TCP客户端 发送数据
-//
+/*
+SocketClientWrite TCP客户端 发送数据
+*/
 extern __declspec(dllexport) GoInt SocketClientWrite(GoInt Context, GoInt OutTimes, GoUintptr val, GoInt valLen);
 
-// TCP客户端 断开连接
-//
+/*
+SocketClientClose TCP客户端 断开连接
+*/
 extern __declspec(dllexport) void SocketClientClose(GoInt Context);
 
-// TCP客户端 同步模式下 接收数据
-//
+/*
+SocketClientReceive TCP客户端 同步模式下 接收数据
+*/
 extern __declspec(dllexport) GoUintptr SocketClientReceive(GoInt Context, GoInt OutTimes);
 
-// TCP客户端 连接
-//
+/*
+SocketClientDial TCP客户端 连接
+*/
 extern __declspec(dllexport) GoUint8 SocketClientDial(GoInt Context, char* addr, GoInt call, GoUint8 isTls, GoUint8 synchronous, char* ProxyUrl, GoInt CertificateConText, GoInt ProxyOutTime);
 
-// TCP客户端 置缓冲区大小
-//
+/*
+SocketClientSetBufferSize TCP客户端 置缓冲区大小
+*/
 extern __declspec(dllexport) GoUint8 SocketClientSetBufferSize(GoInt Context, GoInt BufferSize);
 
-// TCP客户端 取错误
-//
+/*
+SocketClientGetErr TCP客户端 取错误
+*/
 extern __declspec(dllexport) GoUintptr SocketClientGetErr(GoInt Context);
 
-// 释放 TCP客户端
-//
+/*
+RemoveSocketClient 释放 TCP客户端
+*/
 extern __declspec(dllexport) void RemoveSocketClient(GoInt Context);
 
-// 创建 TCP客户端
-//
+/*
+CreateSocketClient 创建 TCP客户端
+*/
 extern __declspec(dllexport) GoInt CreateSocketClient();
 
-// Websocket客户端 同步模式下 接收数据 返回数据指针 失败返回0 length=返回数据长度
-//
+/*
+WebsocketClientReceive Websocket客户端 同步模式下 接收数据 返回数据指针 失败返回0 length=返回数据长度
+*/
 extern __declspec(dllexport) GoUintptr WebsocketClientReceive(GoInt Context, GoInt OutTimes);
 
-// Websocket客户端  发送数据
-//
+/*
+WebsocketReadWrite Websocket客户端  发送数据
+*/
 extern __declspec(dllexport) GoUint8 WebsocketReadWrite(GoInt Context, GoUintptr val, GoInt valLen, GoInt messageType);
 
-// Websocket客户端 断开
-//
+/*
+WebsocketClose Websocket客户端 断开
+*/
 extern __declspec(dllexport) void WebsocketClose(GoInt Context);
 
-// Websocket客户端 连接
-//
+/*
+WebsocketDial Websocket客户端 连接
+*/
 extern __declspec(dllexport) GoUint8 WebsocketDial(GoInt Context, char* URL, char* Heads, GoInt call, GoUint8 synchronous, char* ProxyUrl, GoInt CertificateConText, GoInt outTime);
 
-// Websocket客户端 获取错误
-//
+/*
+WebsocketGetErr Websocket客户端 获取错误
+*/
 extern __declspec(dllexport) GoUintptr WebsocketGetErr(GoInt Context);
 
-// 释放 Websocket客户端 对象
-//
+/*
+RemoveWebsocket 释放 Websocket客户端 对象
+*/
 extern __declspec(dllexport) void RemoveWebsocket(GoInt Context);
 
-// 创建 Websocket客户端 对象
-//
+/*
+CreateWebsocket 创建 Websocket客户端 对象
+*/
 extern __declspec(dllexport) GoInt CreateWebsocket();
 
-// 创建 Http证书管理器 对象 实现指定Host使用指定证书
-//
+/*
+AddHttpCertificate 创建 Http证书管理器 对象 实现指定Host使用指定证书
+*/
 extern __declspec(dllexport) GoUint8 AddHttpCertificate(char* host, GoInt CertManagerId, GoInt Rules);
 
-// 删除 Http证书管理器 对象
-//
+/*
+DelHttpCertificate 删除 Http证书管理器 对象
+*/
 extern __declspec(dllexport) void DelHttpCertificate(char* host);
 
-// Redis 订阅消息
-//
+/*
+RedisSubscribe Redis 订阅消息
+*/
 extern __declspec(dllexport) void RedisSubscribe(GoInt Context, char* scribe, GoInt call, GoUint8 nc);
 
-// Redis 删除
-//
+/*
+RedisDelete Redis 删除
+*/
 extern __declspec(dllexport) GoUint8 RedisDelete(GoInt Context, char* key);
 
-// Redis 清空当前数据库
-//
+/*
+RedisFlushDB Redis 清空当前数据库
+*/
 extern __declspec(dllexport) void RedisFlushDB(GoInt Context);
 
-// Redis 清空redis服务器
-//
+/*
+RedisFlushAll Redis 清空redis服务器
+*/
 extern __declspec(dllexport) void RedisFlushAll(GoInt Context);
 
-// Redis 关闭
-//
+/*
+RedisClose Redis 关闭
+*/
 extern __declspec(dllexport) void RedisClose(GoInt Context);
 
-// Redis 取整数值
-//
+/*
+RedisGetInt Redis 取整数值
+*/
 extern __declspec(dllexport) GoInt64 RedisGetInt(GoInt Context, char* key);
 
-// Redis 取指定条件键名
-//
+/*
+RedisGetKeys Redis 取指定条件键名
+*/
 extern __declspec(dllexport) GoUintptr RedisGetKeys(GoInt Context, char* key);
 
-// Redis 自定义 执行和查询命令 返回操作结果可能是值 也可能是JSON文本
-//
+/*
+RedisDo Redis 自定义 执行和查询命令 返回操作结果可能是值 也可能是JSON文本
+*/
 extern __declspec(dllexport) GoUintptr RedisDo(GoInt Context, char* args, GoUintptr error);
 
-// Redis 取文本值
-//
+/*
+RedisGetStr Redis 取文本值
+*/
 extern __declspec(dllexport) GoUintptr RedisGetStr(GoInt Context, char* key);
 
-// Redis 取Bytes值
-//
+/*
+RedisGetBytes Redis 取Bytes值
+*/
 extern __declspec(dllexport) GoUintptr RedisGetBytes(GoInt Context, char* key);
 
-// Redis 检查指定 key 是否存在
-//
+/*
+RedisExists Redis 检查指定 key 是否存在
+*/
 extern __declspec(dllexport) GoUint8 RedisExists(GoInt Context, char* key);
 
-// Redis 设置NX 【如果键名存在返回假】
-//
+/*
+RedisSetNx Redis 设置NX 【如果键名存在返回假】
+*/
 extern __declspec(dllexport) GoUint8 RedisSetNx(GoInt Context, char* key, char* val, GoInt expr);
 
-// Redis 设置值
-//
+/*
+RedisSet Redis 设置值
+*/
 extern __declspec(dllexport) GoUint8 RedisSet(GoInt Context, char* key, char* val, GoInt expr);
 
-// Redis 设置Bytes值
-//
+/*
+RedisSetBytes Redis 设置Bytes值
+*/
 extern __declspec(dllexport) GoUint8 RedisSetBytes(GoInt Context, char* key, GoUintptr val, GoInt valLen, GoInt expr);
 
-// Redis 连接
-//
+/*
+RedisDial Redis 连接
+*/
 extern __declspec(dllexport) GoUint8 RedisDial(GoInt Context, char* host, char* pass, GoInt db, GoInt PoolSize, GoInt MinIdleCons, GoInt DialTimeout, GoInt ReadTimeout, GoInt WriteTimeout, GoInt PoolTimeout, GoInt IdleCheckFrequency, GoInt IdleTimeout, GoUintptr error);
 
-// 释放 Redis 对象
-//
+/*
+RemoveRedis 释放 Redis 对象
+*/
 extern __declspec(dllexport) void RemoveRedis(GoInt Context);
 
-// 创建 Redis 对象
-//
+/*
+CreateRedis 创建 Redis 对象
+*/
 extern __declspec(dllexport) GoInt CreateRedis();
 
-// 设置修改UDP数据
-//
+/*
+SetUdpData 设置修改UDP数据
+*/
 extern __declspec(dllexport) GoUint8 SetUdpData(GoInt MessageId, GoUintptr val, GoInt valLen);
 
-// 获取UDP数据
-//
+/*
+GetUdpData 获取UDP数据
+*/
 extern __declspec(dllexport) GoUintptr GetUdpData(GoInt MessageId);
 
-// 指定的UDP连接 模拟服务器端向客户端主动发送数据
-//
+/*
+UdpSendToClient 指定的UDP连接 模拟服务器端向客户端主动发送数据
+*/
 extern __declspec(dllexport) GoUint8 UdpSendToClient(GoInt theology, GoUintptr data, GoInt dataLen);
 
-// 指定的UDP连接 模拟客户端向服务器端主动发送数据
-//
+/*
+UdpSendToServer 指定的UDP连接 模拟客户端向服务器端主动发送数据
+*/
 extern __declspec(dllexport) GoUint8 UdpSendToServer(GoInt theology, GoUintptr data, GoInt dataLen);
 
-// OtherCommands 2024-05-31 预留命令,后续版本如果有可能新增函数，可以直接使用这个命令新增命令,而不用每次更新DLL导出表
+// SetScriptCode 加载用户的脚本代码
 //
-extern __declspec(dllexport) GoUintptr OtherCommands(GoUintptr cmd, GoUintptr Command1, GoUintptr Command2, GoUintptr Command3, GoUintptr Command4, GoUintptr Command5, GoUintptr Command6, GoUintptr Command7);
+extern __declspec(dllexport) GoUintptr SetScriptCode(GoInt SunnyContext, GoUintptr code, GoInt length);
+
+// SetScriptCall 设置脚本代码的回调函数
+//
+extern __declspec(dllexport) void SetScriptCall(GoInt SunnyContext, GoUintptr LOG, GoUintptr SAVE);
+
+/*
+SetScriptPage  设置脚本编辑器页面 需不少于8个字符
+*/
+extern __declspec(dllexport) GoUintptr SetScriptPage(GoInt SunnyContext, char* Page);
+
+/*
+DisableTCP  禁用TCP 仅对当前SunnyContext有效
+*/
+extern __declspec(dllexport) GoUint8 DisableTCP(GoInt SunnyContext, GoUint8 Disable);
+
+/*
+SetRandomFixedTLS  禁用TCP 仅对当前SunnyContext有效
+*/
+extern __declspec(dllexport) GoUint8 SetRandomFixedTLS(GoInt SunnyContext, GoUintptr data, GoInt len);
+
+/*
+RandomFixedTLSGet  随机生成一个密码套件
+*/
+extern __declspec(dllexport) GoUintptr RandomFixedTLSGet(GoInt SunnyContext);
+
+/*
+SetRandomTLS 是否使用随机TLS指纹 仅对当前SunnyContext有效
+*/
+extern __declspec(dllexport) GoUint8 SetRandomTLS(GoInt SunnyContext, GoUint8 open);
+
+/*
+SetDnsServer Dns解析服务器 默认:223.5.5.5:853
+*/
+extern __declspec(dllexport) void SetDnsServer(char* ServerName);
 
 #ifdef __cplusplus
 }

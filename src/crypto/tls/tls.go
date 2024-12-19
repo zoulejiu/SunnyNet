@@ -25,7 +25,8 @@ import (
 	"net"
 	"os"
 	"strings"
-	"time"
+
+	circlSign "github.com/qtgolang/SunnyNet/src/tlsClient/circl/sign"
 )
 
 // Server returns a new TLS server side connection
@@ -39,9 +40,6 @@ func Server(conn net.Conn, config *Config) *Conn {
 	}
 	c.handshakeFn = c.serverHandshake
 	return c
-}
-func (c *Conn) SetServer(config *Config) {
-	c.config = config
 }
 
 // Client returns a new TLS client side connection
@@ -114,33 +112,24 @@ func (timeoutError) Temporary() bool { return true }
 //
 // DialWithDialer interprets a nil configuration as equivalent to the zero
 // configuration; see the documentation of Config for the defaults.
+//
+// DialWithDialer uses context.Background internally; to specify the context,
+// use Dialer.DialContext with NetDialer set to the desired dialer.
 func DialWithDialer(dialer *net.Dialer, network, addr string, config *Config) (*Conn, error) {
 	return dial(context.Background(), dialer, network, addr, config)
 }
 
 func dial(ctx context.Context, netDialer *net.Dialer, network, addr string, config *Config) (*Conn, error) {
-	// We want the Timeout and Deadline values from dialer to cover the
-	// whole process: TCP connection and TLS handshake. This means that we
-	// also need to start our own timers now.
-	timeout := netDialer.Timeout
+	if netDialer.Timeout != 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, netDialer.Timeout)
+		defer cancel()
+	}
 
 	if !netDialer.Deadline.IsZero() {
-		deadlineTimeout := time.Until(netDialer.Deadline)
-		if timeout == 0 || deadlineTimeout < timeout {
-			timeout = deadlineTimeout
-		}
-	}
-
-	// hsErrCh is non-nil if we might not wait for Handshake to complete.
-	var hsErrCh chan error
-	if timeout != 0 || ctx.Done() != nil {
-		hsErrCh = make(chan error, 2)
-	}
-	if timeout != 0 {
-		timer := time.AfterFunc(timeout, func() {
-			hsErrCh <- timeoutError{}
-		})
-		defer timer.Stop()
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, netDialer.Deadline)
+		defer cancel()
 	}
 
 	rawConn, err := netDialer.DialContext(ctx, network, addr)
@@ -167,34 +156,10 @@ func dial(ctx context.Context, netDialer *net.Dialer, network, addr string, conf
 	}
 
 	conn := Client(rawConn, config)
-
-	if hsErrCh == nil {
-		err = conn.Handshake()
-	} else {
-		go func() {
-			hsErrCh <- conn.Handshake()
-		}()
-
-		select {
-		case <-ctx.Done():
-			err = ctx.Err()
-		case err = <-hsErrCh:
-			if err != nil {
-				// If the error was due to the context
-				// closing, prefer the context's error, rather
-				// than some random network teardown error.
-				if e := ctx.Err(); e != nil {
-					err = e
-				}
-			}
-		}
-	}
-
-	if err != nil {
+	if err := conn.HandshakeContext(ctx); err != nil {
 		rawConn.Close()
 		return nil, err
 	}
-
 	return conn, nil
 }
 
@@ -227,6 +192,9 @@ type Dialer struct {
 // handshake, returning the resulting TLS connection.
 //
 // The returned Conn, if any, will always be of type *Conn.
+//
+// Dial uses context.Background internally; to specify the context,
+// use DialContext.
 func (d *Dialer) Dial(network, addr string) (net.Conn, error) {
 	return d.DialContext(context.Background(), network, addr)
 }
@@ -360,6 +328,20 @@ func X509KeyPair(certPEMBlock, keyPEMBlock []byte) (Certificate, error) {
 		if !bytes.Equal(priv.Public().(ed25519.PublicKey), pub) {
 			return fail(errors.New("tls: private key does not match public key"))
 		}
+	// [UTLS SECTION BEGINS]
+	// Ported from cloudflare/go
+	case circlSign.PublicKey:
+		priv, ok := cert.PrivateKey.(circlSign.PrivateKey)
+		if !ok {
+			return fail(errors.New("tls: private key type does not match public key type"))
+		}
+		pkBytes, err := priv.Public().(circlSign.PublicKey).MarshalBinary()
+		pkBytes2, err2 := pub.MarshalBinary()
+
+		if err != nil || err2 != nil || !bytes.Equal(pkBytes, pkBytes2) {
+			return fail(errors.New("tls: private key does not match public key"))
+		}
+	// [UTLS SECTION ENDS]
 	default:
 		return fail(errors.New("tls: unknown public key algorithm"))
 	}
@@ -376,7 +358,7 @@ func parsePrivateKey(der []byte) (crypto.PrivateKey, error) {
 	}
 	if key, err := x509.ParsePKCS8PrivateKey(der); err == nil {
 		switch key := key.(type) {
-		case *rsa.PrivateKey, *ecdsa.PrivateKey, ed25519.PrivateKey:
+		case *rsa.PrivateKey, *ecdsa.PrivateKey, ed25519.PrivateKey, circlSign.PrivateKey:
 			return key, nil
 		default:
 			return nil, errors.New("tls: found unknown private key type in PKCS#8 wrapping")

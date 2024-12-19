@@ -49,7 +49,7 @@ func NFapi_GetTcpConnectInfo(U uint16) *NFapi.ProcessInfo {
 
 func NFapi_API_NfTcpClose(U uint64) {
 }
-func NFapi_UdpSendReceiveFunc(udp func(Type int8, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte) func(Type int8, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte {
+func NFapi_UdpSendReceiveFunc(udp func(Type int, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte) func(Type int, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte {
 	return nil
 }
 
@@ -62,11 +62,6 @@ func SetNetworkConnectNumber() {
 
 // CloseCurrentSocket  关闭指定进程的所有TCP连接
 func CloseCurrentSocket(PID int, ulAf uint) {
-}
-
-// GetTcpInfoPID 用于获取指定 TCP 连接信息的 PID
-func GetTcpInfoPID(tcpInfo string, SunnyPort int) string {
-	return ""
 }
 
 // InstallCert 安装证书 将证书安装到Windows系统内

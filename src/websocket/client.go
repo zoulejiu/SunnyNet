@@ -7,14 +7,14 @@ package websocket
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"errors"
+	"github.com/qtgolang/SunnyNet/src/SunnyProxy"
+	"github.com/qtgolang/SunnyNet/src/crypto/tls"
+	"github.com/qtgolang/SunnyNet/src/http"
+	"github.com/qtgolang/SunnyNet/src/http/httptrace"
 	"io"
 	"io/ioutil"
 	"net"
-	"net/http"
-	"net/http/httptrace"
-	"net/textproto"
 	"net/url"
 	"strings"
 	"time"
@@ -45,7 +45,7 @@ func NewClient(netConn net.Conn, u *url.URL, requestHeader http.Header, readBufS
 			return netConn, nil
 		},
 	}
-	return d.Dial(u.String(), requestHeader, "")
+	return d.Dial(u.String(), requestHeader, nil)
 }
 
 // A Dialer contains options for connecting to WebSocket server.
@@ -62,7 +62,6 @@ type Dialer struct {
 	// Request. If the function returns a non-nil error, the
 	// request is aborted with the provided error.
 	// If Proxy is nil or returns a nil *URL, no proxy is used.
-	Proxy func(*http.Request) (*url.URL, error)
 
 	// TLSClientConfig specifies the TLS configuration to use with tls.Client.
 	// If nil, the default configuration is used.
@@ -100,10 +99,10 @@ type Dialer struct {
 	// If Jar is nil, cookies are not sent in requests and ignored
 	// in responses.
 	Jar      http.CookieJar
-	ProxyUrl string
+	ProxyUrl *SunnyProxy.Proxy
 }
 
-func (d *Dialer) Dial(urlStr string, requestHeader http.Header, ProxyUrl string, outTime ...int) (*Conn, *http.Response, error) {
+func (d *Dialer) Dial(urlStr string, requestHeader http.Header, ProxyUrl *SunnyProxy.Proxy, outTime ...int) (*Conn, *http.Response, error) {
 	d.ProxyUrl = ProxyUrl
 	t := 0
 	if len(outTime) > 0 {
@@ -134,7 +133,6 @@ func hostPortNoPort(u *url.URL) (hostPort, hostNoPort string) {
 
 // DefaultDialer is a dialer with all fields set to the default values.
 var DefaultDialer = &Dialer{
-	Proxy:            http.ProxyFromEnvironment,
 	HandshakeTimeout: 45 * time.Second,
 }
 
@@ -258,26 +256,8 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 		}
 	}
 
-	if d.ProxyUrl != "" {
-		d.Proxy = func(request *http.Request) (*url.URL, error) {
-			return url.Parse(strings.ReplaceAll(strings.ReplaceAll(d.ProxyUrl, "socket://", "socks5://"), "socket5://", "socks5://"))
-		}
-	}
-
-	if d.Proxy != nil {
-		proxyURL, err := d.Proxy(req)
-		if err != nil {
-			return nil, nil, err
-		}
-		if proxyURL != nil {
-			proxyDialer := &netDialerFunc{fn: netDial}
-			modifyProxyDialer(ctx, d, proxyURL, proxyDialer)
-			dialer, err := proxy_FromURL(proxyURL, proxyDialer)
-			if err != nil {
-				return nil, nil, err
-			}
-			netDial = dialer.Dial
-		}
+	if d.ProxyUrl != nil {
+		netDial = d.ProxyUrl.Dial
 	}
 
 	hostPort, hostNoPort := hostPortNoPort(u)
@@ -395,7 +375,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 }
 
 // ConnDialContext 自己改写的 返回Websocket.Conn 和httpResponse
-func (d *Dialer) ConnDialContext(request *http.Request, ProxyUrl string) (*Conn, *http.Response, error) {
+func (d *Dialer) ConnDialContext(request *http.Request, ProxyUrl *SunnyProxy.Proxy) (*Conn, *http.Response, error) {
 	if d == nil {
 		d = &nilDialer
 	}
@@ -427,15 +407,15 @@ func (d *Dialer) ConnDialContext(request *http.Request, ProxyUrl string) (*Conn,
 			if len(vs) > 0 {
 				req.Host = vs[0]
 			}
-		case textproto.CanonicalMIMEHeaderKey(k) == textproto.CanonicalMIMEHeaderKey("Sec-WebSocket-Extensions"):
 			continue
-		case textproto.CanonicalMIMEHeaderKey(k) == textproto.CanonicalMIMEHeaderKey("Sec-Websocket-Key"):
-			kk := textproto.CanonicalMIMEHeaderKey(k)
-			kk = strings.ReplaceAll(kk, "-Websocket-", "-WebSocket-")
-			req.Header[kk] = vs
+		case strings.EqualFold(k, "Sec-WebSocket-Extensions"):
+			continue
+		case strings.EqualFold(k, "Sec-Websocket-Key"):
+			req.Header[k] = vs
 			challengeKey = vs[0]
+			continue
 		default:
-			kk := textproto.CanonicalMIMEHeaderKey(k)
+			kk := k + ""
 			kk = strings.ReplaceAll(kk, "-Websocket-", "-WebSocket-")
 			req.Header[kk] = vs
 		}
@@ -448,65 +428,12 @@ func (d *Dialer) ConnDialContext(request *http.Request, ProxyUrl string) (*Conn,
 		ctx, cancel = context.WithTimeout(ctx, d.HandshakeTimeout)
 		defer cancel()
 	}
-	// Get network dial function.
-	var netDial func(network, add string) (net.Conn, error)
-	if d.NetDialContext != nil {
-		netDial = func(network, addr string) (net.Conn, error) {
-			return d.NetDialContext(ctx, network, addr)
-		}
-	} else if d.NetDial != nil {
-		netDial = d.NetDial
-	} else {
-		netDialer := &net.Dialer{}
-		netDial = func(network, addr string) (net.Conn, error) {
-			return netDialer.DialContext(ctx, network, addr)
-		}
-	}
-	if deadline, ok := ctx.Deadline(); ok {
-		forwardDial := netDial
-		netDial = func(network, addr string) (net.Conn, error) {
-			c, err := forwardDial(network, addr)
-			if err != nil {
-				return nil, err
-			}
-			err = c.SetDeadline(deadline)
-			if err != nil {
-				c.Close()
-				return nil, err
-			}
-			return c, nil
-		}
-	}
-
-	if d.ProxyUrl != "" {
-		d.Proxy = func(request *http.Request) (*url.URL, error) {
-			return url.Parse(strings.ReplaceAll(strings.ReplaceAll(d.ProxyUrl, "socket://", "socks5://"), "socket5://", "socks5://"))
-		}
-	}
-
-	if d.Proxy != nil {
-		proxyURL, err := d.Proxy(req)
-		if err != nil {
-			return nil, nil, err
-		}
-		if proxyURL != nil {
-			proxyDialer := &netDialerFunc{fn: netDial}
-			modifyProxyDialer(ctx, d, proxyURL, proxyDialer)
-			dialer, err := proxy_FromURL(proxyURL, proxyDialer)
-			if err != nil {
-				return nil, nil, err
-			}
-			netDial = dialer.Dial
-		}
-	}
-
 	hostPort, hostNoPort := hostPortNoPort(request.URL)
 	trace := httptrace.ContextClientTrace(ctx)
 	if trace != nil && trace.GetConn != nil {
 		trace.GetConn(hostPort)
 	}
-
-	netConn, err := netDial("tcp", hostPort)
+	netConn, err := d.ProxyUrl.Dial("tcp", hostPort)
 	if trace != nil && trace.GotConn != nil {
 		trace.GotConn(httptrace.GotConnInfo{
 			Conn: netConn,
@@ -564,11 +491,45 @@ func (d *Dialer) ConnDialContext(request *http.Request, ProxyUrl string) (*Conn,
 			d.Jar.SetCookies(request.URL, rc)
 		}
 	}
+	var _Upgrade string
+	var _Connection string
+	for k, v := range resp.Header {
+		if strings.EqualFold(k, "Upgrade") {
+			if len(v) > 0 {
+				_Upgrade = v[0]
 
-	if resp.StatusCode != 101 ||
-		!strings.EqualFold(resp.Header.Get("Upgrade"), "websocket") ||
-		!strings.EqualFold(resp.Header.Get("Connection"), "upgrade") ||
-		resp.Header.Get("Sec-Websocket-Accept") != computeAcceptKey(challengeKey) {
+			}
+			continue
+		}
+		if strings.EqualFold(k, "Connection") {
+			if len(v) > 0 {
+				_Connection = v[0]
+			}
+			continue
+		}
+		if _Upgrade != "" && _Connection != "" {
+			break
+		}
+	}
+	ok1 := !strings.EqualFold(_Upgrade, "websocket") && !strings.EqualFold(_Upgrade, "upgrade")
+	ok2 := !strings.EqualFold(_Connection, "websocket") && !strings.EqualFold(_Connection, "upgrade")
+	aa := computeAcceptKey(challengeKey)
+	bb := resp.Header.Get("Sec-Websocket-Accept")
+	if bb == "" {
+		bb = resp.Header.Get("Sec-WebSocket-Accept")
+		if bb == "" {
+			for k, v := range resp.Header {
+				if strings.EqualFold(k, "Sec-Websocket-Accept") {
+					if len(v) > 0 {
+						bb = v[0]
+					}
+					break
+				}
+			}
+		}
+	}
+	if resp.StatusCode != 101 || ok1 || ok2 ||
+		bb != aa {
 		// Before closing the network connection on return from this
 		// function, slurp up some of the response to aid application
 		// debugging.

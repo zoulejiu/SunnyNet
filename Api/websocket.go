@@ -1,15 +1,15 @@
 package Api
 
 import (
-	"crypto/tls"
 	"errors"
-	"github.com/qtgolang/SunnyNet/Call"
-	"github.com/qtgolang/SunnyNet/public"
+	"github.com/qtgolang/SunnyNet/src/Call"
 	"github.com/qtgolang/SunnyNet/src/Certificate"
+	"github.com/qtgolang/SunnyNet/src/SunnyProxy"
+	"github.com/qtgolang/SunnyNet/src/crypto/tls"
+	"github.com/qtgolang/SunnyNet/src/http"
+	"github.com/qtgolang/SunnyNet/src/public"
 	"github.com/qtgolang/SunnyNet/src/websocket"
-	"net/http"
 	"net/textproto"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -103,7 +103,11 @@ func WebsocketDial(Context int, URL, Heads string, call int, synchronous bool, P
 		if len(arr1) >= 2 {
 			k := arr1[0]
 			val := strings.TrimSpace(strings.Replace(v, arr1[0]+":", "", 1))
-			Header[textproto.TrimString(k)] = []string{val}
+			if len(Header[textproto.TrimString(k)]) < 1 {
+				Header[textproto.TrimString(k)] = []string{val}
+			} else {
+				Header[textproto.TrimString(k)] = append(Header[textproto.TrimString(k)], val)
+			}
 		}
 	}
 	mUrl := strings.ToLower(URL)
@@ -126,14 +130,10 @@ func WebsocketDial(Context int, URL, Heads string, call int, synchronous bool, P
 		dialer = websocket.Dialer{}
 	}
 	w.synchronous = synchronous
-	Proxy_ := ProxyUrl
-	a, _ := url.Parse(Proxy_)
-	if len(a.Host) < 3 {
-		Proxy_ = ""
-	}
+	Proxy_, _ := SunnyProxy.ParseProxy(ProxyUrl, outTime)
 	//w.wb, _, w.err = dialer.Dial(Request.URL.String(), Request.Header, Proxy_)
 	//w.wb, _, w.err = dialer.ConnDialContext(Request, Proxy_)
-	w.wb, _, w.err = dialer.Dial(URL, Header, Proxy_, outTime)
+	w.wb, _, w.err = dialer.Dial(URL, Header, Proxy_)
 	if w.err != nil {
 		return false
 	}

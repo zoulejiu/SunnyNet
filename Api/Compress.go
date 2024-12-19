@@ -2,8 +2,8 @@ package Api
 
 import "C"
 import (
-	"github.com/qtgolang/SunnyNet/public"
 	"github.com/qtgolang/SunnyNet/src/Compress"
+	"github.com/qtgolang/SunnyNet/src/public"
 )
 
 // DeflateCompress Deflate压缩 (可能等同于zlib压缩)
@@ -110,6 +110,7 @@ func GzipUnCompress(data uintptr, dataLen int) uintptr {
 	if len(bin) < 1 {
 		return 0
 	}
+
 	b := Compress.GzipUnCompress(bin)
 	if len(b) < 1 {
 		return 0

@@ -1,12 +1,15 @@
 package Api
 
+import "C"
 import (
 	"bytes"
+	"fmt"
 	"github.com/qtgolang/SunnyNet/SunnyNet"
-	"github.com/qtgolang/SunnyNet/public"
-	"github.com/qtgolang/SunnyNet/src/GoWinHttp"
+	"github.com/qtgolang/SunnyNet/src/Call"
+	"github.com/qtgolang/SunnyNet/src/SunnyProxy"
+	"github.com/qtgolang/SunnyNet/src/http"
+	"github.com/qtgolang/SunnyNet/src/public"
 	"io/ioutil"
-	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
@@ -36,7 +39,14 @@ func SetRequestHeader(MessageId int, name, val string) {
 	if k.Request.Header == nil {
 		k.Request.Header = make(http.Header)
 	}
-	k.Request.Header[name] = []string{val}
+	array := strings.Split(strings.ReplaceAll(val, "\r", ""), "\n")
+	var arr []string
+	for _, v := range array {
+		if v != "" {
+			arr = append(arr, v)
+		}
+	}
+	k.Request.Header.SetArray(name, arr)
 }
 
 // SetRequestALLHeader 设置HTTP/S请求体中的全部协议头
@@ -53,21 +63,25 @@ func SetRequestALLHeader(MessageId int, value string) {
 	if k.Request == nil {
 		return
 	}
-	if k.Request.Header == nil {
-		k.Request.Header = make(http.Header)
-	}
+	k.Request.Header = make(http.Header)
 	arr := strings.Split(strings.ReplaceAll(value, "\r", ""), "\n")
 	if len(arr) > 0 {
-		k.Request.Header = make(http.Header)
 		for _, v := range arr {
 			arr2 := strings.Split(v, ":")
 			if len(arr2) >= 1 {
-				if len(v) >= len(arr2[0])+1 {
-					data := strings.TrimSpace(v[len(arr2[0])+1:])
-					if len(k.Request.Header[arr2[0]]) > 0 {
-						k.Request.Header[arr2[0]] = append(k.Request.Header[arr2[0]], data)
+				key := strings.TrimSpace(arr2[0])
+				if key != "" {
+					if len(v) >= len(arr2[0])+1 {
+						data := strings.TrimSpace(v[len(key)+1:])
+						if len(k.Request.Header[key]) > 0 {
+							k.Request.Header[key] = append(k.Request.Header[key], data)
+						} else {
+							k.Request.Header[key] = []string{data}
+						}
 					} else {
-						k.Request.Header[arr2[0]] = []string{data}
+						if len(k.Request.Header[key]) < 1 {
+							k.Request.Header[key] = []string{}
+						}
 					}
 				}
 			}
@@ -76,7 +90,7 @@ func SetRequestALLHeader(MessageId int, value string) {
 }
 
 // SetRequestProxy 设置HTTP/S请求代理，仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
-func SetRequestProxy(MessageId int, ProxyUrl string) bool {
+func SetRequestProxy(MessageId int, ProxyUrl string, outTime int) bool {
 	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
 	if ok == false {
 		return false
@@ -87,34 +101,42 @@ func SetRequestProxy(MessageId int, ProxyUrl string) bool {
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
 	if k.Proxy == nil {
-		k.Proxy = &GoWinHttp.Proxy{Timeout: 60 * 1000}
+		k.Proxy, _ = SunnyProxy.ParseProxy(ProxyUrl, outTime)
 	}
-	k.Proxy.S5TypeProxy = false
-	k.Proxy.Address = public.NULL
-	k.Proxy.User = public.NULL
-	k.Proxy.Pass = public.NULL
-	proxy, err := url.Parse(ProxyUrl)
-	k.Proxy.S5TypeProxy = false
-	k.Proxy.Address = ""
-	k.Proxy.User = ""
-	k.Proxy.Pass = ""
-	if err != nil || proxy == nil {
+	if k.Proxy == nil {
 		return false
-	}
-	if proxy.Scheme != "http" && proxy.Scheme != "socket5" && proxy.Scheme != "socket" && proxy.Scheme != "socks5" {
-		return false
-	}
-	k.Proxy.S5TypeProxy = proxy.Scheme != "http"
-	if len(proxy.Host) < 3 {
-		return false
-	}
-	k.Proxy.Address = proxy.Host
-	k.Proxy.User = proxy.User.Username()
-	p, o := proxy.User.Password()
-	if o {
-		k.Proxy.Pass = p
 	}
 	return true
+}
+
+// SetRequestHTTP2Config .版本 2
+//
+// .DLL命令 Sunny_SetRequestHTTP2Config, 逻辑型, "Sunny.dll", "@SetRequestHTTP2Config", , //设置HTTP 2.0 请求指纹配置 (若服务器支持则使用,若服务器不支持,设置了也不会使用)
+func SetRequestHTTP2Config(MessageId int, h2Config string) bool {
+	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
+	if ok == false {
+		return false
+	}
+	if k == nil {
+		return false
+	}
+	if k.TlsConfig == nil {
+		return false
+	}
+	k.Lock.Lock()
+	defer k.Lock.Unlock()
+	k.TlsConfig.NextProtos = []string{http.H11Proto, http.H2Proto}
+	if h2Config != "" {
+		c, e := http.StringToH2Config(h2Config)
+		if e != nil {
+			k.Request.SetHTTP2Config(nil)
+			return false
+		}
+		k.Request.SetHTTP2Config(c)
+		return true
+	}
+	k.Request.SetHTTP2Config(nil)
+	return false
 }
 
 // GetResponseStatusCode 获取HTTP/S返回的状态码
@@ -128,7 +150,7 @@ func GetResponseStatusCode(MessageId int) int {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	if k.Response == nil {
+	if k.Response.Response == nil {
 		return -1
 	}
 	return k.Response.StatusCode
@@ -147,6 +169,18 @@ func GetRequestClientIp(MessageId int) uintptr {
 	defer k.Lock.Unlock()
 	return public.PointerPtr(k.Conn.RemoteAddr().String())
 }
+func GetHttpServerName(MessageId int) uintptr {
+	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
+	if ok == false {
+		return public.NULLPtr
+	}
+	if k == nil {
+		return public.NULLPtr
+	}
+	k.Lock.Lock()
+	defer k.Lock.Unlock()
+	return public.PointerPtr(k.ServerName)
+}
 
 // GetResponseStatus 获取HTTP/S返回的状态文本 例如 [200 OK]
 func GetResponseStatus(MessageId int) uintptr {
@@ -159,7 +193,7 @@ func GetResponseStatus(MessageId int) uintptr {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	if k.Response == nil {
+	if k.Response.Response == nil {
 		return public.NULLPtr
 	}
 	k.Response.Status = strconv.Itoa(k.Response.StatusCode) + public.Space + http.StatusText(k.Response.StatusCode)
@@ -177,8 +211,11 @@ func SetResponseStatus(MessageId, code int) {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	if k.Response == nil {
-		return
+	if k.Response.Response == nil {
+		k.Response.Response = new(http.Response)
+		k.Response.Header = make(http.Header)
+		k.Response.Header.Set("Connection", "Close")
+		k.Response.ContentLength = 0
 	}
 	k.Response.StatusCode = code
 	k.Response.Status = strconv.Itoa(code) + public.Space + http.StatusText(code)
@@ -195,13 +232,13 @@ func DelResponseHeader(MessageId int, name string) {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	if k.Response == nil {
+	if k.Response.Response == nil {
 		return
 	}
 	if k.Response.Header == nil {
 		k.Response.Header = make(http.Header)
 	}
-	delete(k.Response.Header, name)
+	k.Response.Header.Del(name)
 }
 
 // DelRequestHeader 删除HTTP/S请求数据中指定的协议头
@@ -221,11 +258,56 @@ func DelRequestHeader(MessageId int, name string) {
 	if k.Request.Header == nil {
 		k.Request.Header = make(http.Header)
 	}
-	delete(k.Request.Header, name)
+	k.Request.Header.Del(name)
+}
+
+// SetRequestCipherSuites 设置CipherSuites
+func SetRequestCipherSuites(MessageId int) bool {
+	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
+	if ok == false {
+		return false
+	}
+	if k == nil {
+		return false
+	}
+	if k.TlsConfig == nil {
+		return false
+	}
+	k.Lock.Lock()
+	defer k.Lock.Unlock()
+	k.TlsConfig.CipherSuites = k.Global.GetTLSTestValues()
+	return true
+}
+
+// GetRequestCipherSuites 获取CipherSuites
+func GetRequestCipherSuites(MessageId int) string {
+	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
+	if ok == false {
+		return ""
+	}
+	if k == nil {
+		return ""
+	}
+	if k.TlsConfig == nil {
+		return ""
+	}
+
+	k.Lock.Lock()
+	defer k.Lock.Unlock()
+	s := ""
+	for _, v := range k.TlsConfig.CipherSuites {
+		if s == "" {
+			s = strconv.Itoa(int(v))
+		} else {
+			s += "," + strconv.Itoa(int(v))
+		}
+	}
+	return s
 }
 
 // SetRequestOutTime 请求设置超时-毫秒
 func SetRequestOutTime(MessageId int, times int) {
+
 	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
 	if ok == false {
 		return
@@ -235,12 +317,8 @@ func SetRequestOutTime(MessageId int, times int) {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	if k.WinHttp == nil {
-		k.WinHttp = GoWinHttp.NewGoWinHttp()
-	}
-	k.WinHttp.ConnectionTimeout = time.Duration(times) * time.Millisecond
-	k.WinHttp.SendTimeout = time.Duration(times) * time.Millisecond
-	k.WinHttp.ReadTimeout = time.Duration(times) * time.Millisecond
+	k.SendTimeout = time.Duration(times) * time.Millisecond
+
 }
 
 // SetRequestUrl 修改HTTP/S当前请求的URL
@@ -275,7 +353,7 @@ func SetRequestUrl(MessageId int, URI string) bool {
 	}
 	k.Request.Host = Host
 	k.Request.URL = _u
-	k.Request.RequestURI = f
+	k.Request.RequestURI = ""
 	return true
 }
 
@@ -352,31 +430,30 @@ func GetRequestHeader(MessageId int, name string) uintptr {
 	if k.Request.Header == nil {
 		k.Request.Header = make(http.Header)
 	}
-	val := k.Request.Header[name]
+	val := k.Request.Header.GetArray(name)
+	if strings.EqualFold(name, "cookie") {
+		return public.PointerPtr(strings.Join(val, "; "))
+	}
 	if len(val) < 1 {
-		aegName := strings.ToLower(name)
-		for _Name, v := range k.Request.Header {
-			if strings.ToLower(_Name) == aegName {
-				s := ""
-				for i, vv := range v {
-					if i == 0 {
-						s = vv
-					} else {
-						s += "\r\n" + vv
-					}
-				}
-				if len(s) > 0 {
-
-				}
-				return public.PointerPtr(s)
-			}
+		return public.NULLPtr
+	}
+	s := ""
+	for i, vv := range val {
+		if i == 0 {
+			s = vv
+		} else {
+			s += "\r\n" + vv
 		}
+	}
+	if len(s) > 0 {
+		return public.PointerPtr(s)
 	}
 	return public.NULLPtr
 }
 
 // SetResponseHeader 修改、设置 HTTP/S当前返回数据中的指定协议头
 func SetResponseHeader(MessageId int, name string, val string) {
+
 	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
 	if ok == false {
 		return
@@ -386,8 +463,8 @@ func SetResponseHeader(MessageId int, name string, val string) {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	if k.Response == nil {
-		k.Response = new(http.Response)
+	if k.Response.Response == nil {
+		k.Response.Response = new(http.Response)
 		k.Response.Header = make(http.Header)
 		k.Response.Header.Set("Connection", "Close")
 		k.Response.ContentLength = 0
@@ -395,7 +472,14 @@ func SetResponseHeader(MessageId int, name string, val string) {
 	if k.Response.Header == nil {
 		k.Response.Header = make(http.Header)
 	}
-	k.Response.Header[name] = []string{val}
+	arr := strings.Split(strings.ReplaceAll(val, "\r", ""), "\n")
+	var array []string
+	for _, v := range arr {
+		if v != "" {
+			array = append(array, v)
+		}
+	}
+	k.Response.Header.SetArray(name, array)
 }
 
 // SetResponseAllHeader 修改、设置 HTTP/S当前返回数据中的全部协议头，例如设置返回两条Cookie 使用本命令设置 使用设置、修改 单条命令无效
@@ -409,8 +493,8 @@ func SetResponseAllHeader(MessageId int, value string) {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	if k.Response == nil {
-		k.Response = new(http.Response)
+	if k.Response.Response == nil {
+		k.Response.Response = new(http.Response)
 		k.Response.Header = make(http.Header)
 		k.Response.Header.Set("Connection", "Close")
 		k.Response.ContentLength = 0
@@ -424,13 +508,15 @@ func SetResponseAllHeader(MessageId int, value string) {
 		for _, v := range arr {
 			arr2 := strings.Split(v, ":")
 			if len(arr2) >= 1 {
-				if len(v) >= len(arr2[0])+1 {
-					data := strings.TrimSpace(v[len(arr2[0])+1:])
-					if len(k.Response.Header[arr2[0]]) > 0 {
-						k.Response.Header[arr2[0]] = append(k.Response.Header[arr2[0]], data)
-					} else {
-						k.Response.Header[arr2[0]] = []string{data}
-					}
+				name := arr2[0]
+				if name == "" {
+					continue
+				}
+				if len(v) >= len(name)+1 {
+					data := strings.TrimSpace(v[len(name)+1:])
+					k.Response.Header.Add(name, data)
+				} else {
+					k.Response.Header.SetArray(name, []string{})
 				}
 			}
 		}
@@ -470,14 +556,13 @@ func SetResponseData(MessageId int, data uintptr, dataLen int) bool {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	if k.Response == nil {
-		k.Response = new(http.Response)
+	if k.Response.Response == nil {
+		k.Response.Response = new(http.Response)
 		k.Response.Header = make(http.Header)
 		k.Response.Header.Set("Server", "Sunny")
 		k.Response.Header.Set("Accept-Ranges", "bytes")
 		k.Response.Header.Set("Connection", "Close")
 	}
-
 	if k.Response.Header == nil {
 		k.Response.Header = make(http.Header)
 	}
@@ -485,6 +570,27 @@ func SetResponseData(MessageId int, data uintptr, dataLen int) bool {
 	k.Response.ContentLength = int64(len(n))
 	k.Response.Body = ioutil.NopCloser(bytes.NewBuffer(n))
 	return true
+}
+
+// GetRequestBody 获取 HTTP/S 当前POST提交数据 返回 数据指针
+func GetRequestBody(MessageId int) uintptr {
+	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
+	if ok == false {
+		return public.NULLPtr
+	}
+	if k == nil {
+		return public.NULLPtr
+	}
+	if k.Request == nil {
+		return public.NULLPtr
+	}
+	k.Lock.Lock()
+	defer k.Lock.Unlock()
+	body := k.Request.GetData()
+	if body != nil {
+		return public.PointerPtr(body)
+	}
+	return public.NULLPtr
 }
 
 // GetRequestBodyLen 获取 HTTP/S 当前请求POST提交数据长度
@@ -496,20 +602,13 @@ func GetRequestBodyLen(MessageId int) int {
 	if k == nil {
 		return 0
 	}
-	k.Lock.Lock()
-	defer k.Lock.Unlock()
 	if k.Request == nil {
 		return 0
 	}
-	if k.Request.Body != nil {
-		bodyBytes, e := ioutil.ReadAll(k.Request.Body)
-		k.Request.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
-		if e != nil {
-			return 0
-		}
-		return len(bodyBytes)
-	}
-	return 0
+	k.Lock.Lock()
+	defer k.Lock.Unlock()
+	body := k.Request.GetData()
+	return len(body)
 }
 
 // GetResponseBodyLen 获取 HTTP/S 当前返回  数据长度
@@ -523,7 +622,7 @@ func GetResponseBodyLen(MessageId int) int {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	if k.Response == nil {
+	if k.Response.Response == nil {
 		return 0
 	}
 	if k.Response.Body != nil {
@@ -538,45 +637,46 @@ func GetResponseBodyLen(MessageId int) int {
 }
 
 // SetRequestData 设置、修改 HTTP/S 当前请求POST提交数据  data=数据指针  dataLen=数据长度
-func SetRequestData(MessageId int, data uintptr, dataLen int) int {
+func SetRequestData(MessageId int, data uintptr, dataLen int) bool {
 	n := public.CStringToBytes(data, dataLen)
 	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
 	if ok == false {
-		return 0
+		return false
 	}
 	if k == nil {
-		return 0
+		return false
+	}
+	if k.Request == nil {
+		return false
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	if k.Request == nil {
-		return 0
-	}
-	k.Request.ContentLength = int64(len(n))
-	k.Request.Body = ioutil.NopCloser(bytes.NewBuffer(n))
-	return 1
+	k.Request.SetData(n)
+	return true
 }
 
-// GetRequestBody 获取 HTTP/S 当前POST提交数据 返回 数据指针
-func GetRequestBody(MessageId int) uintptr {
+// IsRequestRawBody 此请求是否为原始body 如果是 将无法修改提交的Body，请使用 RawRequestDataToFile 命令来储存到文件
+func IsRequestRawBody(MessageId int) bool {
 	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
 	if ok == false {
-		return public.NULLPtr
+		return false
 	}
 	if k == nil {
-		return public.NULLPtr
+		return false
 	}
-	k.Lock.Lock()
-	defer k.Lock.Unlock()
-	if k.Request == nil {
-		return public.NULLPtr
+	return k.IsRequestRawBody()
+}
+
+// RawRequestDataToFile 获取 HTTP/S 当前POST提交数据原始Data,传入保存文件名路径,例如"c:\1.txt"
+func RawRequestDataToFile(MessageId int, saveFileName string) bool {
+	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
+	if ok == false {
+		return false
 	}
-	if k.Request.Body != nil {
-		bodyBytes, _ := ioutil.ReadAll(k.Request.Body)
-		k.Request.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
-		return public.PointerPtr(bodyBytes)
+	if k == nil {
+		return false
 	}
-	return public.NULLPtr
+	return k.RawRequestDataToFile(saveFileName)
 }
 
 // GetResponseBody 获取 HTTP/S 当前返回数据  返回 数据指针
@@ -590,7 +690,7 @@ func GetResponseBody(MessageId int) uintptr {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	if k.Response == nil {
+	if k.Response.Response == nil {
 		return public.NULLPtr
 	}
 	if k.Response.Body != nil {
@@ -623,6 +723,40 @@ func GetRequestALLCookie(MessageId int) uintptr {
 	return public.PointerPtr(Cookie)
 }
 
+// GetRequestProto 获取 HTTPS 请求的协议版本
+func GetRequestProto(MessageId int) uintptr {
+	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
+	if ok == false {
+		return public.NULLPtr
+	}
+	if k == nil {
+		return public.NULLPtr
+	}
+	if k.Request == nil {
+		return public.NULLPtr
+	}
+	k.Lock.Lock()
+	defer k.Lock.Unlock()
+	return public.PointerPtr(k.Request.Proto)
+}
+
+// GetResponseProto 获取 HTTPS 响应的协议版本
+func GetResponseProto(MessageId int) uintptr {
+	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
+	if ok == false {
+		return public.NULLPtr
+	}
+	if k == nil {
+		return public.NULLPtr
+	}
+	if k.Response.Response == nil {
+		return public.NULLPtr
+	}
+	k.Lock.Lock()
+	defer k.Lock.Unlock()
+	return public.PointerPtr(k.Response.Proto)
+}
+
 // GetResponseAllHeader 获取 HTTP/S 当前返回全部协议头
 func GetResponseAllHeader(MessageId int) uintptr {
 	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
@@ -634,7 +768,7 @@ func GetResponseAllHeader(MessageId int) uintptr {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	if k.Response == nil {
+	if k.Response.Response == nil {
 		return public.NULLPtr
 	}
 	if k.Response.Header == nil {
@@ -665,23 +799,45 @@ func GetResponseHeader(MessageId int, name string) uintptr {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	if k.Response == nil {
+	if k.Response.Response == nil {
 		return public.NULLPtr
 	}
 	if k.Response.Header == nil {
 		return public.NULLPtr
 	}
-	Head := k.Response.Header[(name)]
+	Head := k.Response.Header.GetArray(name)
 	if len(Head) < 1 {
-		aegName := strings.ToLower(name)
-		for _Name, v := range k.Response.Header {
-			if strings.ToLower(_Name) == aegName {
-				return public.PointerPtr(v[0])
-			}
-		}
 		return public.NULLPtr
 	}
-	return public.PointerPtr(Head[0])
+	s := ""
+	for i, vv := range Head {
+		if i == 0 {
+			s = vv
+		} else {
+			s += "\r\n" + vv
+		}
+	}
+	if len(s) > 0 {
+		return public.PointerPtr(s)
+	}
+	return public.NULLPtr
+}
+
+// GetResponseServerAddress 获取 HTTP/S 相应的服务器地址
+func GetResponseServerAddress(MessageId int) uintptr {
+	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
+	if ok == false {
+		return public.NULLPtr
+	}
+	if k == nil {
+		return public.NULLPtr
+	}
+	k.Lock.Lock()
+	defer k.Lock.Unlock()
+	if k.Response.Response == nil {
+		return public.NULLPtr
+	}
+	return public.PointerPtr(k.Response.ServerIP)
 }
 
 // GetRequestAllHeader 获取 HTTP/S 当前请求数据全部协议头
@@ -708,6 +864,10 @@ func GetRequestAllHeader(MessageId int) uintptr {
 	}
 	sort.Strings(key)
 	for _, kv := range key {
+		if strings.EqualFold(kv, "cookie") {
+			Head += kv + ": " + strings.Join(k.Request.Header[kv], "; ") + "\r\n"
+			continue
+		}
 		for _, value := range k.Request.Header[kv] {
 			Head += kv + ": " + value + "\r\n"
 		}
@@ -758,28 +918,11 @@ func SetTcpAgent(MessageId int, ProxyUrl string) bool {
 	if k.TCP.Send == nil {
 		return false
 	}
-	proxy, err := url.Parse(ProxyUrl)
+	proxy, err := SunnyProxy.ParseProxy(ProxyUrl)
 	if err != nil || proxy == nil {
 		return false
 	}
-	k.TCP.Send.TcpIp = public.NULL
-	k.TCP.Send.TcpUser = public.NULL
-	k.TCP.Send.TcpPass = public.NULL
-	if proxy.Scheme != "socket5" && proxy.Scheme != "socket" {
-		return false
-	}
-	if len(proxy.Host) < 3 {
-		k.TCP.Send.TcpIp = ""
-		k.TCP.Send.TcpUser = ""
-		k.TCP.Send.TcpPass = ""
-		return false
-	}
-	k.TCP.Send.TcpIp = proxy.Host
-	k.TCP.Send.TcpUser = proxy.User.Username()
-	p, ok := proxy.User.Password()
-	if ok {
-		k.TCP.Send.TcpPass = p
-	}
+	k.TCP.Send.Proxy, _ = SunnyProxy.ParseProxy(ProxyUrl, 30000)
 	return true
 }
 
@@ -792,8 +935,12 @@ func TcpCloseClient(theology int) bool {
 		return false
 	}
 	w.L.Lock()
-	_ = w.ConnSend.Close()
-	_ = w.ConnServer.Close()
+	if w.ConnSend != nil {
+		_ = w.ConnSend.Close()
+	}
+	if w.ConnServer != nil {
+		_ = w.ConnServer.Close()
+	}
 	w.L.Unlock()
 	return true
 }
@@ -1012,6 +1159,18 @@ func ReleaseSunnyNet(SunnyContext int) bool {
 	return true
 }
 
+// SetHTTPRequestMaxUpdateLength 设置HTTP请求,提交数据,最大的长度
+func SetHTTPRequestMaxUpdateLength(SunnyContext int, i int64) bool {
+	SunnyNet.SunnyStorageLock.Lock()
+	w := SunnyNet.SunnyStorage[SunnyContext]
+	SunnyNet.SunnyStorageLock.Unlock()
+	if w == nil {
+		return false
+	}
+	w.SetHTTPRequestMaxUpdateLength(i)
+	return true
+}
+
 // SunnyNetStart 启动Sunny中间件 成功返回true
 func SunnyNetStart(SunnyContext int) bool {
 	SunnyNet.SunnyStorageLock.Lock()
@@ -1161,23 +1320,23 @@ func CompileProxyRegexp(SunnyContext int, Regexp string) bool {
 }
 
 // SetMustTcpRegexp 设置强制走TCP规则,如果 打开了全部强制走TCP状态,本功能则无效
-func SetMustTcpRegexp(SunnyContext int, Regexp string) bool {
+func SetMustTcpRegexp(SunnyContext int, Regexp string, RulesAllow bool) bool {
 	SunnyNet.SunnyStorageLock.Lock()
 	w := SunnyNet.SunnyStorage[SunnyContext]
 	SunnyNet.SunnyStorageLock.Unlock()
 	if w == nil {
 		return false
 	}
-	return w.SetMustTcpRegexp(Regexp) == nil
+	return w.SetMustTcpRegexp(Regexp, RulesAllow) == nil
 }
 
 // SetGlobalProxy 设置全局上游代理 仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
-func SetGlobalProxy(SunnyContext int, ProxyAddress string) bool {
+func SetGlobalProxy(SunnyContext int, ProxyAddress string, outTime int) bool {
 	SunnyNet.SunnyStorageLock.Lock()
 	w := SunnyNet.SunnyStorage[SunnyContext]
 	SunnyNet.SunnyStorageLock.Unlock()
 	if w != nil {
-		return w.SetGlobalProxy(ProxyAddress)
+		return w.SetGlobalProxy(ProxyAddress, outTime)
 	}
 	return false
 }
@@ -1273,4 +1432,98 @@ func ProcessCancelAll(SunnyContext int) {
 	if w != nil {
 		w.ProcessCancelAll()
 	}
+}
+
+// SetScriptCode 加载用户的脚本代码
+func SetScriptCode(SunnyContext int, code string) string {
+	SunnyNet.SunnyStorageLock.Lock()
+	w := SunnyNet.SunnyStorage[SunnyContext]
+	SunnyNet.SunnyStorageLock.Unlock()
+	if w != nil {
+		return w.SetScriptCode(code)
+	}
+	return "SunnyContext Error"
+}
+
+// SetScriptCall 设置脚本代码的回调函数
+func SetScriptCall(SunnyContext int, log, save uintptr) {
+	SunnyNet.SunnyStorageLock.Lock()
+	w := SunnyNet.SunnyStorage[SunnyContext]
+	SunnyNet.SunnyStorageLock.Unlock()
+	if w != nil {
+		l := func(info ...any) {
+			Call.Call(int(log), fmt.Sprintf("%v", info))
+		}
+		s := func(code []byte) {
+			Call.Call(int(save), code, int32(len(code)))
+		}
+		w.SetScriptCall(l, s)
+	}
+}
+
+// SetScriptPage  设置脚本编辑器页面 需不少于8个字符
+func SetScriptPage(SunnyContext int, Page string) uintptr {
+	SunnyNet.SunnyStorageLock.Lock()
+	w := SunnyNet.SunnyStorage[SunnyContext]
+	SunnyNet.SunnyStorageLock.Unlock()
+	if w == nil {
+		return 0
+	}
+	return public.PointerPtr(w.SetScriptPage(Page))
+}
+
+// DisableTCP  禁用TCP 仅对当前SunnyContext有效
+func DisableTCP(SunnyContext int, Disable bool) bool {
+	SunnyNet.SunnyStorageLock.Lock()
+	w := SunnyNet.SunnyStorage[SunnyContext]
+	SunnyNet.SunnyStorageLock.Unlock()
+	if w == nil {
+		return false
+	}
+	w.DisableTCP(Disable)
+	return true
+}
+
+// SetRandomFixedTLS  设置密码套件，改变ja3指纹,仅对当前SunnyContext有效
+func SetRandomFixedTLS(SunnyContext int, data []byte) bool {
+	SunnyNet.SunnyStorageLock.Lock()
+	w := SunnyNet.SunnyStorage[SunnyContext]
+	SunnyNet.SunnyStorageLock.Unlock()
+	if w == nil {
+		return false
+	}
+	w.SetRandomFixedTLS(string(data))
+	return true
+}
+
+// RandomFixedTLSGet 随机生成一个密码套件,
+func RandomFixedTLSGet(SunnyContext int) uintptr {
+	SunnyNet.SunnyStorageLock.Lock()
+	w := SunnyNet.SunnyStorage[SunnyContext]
+	SunnyNet.SunnyStorageLock.Unlock()
+	if w == nil {
+		return 0
+	}
+	r := w.GetTLSTestValues()
+	s := ""
+	for _, v := range r {
+		if s == "" {
+			s = strconv.Itoa(int(v))
+		} else {
+			s += "," + strconv.Itoa(int(v))
+		}
+	}
+	return public.PointerPtr(s)
+}
+
+// SetRandomTLS  是否使用随机TLS指纹 仅对当前SunnyContext有效
+func SetRandomTLS(SunnyContext int, open bool) bool {
+	SunnyNet.SunnyStorageLock.Lock()
+	w := SunnyNet.SunnyStorage[SunnyContext]
+	SunnyNet.SunnyStorageLock.Unlock()
+	if w == nil {
+		return false
+	}
+	w.SetRandomTLS(open)
+	return true
 }

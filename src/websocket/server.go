@@ -8,10 +8,12 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
+	"github.com/qtgolang/SunnyNet/src/ReadWriteObject"
+	"github.com/qtgolang/SunnyNet/src/http"
+	"github.com/qtgolang/SunnyNet/src/internal/textproto"
 	"io"
 	"net"
-	"net/http"
-	"net/textproto"
 	"net/url"
 	"strings"
 	"time"
@@ -268,7 +270,166 @@ func (u *Upgrader) Upgrade(w http.ResponseWriter, r *http.Request, responseHeade
 	return c, nil
 }
 
-//UpgradeClient 自己改写的 将当前客户端的连接升级为Websocket会话
+func (u *Upgrader) UpgradeSunnyNetWebsocket(w *ReadWriteObject.ReadWriteObject, r *http.Request, responseHeader http.Header, c_ net.Conn, b_ *bufio.ReadWriter) (*Conn, error) {
+	const badHandshake = "websocket: the client is not using the websocket protocol: "
+	for name, values := range r.Header {
+		Mikey := textproto.CanonicalMIMEHeaderKey(name)
+		if Mikey != name {
+			r.Header.Del(name)
+			r.Header[Mikey] = values
+		}
+	}
+	for name, values := range responseHeader {
+		Mikey := textproto.CanonicalMIMEHeaderKey(name)
+		if Mikey != name {
+			responseHeader.Del(name)
+			responseHeader[Mikey] = values
+		}
+	}
+	if !tokenListContainsValue(r.Header, "Connection", "upgrade") {
+		s := badHandshake + "'upgrade' token not found in 'Connection' header"
+		_, _ = w.WriteString(fmt.Sprintf("HTTP/1.1 %d OK\r\nCache-Control: no-cache, must-revalidate\r\nPragma: no-cache\r\nContent-Length: %d\r\n\r\n%s", http.StatusBadRequest, len(s), s))
+		return nil, HandshakeError{s}
+	}
+
+	if !tokenListContainsValue(r.Header, "Upgrade", "websocket") {
+		s := badHandshake + "'websocket' token not found in 'Upgrade' header"
+		_, _ = w.WriteString(fmt.Sprintf("HTTP/1.1 %d OK\r\nCache-Control: no-cache, must-revalidate\r\nPragma: no-cache\r\nContent-Length: %d\r\n\r\n%s", http.StatusBadRequest, len(s), s))
+		return nil, HandshakeError{s}
+	}
+
+	if r.Method != "GET" {
+		s := badHandshake + "request method is not GET"
+		_, _ = w.WriteString(fmt.Sprintf("HTTP/1.1 %d OK\r\nCache-Control: no-cache, must-revalidate\r\nPragma: no-cache\r\nContent-Length: %d\r\n\r\n%s", http.StatusMethodNotAllowed, len(s), s))
+		return nil, HandshakeError{s}
+	}
+
+	if !tokenListContainsValue(r.Header, textproto.CanonicalMIMEHeaderKey("Sec-WebSocket-Version"), "13") {
+		s := "websocket: unsupported version: 13 not found in 'Sec-Websocket-Version' header"
+		_, _ = w.WriteString(fmt.Sprintf("HTTP/1.1 %d OK\r\nCache-Control: no-cache, must-revalidate\r\nPragma: no-cache\r\nContent-Length: %d\r\n\r\n%s", http.StatusBadRequest, len(s), s))
+		return nil, HandshakeError{s}
+	}
+
+	if _, ok := responseHeader[textproto.CanonicalMIMEHeaderKey("Sec-Websocket-Extensions")]; ok {
+		s := "websocket: application specific 'Sec-WebSocket-Extensions' headers are unsupported"
+		_, _ = w.WriteString(fmt.Sprintf("HTTP/1.1 %d OK\r\nCache-Control: no-cache, must-revalidate\r\nPragma: no-cache\r\nContent-Length: %d\r\n\r\n%s", http.StatusInternalServerError, len(s), s))
+		return nil, HandshakeError{s}
+	}
+
+	checkOrigin := u.CheckOrigin
+	if checkOrigin == nil {
+		checkOrigin = checkSameOrigin
+	}
+	if !checkOrigin(r) {
+		s := "websocket: request origin not allowed by Upgrader.CheckOrigin"
+		_, _ = w.WriteString(fmt.Sprintf("HTTP/1.1 %d OK\r\nCache-Control: no-cache, must-revalidate\r\nPragma: no-cache\r\nContent-Length: %d\r\n\r\n%s", http.StatusForbidden, len(s), s))
+		return nil, HandshakeError{s}
+	}
+	challengeKey := r.Header.Get(textproto.CanonicalMIMEHeaderKey("Sec-WebSocket-Key"))
+	if challengeKey == "" {
+		s := "websocket: not a websocket handshake: 'Sec-WebSocket-Key' header is missing or blank"
+		_, _ = w.WriteString(fmt.Sprintf("HTTP/1.1 %d OK\r\nCache-Control: no-cache, must-revalidate\r\nPragma: no-cache\r\nContent-Length: %d\r\n\r\n%s", http.StatusBadRequest, len(s), s))
+		return nil, HandshakeError{s}
+	}
+
+	protocol := u.selectSubprotocol(r, responseHeader)
+
+	// Negotiate PMCE
+	var compress bool
+	if u.EnableCompression {
+		for _, ext := range parseExtensions(r.Header) {
+			if ext[""] != "permessage-deflate" {
+				continue
+			}
+			compress = true
+			break
+		}
+	}
+	netConn := c_
+	brw := b_
+	if brw.Reader.Buffered() > 0 {
+		netConn.Close()
+		return nil, errors.New("websocket: client sent data before handshake is complete")
+	}
+
+	var br *bufio.Reader
+	if u.ReadBufferSize == 0 && bufioReaderSize(netConn, brw.Reader) > 256 {
+		// Reuse hijacked buffered reader as connection reader.
+		br = brw.Reader
+	}
+
+	buf := bufioWriterBuffer(netConn, brw.Writer)
+
+	var writeBuf []byte
+	if u.WriteBufferPool == nil && u.WriteBufferSize == 0 && len(buf) >= maxFrameHeaderSize+256 {
+		// Reuse hijacked write buffer as connection buffer.
+		writeBuf = buf
+	}
+
+	c := newConn(netConn, true, u.ReadBufferSize, u.WriteBufferSize, u.WriteBufferPool, br, writeBuf)
+	c.subprotocol = protocol
+
+	if compress {
+		c.newCompressionWriter = compressNoContextTakeover
+		c.newDecompressionReader = decompressNoContextTakeover
+	}
+
+	// Use larger of hijacked buffer and connection write buffer for header.
+	p := buf
+	if len(c.writeBuf) > len(p) {
+		p = c.writeBuf
+	}
+	p = p[:0]
+
+	p = append(p, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: "...)
+	p = append(p, computeAcceptKey(challengeKey)...)
+	p = append(p, "\r\n"...)
+	if c.subprotocol != "" {
+		p = append(p, "Sec-WebSocket-Protocol: "...)
+		p = append(p, c.subprotocol...)
+		p = append(p, "\r\n"...)
+	}
+	if compress {
+		p = append(p, "Sec-WebSocket-Extensions: permessage-deflate; server_no_context_takeover; client_no_context_takeover\r\n"...)
+	}
+	for k, vs := range responseHeader {
+		if k == "Sec-Websocket-Protocol" {
+			continue
+		}
+		for _, v := range vs {
+			p = append(p, k...)
+			p = append(p, ": "...)
+			for i := 0; i < len(v); i++ {
+				b := v[i]
+				if b <= 31 {
+					// prevent response splitting.
+					b = ' '
+				}
+				p = append(p, b)
+			}
+			p = append(p, "\r\n"...)
+		}
+	}
+	p = append(p, "\r\n"...)
+
+	// Clear deadlines set by HTTP server.
+	netConn.SetDeadline(time.Time{})
+
+	if u.HandshakeTimeout > 0 {
+		netConn.SetWriteDeadline(time.Now().Add(u.HandshakeTimeout))
+	}
+	if _, err := netConn.Write(p); err != nil {
+		netConn.Close()
+		return nil, err
+	}
+	if u.HandshakeTimeout > 0 {
+		netConn.SetWriteDeadline(time.Time{})
+	}
+
+	return c, nil
+}
+
+// UpgradeClient 自己改写的 将当前客户端的连接升级为Websocket会话
 func (u *Upgrader) UpgradeClient(r *http.Request, Response *http.Response, netConn net.Conn) (*Conn, error) {
 	protocol := u.selectSubprotocol(r, Response.Header)
 	c := newConn(netConn, true, u.ReadBufferSize, u.WriteBufferSize, u.WriteBufferPool, nil, nil)

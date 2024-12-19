@@ -1,10 +1,8 @@
 package Api
 
 import (
-	"github.com/qtgolang/SunnyNet/public"
 	"github.com/qtgolang/SunnyNet/src/Certificate"
-	"github.com/qtgolang/SunnyNet/src/GoWinHttp"
-	"io"
+	"github.com/qtgolang/SunnyNet/src/public"
 	mrand "math/rand"
 	"net/http"
 	"net/url"
@@ -13,7 +11,6 @@ import (
 
 // ---------------------------------------------
 type h struct {
-	*GoWinHttp.WinHttp
 	Error error
 	Lock  sync.Mutex
 	Body  []byte
@@ -42,7 +39,7 @@ func CreateHTTPClient() int {
 	HTTPMapLock.Unlock()
 	Context := newMessageId()
 	HTTPMapLock.Lock()
-	HTTPMap[Context] = &h{WinHttp: GoWinHttp.NewGoWinHttp()}
+	//HTTPMap[Context] = &h{WinHttp: GoWinHttp.NewGoWinHttp()}
 	HTTPMapLock.Unlock()
 	return Context
 }
@@ -78,7 +75,7 @@ func HTTPOpen(Context int, Method, URL string) {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	k.Open(Method, URL)
+	//k.Open(Method, URL)
 }
 
 // HTTPSetHeader
@@ -90,7 +87,7 @@ func HTTPSetHeader(Context int, name, value string) {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	k.SetHeader(name, value)
+	//k.SetHeader(name, value)
 }
 
 // HTTPSetProxyIP
@@ -112,10 +109,10 @@ func HTTPSetProxyIP(Context int, ProxyUrl string) bool {
 	if len(proxy.Host) < 3 {
 		return false
 	}
-	k.SetProxyType(proxy.Scheme != "http")
-	k.SetProxyIP(proxy.Host)
-	PWD, _ := proxy.User.Password()
-	k.SetProxyUser(proxy.User.Username(), PWD)
+	//k.SetProxyType(proxy.Scheme != "http")
+	//k.SetProxyIP(proxy.Host)
+	//PWD, _ := proxy.User.Password()
+	//k.SetProxyUser(proxy.User.Username(), PWD)
 	return true
 }
 
@@ -128,20 +125,20 @@ func HTTPSetTimeouts(Context int, t1, t2, t3 int) {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	k.SetOutTime(t2, t3, t1)
+	//	k.SetOutTime(t2, t3, t1)
 }
 
 // HTTPSendBin
 // HTTP 客户端 发送Body
 func HTTPSendBin(Context int, b uintptr, l int) {
-	data := public.CStringToBytes(b, l)
+	//data := public.CStringToBytes(b, l)
 	k := LoadHTTPClient(Context)
 	if k == nil {
 		return
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	k.Resp, k.Error = k.Send(data)
+	/*k.Resp, k.Error = k.Send(data)
 	defer func() {
 		if k != nil {
 			if k.Resp != nil {
@@ -165,7 +162,7 @@ func HTTPSendBin(Context int, b uintptr, l int) {
 			}
 		}
 	}
-	k.Heads = []byte(B)
+	k.Heads = []byte(B)*/
 }
 
 // HTTPGetBodyLen
@@ -253,7 +250,7 @@ func HTTPSetCertManager(Context, CertManagerContext int) bool {
 	if c.Tls == nil {
 		return false
 	}
-	k.SetTlsConfig(c.Tls)
+	//k.SetTlsConfig(c.Tls)
 	return true
 }
 
@@ -266,7 +263,7 @@ func HTTPSetRedirect(Context int, Redirect bool) bool {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	k.SetRedirect(Redirect)
+	//k.SetRedirect(Redirect)
 	return true
 }
 
@@ -280,9 +277,9 @@ func HTTPSetRandomTLS(Context int, Open bool) bool {
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
 	if Open {
-		k.GetTLSValues = GetTLSValues
+		//k.GetTLSValues = GetTLSValues
 	} else {
-		k.GetTLSValues = nil
+		//k.GetTLSValues = nil
 	}
 	return true
 }

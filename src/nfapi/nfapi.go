@@ -152,6 +152,7 @@ func (a NFApi) NfInit() (NF_STATUS, error) {
 	if x == 0 {
 		return 0, nil
 	}
+	return NF_STATUS(x), nil
 	/*
 		直接调用DLL初始化
 
@@ -161,7 +162,6 @@ func (a NFApi) NfInit() (NF_STATUS, error) {
 		}
 		return ret(a.nf_init.Call(uintptr(unsafe.Pointer(sp)), uintptr(unsafe.Pointer(Ev))))
 	*/
-	return NF_STATUS(x), nil
 }
 
 // 释放

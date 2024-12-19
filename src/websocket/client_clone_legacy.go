@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build !go1.8
 // +build !go1.8
 
 package websocket
 
-import "crypto/tls"
+import "github.com/qtgolang/SunnyNet/src/crypto/tls"
 
 // cloneTLSConfig clones all public fields except the fields
 // SessionTicketsDisabled and SessionTicketKey. This avoids copying the

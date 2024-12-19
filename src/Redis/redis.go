@@ -3,7 +3,7 @@ package redis
 import (
 	"encoding/json"
 	"github.com/go-redis/redis"
-	"github.com/qtgolang/SunnyNet/public"
+	"github.com/qtgolang/SunnyNet/src/public"
 	"sync"
 	"time"
 )

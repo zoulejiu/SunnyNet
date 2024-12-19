@@ -4,17 +4,19 @@ import "C"
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/qtgolang/SunnyNet/public"
 	"github.com/qtgolang/SunnyNet/src/crypto/pkcs"
+	"github.com/qtgolang/SunnyNet/src/crypto/tls"
+	"github.com/qtgolang/SunnyNet/src/public"
 	"io/ioutil"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -33,7 +35,7 @@ func CreateCertificate() int {
 	Lock.Lock()
 	defer Lock.Unlock()
 	w := &CertManager{Tls: &tls.Config{}}
-	Context := newMessageId()
+	Context := NewMessageId()
 	Map[Context] = w
 	return Context
 }
@@ -259,6 +261,21 @@ func (c *CertManager) AddCertPoolText(cer string) bool {
 		return c.Tls.ClientCAs.AppendCertsFromPEM(pemBytes)
 	}
 	c.setCert(cer)
+	return true
+}
+
+// SetCipherSuites 证书管理器 设置CipherSuites
+func (c *CertManager) SetCipherSuites(val string) bool {
+	if c.Tls == nil {
+		return false
+	}
+	m := strings.Split(val, ",")
+	array := make([]uint16, 0)
+	for _, v := range m {
+		zm, _ := strconv.Atoi(strings.TrimSpace(v))
+		array = append(array, uint16(zm))
+	}
+	c.Tls.CipherSuites = array
 	return true
 }
 

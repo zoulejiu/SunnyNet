@@ -9,7 +9,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"net"
-	"net/http"
+	"github.com/qtgolang/SunnyNet/src/http"
 	"net/url"
 	"strings"
 )

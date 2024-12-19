@@ -7,7 +7,7 @@
 
 package websocket
 
-import "crypto/tls"
+import "github.com/qtgolang/SunnyNet/src/crypto/tls"
 
 func cloneTLSConfig(cfg *tls.Config) *tls.Config {
 	if cfg == nil {

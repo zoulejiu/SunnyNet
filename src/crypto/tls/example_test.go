@@ -5,11 +5,11 @@
 package tls_test
 
 import (
-	"crypto/tls"
+	 "github.com/qtgolang/SunnyNet/src/crypto/tls"
 	"crypto/x509"
 	"log"
-	"net/http"
-	"net/http/httptest"
+	"github.com/qtgolang/SunnyNet/src/http"
+	"github.com/qtgolang/SunnyNet/src/http/httptest"
 	"os"
 	"time"
 )

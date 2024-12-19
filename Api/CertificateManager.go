@@ -2,8 +2,8 @@ package Api
 
 import "C"
 import (
-	"github.com/qtgolang/SunnyNet/public"
 	"github.com/qtgolang/SunnyNet/src/Certificate"
+	"github.com/qtgolang/SunnyNet/src/public"
 )
 
 // CreateCertificate 创建 证书管理器 对象
@@ -113,6 +113,17 @@ func AddClientAuth(Context, val int) bool {
 		return false
 	}
 	return c.AddClientAuth(val)
+}
+
+// SetCipherSuites 证书管理器 设置CipherSuites
+func SetCipherSuites(Context int, val string) bool {
+	Certificate.Lock.Lock()
+	defer Certificate.Lock.Unlock()
+	c := Certificate.LoadCertificateContext(Context)
+	if c == nil {
+		return false
+	}
+	return c.SetCipherSuites(val)
 }
 
 // CreateCA 证书管理器 创建证书

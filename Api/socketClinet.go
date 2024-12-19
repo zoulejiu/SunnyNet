@@ -3,15 +3,14 @@ package Api
 import (
 	"bufio"
 	"bytes"
-	"crypto/tls"
 	"errors"
-	"github.com/qtgolang/SunnyNet/Call"
 	"github.com/qtgolang/SunnyNet/SunnyNet"
-	"github.com/qtgolang/SunnyNet/public"
+	"github.com/qtgolang/SunnyNet/src/Call"
 	"github.com/qtgolang/SunnyNet/src/Certificate"
-	"github.com/qtgolang/SunnyNet/src/GoWinHttp"
+	"github.com/qtgolang/SunnyNet/src/SunnyProxy"
+	"github.com/qtgolang/SunnyNet/src/crypto/tls"
+	"github.com/qtgolang/SunnyNet/src/public"
 	"net"
-	"net/url"
 	"sync"
 	"time"
 )
@@ -125,44 +124,30 @@ func SocketClientDial(Context int, addr string, call int, isTls, synchronous boo
 		return false
 	}
 	if ProxyUrl != "" {
-		Pu, e := url.Parse(ProxyUrl)
-		if e != nil {
-			w.err = errors.New("ProxyUrl Error ")
+		out := ProxyOutTime
+		if ProxyOutTime < 1 {
+			out = 15000
+		}
+		c, _ := SunnyProxy.ParseProxy(ProxyUrl, out)
+		if c == nil {
 			return false
 		}
-		if Pu.Scheme != "socket" && Pu.Scheme != "socket5" && Pu.Scheme != "socks5" {
-			w.err = errors.New("Wrong proxy type, only Socket5 is supported ")
-			return false
-		}
-		if len(Pu.Host) > 3 {
-			c := &GoWinHttp.Proxy{S5TypeProxy: true, User: Pu.User.Username()}
-			p, ok := Pu.User.Password()
-			if ok {
-				c.Pass = p
-			}
-			out := time.Duration(ProxyOutTime) * time.Millisecond
-			if ProxyOutTime < 1 {
-				out = 15000 * time.Millisecond
-			}
-			a, b := net.DialTimeout("tcp", Pu.Host, out)
-			if b != nil {
-				w.err = b
-			} else {
-				_ = a.SetDeadline(time.Now().Add(out))
-				if GoWinHttp.ConnectS5(&a, c, uAddr.Host, uAddr.Port) == false {
-					w.err = errors.New("Socket5 Proxy Connect Fail ")
+		/*
+			//注释
+				a, b := net.DialTimeout("tcp", Pu.Host, out)
+				if b != nil {
+					w.err = b
 				} else {
-					_ = a.SetDeadline(time.Time{})
+					_ = a.SetDeadline(time.Now().Add(out))
+					if GoWinHttp.ConnectS5(&a, c, uAddr.Host, uAddr.Port) == false {
+						w.err = errors.New("Socket5 Proxy Connect Fail ")
+					} else {
+						_ = a.SetDeadline(time.Time{})
+					}
 				}
-
-			}
-			w.wb = a
-			w.err = b
-		} else {
-			a, b := net.Dial("tcp", uAddr.String())
-			w.wb = a
-			w.err = b
-		}
+		*/
+		//w.wb = a
+		//w.err = b
 	} else {
 		a, b := net.Dial("tcp", uAddr.String())
 		w.wb = a

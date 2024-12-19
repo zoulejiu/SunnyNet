@@ -19,8 +19,8 @@ import (
 	"bufio"
 	_ "embed"
 	"fmt"
-	"github.com/qtgolang/SunnyNet/Resource"
-	"github.com/qtgolang/SunnyNet/public"
+	"github.com/qtgolang/SunnyNet/src/Resource"
+	"github.com/qtgolang/SunnyNet/src/public"
 	"io"
 	"math/rand"
 	"os"
@@ -50,40 +50,49 @@ func randomLetters(length int) string {
 
 // 删除旧的驱动文件
 func deleteOldFiles() {
-	System32Dir := GetSystemDirectory()
 	OldFileName := System32Dir + "\\drivers\\SunnyFilter.sys"
 	//复制到临时目录去系统重启后才可删除
-	_, _ = MoveFileToTempDir(OldFileName, "SunnyFilter"+randomLetters(5)+".TMP")
+	_ = MoveFileToTempDir(OldFileName, "Sunny_"+randomLetters(32)+extensionsTemp)
+	//删除临时目录下的所有sys 文件
+	tempDir := os.TempDir()
+	// 搜索所有 .sys 文件
+	_ = filepath.Walk(tempDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		// 检查文件是否是 .sys 文件
+		if !info.IsDir() && filepath.Ext(path) == extensionsTemp {
+			_ = os.Remove(path)
+		}
+		return nil
+	})
 }
 
 // MoveFileToTempDir 将指定文件移动到 Windows 临时目录
 // srcFile: 源文件路径，destFileName：目标文件名
 // 返回值：目标文件的路径，以及可能出现的错误
-func MoveFileToTempDir(srcFile, destFileName string) (string, error) {
-	// 获取临时目录路径
-	tempDir := os.Getenv("TEMP")
-
+func MoveFileToTempDir(srcFile, destFileName string) string {
+	tempDir := os.TempDir()
 	// 拼接目标文件路径
 	destPath := filepath.Join(tempDir, destFileName)
-
 	// 移动文件
 	err := os.Rename(srcFile, destPath)
 	if err != nil {
-		return "", fmt.Errorf("无法移动文件：%s", err)
+		return ""
 	}
-
-	return destPath, nil
+	return destPath
 }
+
+// System32Dir C:\Windows\system32\
+var System32Dir = GetSystemDirectory()
+var extensionsTemp = ".tmpSys"
+var DriverFile = System32Dir + "\\drivers\\" + NF_DriverName + ".sys"
 
 func Install() string {
 	deleteOldFiles()
 	//XP直接打开不程序，所以就直接忽略
 	s := []string{"OS", "Get", "Caption"}
 	IsWin7 := strings.Index(ExecCommand("Wmic", s), "Windows 7") != -1
-
-	// C:\Windows\system32\
-	System32Dir := GetSystemDirectory()
-
 	var oldValue uintptr
 	if Is64Windows {
 		//如果是32位进程 禁止文件重定向 驱动只能写到 system32 目录
@@ -91,22 +100,19 @@ func Install() string {
 			oldValue = Wow64DisableWow64FsRedirection()
 		}
 	}
-	if !Exists(System32Dir + "\\drivers\\" + NF_DriverName + ".sys") {
-		Path := System32Dir + "\\drivers\\" + NF_DriverName + ".sys"
+	if !Exists(DriverFile) {
 		if IsWin7 {
 			if Is64Windows {
-				WriteFile(Path, Resource.TdiAmd64Netfilter2)
+				WriteFile(DriverFile, Resource.TdiAmd64Netfilter2)
 
 			} else {
-				WriteFile(Path, Resource.TdiI386Netfilter2)
+				WriteFile(DriverFile, Resource.TdiI386Netfilter2)
 			}
 		} else {
 			if Is64Windows {
-				WriteFile(Path, Resource.WfpAmd64Netfilter2)
-
+				WriteFile(DriverFile, Resource.WfpAmd64Netfilter2)
 			} else {
-				WriteFile(Path, Resource.WfpI386Netfilter2)
-
+				WriteFile(DriverFile, Resource.WfpI386Netfilter2)
 			}
 		}
 	}
@@ -115,18 +121,25 @@ func Install() string {
 		if !WindowsX64 {
 			Wow64RevertWow64FsRedirection(oldValue)
 		}
+
+		WriteFile("DrDLL", Resource.NfapiX64Nfapi)
 	}
-	WindowsDirectory := GetWindowsDirectory()
+
 	DrDLL := ""
 	if WindowsX64 {
-		DrDLL = WindowsDirectory + NF_DLLName + "64.DLL"
+		DrDLL = WindowsDirectory + NF_DLLName + "64.dll"
 		WriteFile(DrDLL, Resource.NfapiX64Nfapi)
 	} else {
-		DrDLL = WindowsDirectory + NF_DLLName + "32.DLL"
+		DrDLL = WindowsDirectory + NF_DLLName + "32.dll"
 		WriteFile(DrDLL, Resource.NfapiWin32Nfapi)
 	}
 	return DrDLL
 }
+
+var (
+	WindowsDirectory = GetWindowsDirectory()
+	NspPath          = WindowsDirectory + "SunnyNet_Nsp.dll"
+)
 
 // Exists 判断所给路径文件/文件夹是否存在
 func Exists(path string) bool {

@@ -3,9 +3,10 @@ package SunnyNet
 import (
 	"bytes"
 	"fmt"
-	"github.com/qtgolang/SunnyNet/Call"
-	"github.com/qtgolang/SunnyNet/public"
+	"github.com/qtgolang/SunnyNet/src/Call"
 	NFapi "github.com/qtgolang/SunnyNet/src/nfapi"
+	"github.com/qtgolang/SunnyNet/src/public"
+
 	"net"
 	"sync/atomic"
 	"time"
@@ -187,20 +188,22 @@ func (s *Sunny) goUdp(info *udpInfo, tid int64, Local, Remote string, conn *net.
 	NFapi.NfDelTid(tid)
 }
 
-func (s *Sunny) udpNFSendReceive(Type int8, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte {
+func (s *Sunny) udpNFSendReceive(Type int, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte {
+	n := &udpConn{theology: Theoni, messageId: NewMessageId(), _type: Type, sunnyContext: s.SunnyContext, pid: int(pid), localAddress: LocalAddress, remoteAddress: RemoteAddress, data: data}
+	s.scriptUDPCall(n)
+	//GoScriptCode.RunUdpScriptCode(_call, n)
 	// 如果回调函数小于 10，则尝试调用Go回调函数
 	if s.udpCallback < 10 {
 		if s.goUdpCallback != nil {
-			n := &UDPConn{Theology: Theoni, MessageId: NewMessageId(), Type: Type, SunnyContext: s.SunnyContext, Pid: int(pid), LocalAddress: LocalAddress, RemoteAddress: RemoteAddress, Data: data}
 			s.goUdpCallback(n)
-			return n.Data
+			return n.Body()
 		}
 		return data
 	}
 	// 生成消息 ID 并将数据写入 buffer 中
 	MessageId := NewMessageId()
 	var buff bytes.Buffer
-	buff.Write(data)
+	buff.Write(n.Body())
 
 	// 获取锁并将 buffer 存储到 UdpMap 中
 	NFapi.UdpSync.Lock()

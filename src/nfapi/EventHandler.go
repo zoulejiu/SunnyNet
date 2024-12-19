@@ -5,7 +5,8 @@ package NFapi
 
 import "C"
 import (
-	"github.com/qtgolang/SunnyNet/public"
+	"github.com/qtgolang/SunnyNet/src/VirtualFile"
+	"github.com/qtgolang/SunnyNet/src/public"
 	"net"
 	"regexp"
 	"strconv"
@@ -20,7 +21,7 @@ var Api = new(NFApi)
 var ProcessPortInt uint16
 var SunnyPointer = uintptr(0)
 var IsInit = false
-var UdpSendReceiveFunc func(Type int8, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte
+var UdpSendReceiveFunc func(Type int, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte
 
 // Is64Windows 系统是否是 64位 系统
 var Is64Windows = IsX64CPU()
@@ -190,6 +191,7 @@ func tcpConnectRequest(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 		}
 		//这里实际上还是IPV4
 		Process := &ProcessInfo{Pid: strconv.Itoa(int(pConnInfo.ProcessId.Get())), RemoteAddress: p4.String(), RemoteProt: pConnInfo.RemoteAddress.GetPort(), Id: id}
+		Process.RemoteAddress = realDomain(pConnInfo.ProcessId.Get(), Process.RemoteAddress)
 		pConnInfo.RemoteAddress.Data2[12] = 127
 		pConnInfo.RemoteAddress.Data2[13] = 0
 		pConnInfo.RemoteAddress.Data2[14] = 0
@@ -202,10 +204,10 @@ func tcpConnectRequest(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 		proxyLock.Unlock()
 		return
 	}
-
 	// 如果连接是 IPv4 的，则将连接的远程地址改为本地 IPv4 地址，并保存到代理列表中
 	_, i := pConnInfo.RemoteAddress.GetIP()
 	Process := &ProcessInfo{Pid: strconv.Itoa(int(pConnInfo.ProcessId.Get())), RemoteAddress: i.String(), RemoteProt: pConnInfo.RemoteAddress.GetPort(), Id: id}
+	Process.RemoteAddress = realDomain(pConnInfo.ProcessId.Get(), Process.RemoteAddress)
 	proxyLock.Lock()
 	proxy[pConnInfo.LocalAddress.GetPort()] = Process
 	proxyLock.Unlock()
@@ -213,7 +215,14 @@ func tcpConnectRequest(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 	pConnInfo.RemoteAddress.SetPort(ProcessPortInt)
 	return
 }
-
+func realDomain(pid uint32, RemoteAddress string) string {
+	VirtualFilePath := "Global\\SunnyNetNsp_" + strconv.Itoa(int(pid)) + "_" + RemoteAddress
+	a, _ := VirtualFile.Read(VirtualFilePath, true)
+	if len(a) < 2 {
+		return RemoteAddress
+	}
+	return string(a)
+}
 func tcpConnected(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 	return
 }
@@ -308,8 +317,7 @@ func udpReceive(id uint64, RemoteAddress *SockaddrInx, buf []byte, options *NF_U
 	if RemoteAddress == nil {
 		return
 	}
-	if UdpSendReceiveFunc == nil {
-		_, _ = Api.NfUdpDisableFiltering(id)
+	if UdpSendReceiveFunc == nil || ProcessPortInt == 0 {
 		_, _ = Api.NfUdpPostReceive(id, RemoteAddress, buf, options)
 		return
 	}
@@ -337,7 +345,7 @@ func udpSend(id uint64, RemoteAddress *SockaddrInx, buf []byte, options *NF_UDP_
 	if RemoteAddress == nil {
 		return
 	}
-	if UdpSendReceiveFunc == nil {
+	if UdpSendReceiveFunc == nil || ProcessPortInt == 0 {
 		Api.NfUdpPostSend(id, RemoteAddress, buf, options)
 		return
 	}

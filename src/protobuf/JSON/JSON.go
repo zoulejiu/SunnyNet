@@ -390,6 +390,9 @@ func (s *SyJson) GetData(path string) string {
 	ss := PathToTheArray[ind]
 	return tostring(obj[ss])
 }
+func (s *SyJson) GetCount(path string) int {
+	return s.GetNum(path)
+}
 func (s *SyJson) GetNum(path string) int {
 	//解析传入的路径
 

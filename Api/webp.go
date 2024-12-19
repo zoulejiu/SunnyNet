@@ -3,7 +3,7 @@ package Api
 import "C"
 import (
 	"bytes"
-	"github.com/qtgolang/SunnyNet/public"
+	"github.com/qtgolang/SunnyNet/src/public"
 	"golang.org/x/image/webp"
 	"image/jpeg"
 	"image/png"
@@ -68,7 +68,7 @@ func WebpToJpeg(webpName, save string, SaveQuality int) bool {
 	return true
 }
 
-//WebpToPngBytes Webp图片转Png图片字节数组
+// WebpToPngBytes Webp图片转Png图片字节数组
 func WebpToPngBytes(data uintptr, dataLen int) uintptr {
 	_webp := public.CStringToBytes(data, dataLen)
 	var b bytes.Buffer

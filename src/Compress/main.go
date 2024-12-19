@@ -7,7 +7,7 @@ import (
 	"compress/zlib"
 	"github.com/andybalholm/brotli"
 	"github.com/klauspost/compress/zstd"
-	"github.com/qtgolang/SunnyNet/public"
+	"github.com/qtgolang/SunnyNet/src/public"
 	"io"
 	"io/ioutil"
 )
