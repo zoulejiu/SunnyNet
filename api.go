@@ -707,11 +707,19 @@ func WebpToPng(webpPath, savePath *C.char) bool {
 }
 
 /*
-StartProcess 开启进程代理 加载 nf api 驱动
+OpenDrive 开启进程代理/打开驱动
 */
-//export StartProcess
-func StartProcess(SunnyContext int) bool {
-	return Api.StartProcess(SunnyContext)
+//export OpenDrive
+func OpenDrive(SunnyContext int, isNf bool) bool {
+	return Api.OpenDrive(SunnyContext, isNf)
+}
+
+/*
+UnDrive 卸载驱动，仅Windows 有效【需要管理权限】执行成功后会立即重启系统,若函数执行后没有重启系统表示没有管理员权限
+*/
+//export UnDrive
+func UnDrive(SunnyContext int) {
+	Api.UnDrive(SunnyContext)
 }
 
 /*
@@ -758,8 +766,8 @@ func ProcessCancelAll(SunnyContext int) {
 ProcessALLName 进程代理 设置是否全部进程通过
 */
 //export ProcessALLName
-func ProcessALLName(SunnyContext int, open bool) {
-	Api.ProcessALLName(SunnyContext, open)
+func ProcessALLName(SunnyContext int, open, StopNetwork bool) {
+	Api.ProcessALLName(SunnyContext, open, StopNetwork)
 }
 
 //================================================================================================

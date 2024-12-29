@@ -216,13 +216,17 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 	cc := http.Client{Transport: Tr, Timeout: timeout}
 	res := &clientPart{Client: cc, s: s, RequestProxy: Proxy}
 	Tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+
 		address, port, err := net.SplitHostPort(addr)
 		if err != nil {
 			return nil, err
 		}
 		i := net.ParseIP(address)
 		if i != nil {
-			return res.RequestProxy.Dial(network, i.String()+":"+port)
+			if len(i) == net.IPv4len {
+				return res.RequestProxy.Dial(network, i.String()+":"+port)
+			}
+			return res.RequestProxy.Dial(network, fmt.Sprintf("[%s]:%s", address, port))
 		}
 		if strings.ToLower(address) == "localhost" {
 			return res.RequestProxy.Dial(network, "127.0.0.1:"+port)
@@ -289,7 +293,7 @@ func extractAndRemoveIP(ips *[]net.IP) net.IP {
 	return nil
 }
 
-var noIP = errors.New("无可用IP地址")
+var noIP = errors.New("DNS解析失败,无可用IP地址")
 
 func configureHTTP2Transport(Tr *http.Transport, cfg *tls.Config) {
 	// 检查是否配置了 HTTP/2.0 协议

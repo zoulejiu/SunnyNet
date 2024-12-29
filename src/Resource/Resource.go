@@ -9,16 +9,16 @@ import (
 	"strings"
 )
 
-//go:embed Script/dist/assets
+//go:embed SunnyNetScriptEdit/assets
 var frontendAssets embed.FS
 
-//go:embed Script/dist/index.html
+//go:embed SunnyNetScriptEdit/index.html
 var FrontendIndex []byte
 
 func ReadVueFile(name string) ([]byte, error) {
-	fullPath := "Script/dist/" + name
+	fullPath := "SunnyNetScriptEdit/" + name
 	if strings.HasPrefix(name, "/") {
-		fullPath = "Script/dist" + name
+		fullPath = "SunnyNetScriptEdit" + name
 	}
 	return frontendAssets.ReadFile(fullPath)
 }

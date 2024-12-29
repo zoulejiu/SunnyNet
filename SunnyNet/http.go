@@ -101,6 +101,11 @@ func (s *proxyRequest) httpCall(rw http.ResponseWriter, req *http.Request) {
 				res.URL.Host = host
 				res.Host = host
 			}
+			ip := net.ParseIP(res.Host)
+			if ip4 := ip.To4(); ip4 == nil && len(ip) == net.IPv6len {
+				res.URL.Host = "[" + res.Host + "]"
+				res.Host = "[" + res.URL.Host + "]"
+			}
 		}
 
 	}

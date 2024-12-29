@@ -1,7 +1,7 @@
 package Api
 
 import (
-	NFapi "github.com/qtgolang/SunnyNet/src/nfapi"
+	"github.com/qtgolang/SunnyNet/src/ProcessDrv/nfapi"
 	"github.com/qtgolang/SunnyNet/src/public"
 )
 

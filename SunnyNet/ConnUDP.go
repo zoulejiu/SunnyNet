@@ -3,7 +3,7 @@ package SunnyNet
 import (
 	"github.com/qtgolang/SunnyNet/src/CrossCompiled"
 	"github.com/qtgolang/SunnyNet/src/Interface"
-	NFapi "github.com/qtgolang/SunnyNet/src/nfapi"
+	"github.com/qtgolang/SunnyNet/src/ProcessDrv/nfapi"
 )
 
 type ConnUDP Interface.ConnUDPScriptCall

@@ -1,6 +1,8 @@
 module github.com/qtgolang/SunnyNet
 
-go 1.20
+go 1.22.0
+
+toolchain go1.23.4
 
 require (
 	github.com/Trisia/gosysproxy v1.1.0
@@ -19,13 +21,13 @@ require (
 	github.com/tidwall/gjson v1.18.0
 	github.com/traefik/yaegi v0.16.1
 	github.com/yusufpapurcu/wmi v1.2.4
-	golang.org/x/crypto v0.30.0
+	golang.org/x/crypto v0.31.0
 	golang.org/x/image v0.23.0
-	golang.org/x/net v0.32.0
+	golang.org/x/net v0.33.0
 	golang.org/x/sys v0.28.0
 	golang.org/x/term v0.27.0
 	golang.org/x/text v0.21.0
-	google.golang.org/protobuf v1.35.2
+	google.golang.org/protobuf v1.36.1
 )
 
 require (

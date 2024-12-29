@@ -4,7 +4,7 @@
 package CrossCompiled
 
 import (
-	NFapi "github.com/qtgolang/SunnyNet/src/nfapi"
+	"github.com/qtgolang/SunnyNet/src/ProcessDrv/nfapi"
 )
 
 func SetIeProxy(Off bool, Port int) bool {
@@ -25,7 +25,7 @@ func NFapi_ApiInit() bool {
 func NFapi_MessageBox(caption, text string, style uintptr) (result int) {
 	return 0
 }
-func NFapi_SetHookProcess(open bool) {
+func NFapi_HookAllProcess(open bool) {
 }
 func NFapi_ClosePidTCP(pid int) {
 }
@@ -46,8 +46,16 @@ func NFapi_DelTcpConnectInfo(U uint16) {
 func NFapi_GetTcpConnectInfo(U uint16) *NFapi.ProcessInfo {
 	return nil
 }
-
-func NFapi_API_NfTcpClose(U uint64) {
+func Pr_Install() bool {
+	return false
+}
+func Pr_SetHandle(Handle any) bool {
+	return false
+}
+func Drive_UnInstall() {
+}
+func Pr_IsInit() bool {
+	return false
 }
 func NFapi_UdpSendReceiveFunc(udp func(Type int, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte) func(Type int, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte {
 	return nil

@@ -4,7 +4,7 @@
 package CrossCompiled
 
 import (
-	NFapi "github.com/qtgolang/SunnyNet/src/nfapi"
+	"github.com/qtgolang/SunnyNet/src/ProcessDrv/nfapi"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -80,7 +80,8 @@ func SetIeProxy(Off bool, Port int) bool {
 	}
 	return Inter.SetProxy("127.0.0.1", Port)
 }
-
+func Drive_UnInstall() {
+}
 func NFapi_SunnyPointer(a ...uintptr) uintptr {
 	return 0
 }
@@ -96,7 +97,7 @@ func NFapi_ApiInit() bool {
 func NFapi_MessageBox(caption, text string, style uintptr) (result int) {
 	return 0
 }
-func NFapi_SetHookProcess(open bool) {
+func NFapi_HookAllProcess(open bool) {
 }
 func NFapi_ClosePidTCP(pid int) {
 }
@@ -118,12 +119,18 @@ func NFapi_GetTcpConnectInfo(U uint16) *NFapi.ProcessInfo {
 	return nil
 }
 
-func NFapi_API_NfTcpClose(U uint64) {
-}
 func NFapi_UdpSendReceiveFunc(udp func(Type public.SunnyCallBackUDP, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte) func(Type public.SunnyCallBackUDP, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte {
 	return nil
 }
-
+func Pr_Install() bool {
+	return false
+}
+func Pr_SetHandle(Handle any) bool {
+	return false
+}
+func Pr_IsInit() bool {
+	return false
+}
 func NFapi_Api_NfUdpPostSend(id uint64, remoteAddress any, buf []byte, option any) (int32, error) {
 	return 0, nil
 }

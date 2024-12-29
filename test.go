@@ -8,12 +8,10 @@ import (
 	"github.com/qtgolang/SunnyNet/src/public"
 	"log"
 	"os"
-	"unsafe"
+	"time"
 )
 
 func Test() {
-	bs := []byte("xxxxxxxxxxxx")
-	fmt.Println(DeflateCompress(uintptr(unsafe.Pointer(&bs[0])), len(bs)))
 
 	s := SunnyNet.NewSunny()
 	//i := CreateCertificate()
@@ -35,22 +33,23 @@ func Test() {
 
 	//s.MustTcp(true)
 	//s.DisableTCP(true)
-	s.SetGlobalProxy("socket://192.168.31.1:4321", 60000)
+	//s.SetGlobalProxy("socket://192.168.31.1:4321", 60000)
 	s.SetMustTcpRegexp("zz.com", true)
 	Port := 2024
 	//s.SetMustTcpRegexp("*.baidu.com")
 	s = s.SetPort(Port).Start()
-
 	//s.SetIeProxy(true)
 	s.SetHTTPRequestMaxUpdateLength(100000000)
-	//fmt.Println(s.StartProcess())
+	fmt.Println(s.OpenDrive(false))
+
 	// 请注意GoLang调试时候，请不要使用此(ProcessALLName)命令，因为不管开启或关闭，都会将当前所有TCP链接断开一次
 	// 因为如果不断开的一次的话,已经建立的TCP链接无法抓包。
 	// Go程序调试，是通过TCP连接的，若使用此命令将无法调试。
-	// s.ProcessALLName(true)
+	s.ProcessALLName(true, false)
 
 	//s.ProcessAddName("GoTest.exe")
-	//s.ProcessAddName("msedge.exe")
+	s.ProcessAddName("chrome.exe")
+	s.ProcessAddName("as5.exe")
 
 	//s.ProcessAddName("pop_dd_workbench.exe")
 	err := s.Error
@@ -58,12 +57,11 @@ func Test() {
 		panic(err)
 	}
 	fmt.Println("Run Port=", Port)
-	select {}
 }
 func HttpCallback(Conn SunnyNet.ConnHTTP) {
 
 	if Conn.Type() == public.HttpSendRequest {
-		//fmt.Println(Conn.URL())
+		fmt.Println(Conn.URL())
 		//发起请求
 
 		//直接响应,不让其发送请求
@@ -74,8 +72,8 @@ func HttpCallback(Conn SunnyNet.ConnHTTP) {
 		//log.Println("Call", Conn.URL())
 	} else if Conn.Type() == public.HttpRequestFail {
 		//请求错误
-		/*	fmt.Println(Conn.Request.URL.String(), Conn.GetError())
-		 */
+		fmt.Println(time.Now(), Conn.URL(), Conn.Error())
+
 	}
 }
 func WSCallback(Conn SunnyNet.ConnWebSocket) {
@@ -84,7 +82,7 @@ func WSCallback(Conn SunnyNet.ConnWebSocket) {
 	//fmt.Println(Conn.Url)
 }
 func TcpCallback(Conn SunnyNet.ConnTCP) {
-
+	return
 	if Conn.Type() == public.SunnyNetMsgTypeTCPAboutToConnect {
 		//即将连接
 		mode := string(Conn.Body())

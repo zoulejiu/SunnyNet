@@ -89,7 +89,9 @@ func (s *proxyRequest) CallbackTCPRequest(callType int, msg *public.TcpMsg, Remo
 
 // CallbackBeforeRequest HTTP发起请求处理回调
 func (s *proxyRequest) CallbackBeforeRequest() {
-
+	if s.noCallback() {
+		return
+	}
 	if s.Response.Response != nil {
 		if s.Response.Body != nil {
 			_ = s.Response.Body.Close()
@@ -160,7 +162,9 @@ func (s *proxyRequest) CallbackBeforeRequest() {
 
 // CallbackBeforeResponse HTTP请求完成处理回调
 func (s *proxyRequest) CallbackBeforeResponse() {
-
+	if s.noCallback() {
+		return
+	}
 	pid, _ := strconv.Atoi(s.Pid)
 
 	MessageId := NewMessageId()
@@ -210,9 +214,21 @@ func (s *proxyRequest) CallbackBeforeResponse() {
 	Call.Call(s.HttpCall, s.Global.SunnyContext, s.Theology, MessageId, int(public.HttpResponseOK), Method, Url, err, pid)
 }
 
+// 不要进入回调的一些请求
+func (s *proxyRequest) noCallback() bool {
+	if (s.Target.Host == "127.0.0.1" || s.Target.Host == "::1") && s.Target.Port == 9229 {
+		//疑似Chrome 开发人员工具正在使用专用的DevTools 即使所有选项卡都关闭，除了空白的新选项卡，它仍可能继续发送
+		//https://superuser.com/questions/1419223/google-chrome-developer-tools-start-knocking-to-127-0-0-1-and-1-ip-on-9229-por
+		return true
+	}
+	return false
+}
+
 // CallbackError HTTP请求失败处理回调
 func (s *proxyRequest) CallbackError(err string) {
-
+	if s.noCallback() {
+		return
+	}
 	pid, _ := strconv.Atoi(s.Pid)
 	MessageId := NewMessageId()
 	messageIdLock.Lock()
@@ -260,7 +276,6 @@ func (s *proxyRequest) CallbackError(err string) {
 
 // CallbackWssRequest HTTP->Websocket请求处理回调
 func (s *proxyRequest) CallbackWssRequest(State int, Method, Url string, msg *public.WebsocketMsg, MessageId int) {
-
 	if s._Display == false {
 		return
 	}

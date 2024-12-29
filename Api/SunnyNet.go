@@ -1363,24 +1363,36 @@ func SetIeProxy(SunnyContext int, Off bool) bool {
 	return w.SetIeProxy(Off)
 }
 
-// StartProcess 开始进程代理 只允许一个 SunnyNet 使用
-func StartProcess(SunnyContext int) bool {
+// OpenDrive 开始进程代理/打开驱动 只允许一个 SunnyNet 使用 [会自动安装所需驱动文件]
+// IsNfapi 如果为true表示使用NFAPI驱动 如果为false 表示使用Proxifier
+func OpenDrive(SunnyContext int, IsNf bool) bool {
 	SunnyNet.SunnyStorageLock.Lock()
 	w := SunnyNet.SunnyStorage[SunnyContext]
 	SunnyNet.SunnyStorageLock.Unlock()
 	if w != nil {
-		return w.StartProcess()
+		return w.OpenDrive(IsNf)
 	}
 	return false
 }
 
-// ProcessALLName 设置是否全部进程通过  所有 SunnyNet 通用
-func ProcessALLName(SunnyContext int, open bool) {
+// UnDrive 卸载驱动，仅Windows 有效【需要管理权限】执行成功后会立即重启系统,若函数执行后没有重启系统表示没有管理员权限
+func UnDrive(SunnyContext int) {
 	SunnyNet.SunnyStorageLock.Lock()
 	w := SunnyNet.SunnyStorage[SunnyContext]
 	SunnyNet.SunnyStorageLock.Unlock()
 	if w != nil {
-		w.ProcessALLName(open)
+		w.UnDrive()
+	}
+	return
+}
+
+// ProcessALLName 设置是否全部进程通过
+func ProcessALLName(SunnyContext int, open, StopNetwork bool) {
+	SunnyNet.SunnyStorageLock.Lock()
+	w := SunnyNet.SunnyStorage[SunnyContext]
+	SunnyNet.SunnyStorageLock.Unlock()
+	if w != nil {
+		w.ProcessALLName(open, StopNetwork)
 	}
 }
 

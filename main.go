@@ -39,6 +39,8 @@ func init() {
 
 func main() {
 	Test()
+	//阻止程序退出
+	select {}
 }
 
 func main3() {

@@ -13,6 +13,7 @@ import (
 	"github.com/qtgolang/SunnyNet/src/GoScriptCode"
 	"github.com/qtgolang/SunnyNet/src/HttpCertificate"
 	"github.com/qtgolang/SunnyNet/src/Interface"
+	"github.com/qtgolang/SunnyNet/src/ProcessDrv/Info"
 	"github.com/qtgolang/SunnyNet/src/ReadWriteObject"
 	"github.com/qtgolang/SunnyNet/src/Resource"
 	"github.com/qtgolang/SunnyNet/src/SunnyProxy"
@@ -1211,18 +1212,7 @@ func (s *proxyRequest) https() {
 				tlsConfig.InsecureSkipVerify = true
 				//继续握手
 				err = tlsConn.ServerHandshake(HelloMsg)
-				if err == nil {
-					_ = tlsConn.SetDeadline(time.Now().Add(3 * time.Second))
-					peek = tlsConn.Peek(1)
-					if len(peek) < 1 {
-						s.Target.Parse(serverName, "")
-						s.Request = new(http.Request)
-						s.Request.URL, _ = url.Parse(public.HttpsRequestPrefix + strings.ReplaceAll(s.Target.Host, public.Space, public.NULL))
-						s.Request.Host = strings.ReplaceAll(s.Target.Host, public.Space, public.NULL)
-						s.Error(clientCertificateVerifyFail, true)
-						return
-					}
-				} else {
+				if err != nil {
 					s.Target.Parse(serverName, "")
 					s.Request = new(http.Request)
 					s.Request.URL, _ = url.Parse(public.HttpsRequestPrefix + strings.ReplaceAll(s.Target.Host, public.Space, public.NULL))
@@ -1232,7 +1222,7 @@ func (s *proxyRequest) https() {
 						strings.Index(ess, "An existing connection was forcibly closed by the remote host") != -1 ||
 						strings.Index(ess, "An established connection was aborted by the software in your host machine") != -1 ||
 						strings.Index(ess, "client offered only unsupported versions") != -1 {
-						s.Error(clientHandshakeFail, true)
+						s.Error(err, true)
 						return
 					}
 					s.Error(clientHandshakeFail, true)
@@ -1290,7 +1280,6 @@ func (s *proxyRequest) https() {
 }
 
 var clientHandshakeFail = errors.New("与客户端握手失败")
-var clientCertificateVerifyFail = errors.New("客户端验证证书失败")
 var noHttps = errors.New("No HTTPS ")
 
 func (s *proxyRequest) handleWss() bool {
@@ -2353,30 +2342,62 @@ func (s *Sunny) SetGoCallback(httpCall func(ConnHTTP), tcpCall func(ConnTCP), ws
 	return s
 }
 
-// StartProcess 开始进程代理
-func (s *Sunny) StartProcess() bool {
-	if CrossCompiled.NFapi_IsInit() {
-		if CrossCompiled.NFapi_ProcessPortInt() != 0 && CrossCompiled.NFapi_SunnyPointer() != uintptr(unsafe.Pointer(s)) {
-			CrossCompiled.NFapi_MessageBox("启动失败：", "已在其他 SunnyNet 对象启动\r\n\r\n同一进程不能多次加载驱动", 0x00000010)
-			return false
+// UnDrive 卸载驱动，仅Windows 有效【需要管理权限】执行成功后会立即重启系统,若函数执行后没有重启系统表示没有管理员权限
+func (s *Sunny) UnDrive() {
+	CrossCompiled.Drive_UnInstall()
+}
+
+// OpenDrive 开始进程代理 会自动安装所需驱动文件
+// IsNfapi 如果为true表示使用NFAPI驱动 如果为false 表示使用Proxifier
+func (s *Sunny) OpenDrive(IsNfapi bool) bool {
+	if (CrossCompiled.DrvInitState == CrossCompiled.DrvUndefined && IsNfapi) || (CrossCompiled.DrvInitState == CrossCompiled.DrvNF && IsNfapi) {
+		if CrossCompiled.NFapi_IsInit() {
+			if CrossCompiled.NFapi_ProcessPortInt() != 0 && CrossCompiled.NFapi_SunnyPointer() != uintptr(unsafe.Pointer(s)) {
+				CrossCompiled.NFapi_MessageBox("启动失败：", "已在其他 SunnyNet 对象启动\r\n\r\n同一进程不能多次加载驱动", 0x00000010)
+				CrossCompiled.DrvInitState = CrossCompiled.DrvNF
+				return false
+			}
+			CrossCompiled.NFapi_SunnyPointer(uintptr(unsafe.Pointer(s)))
+			CrossCompiled.DrvInitState = CrossCompiled.DrvNF
+			return true
 		}
 		CrossCompiled.NFapi_SunnyPointer(uintptr(unsafe.Pointer(s)))
-		return true
+		CrossCompiled.NFapi_ProcessPortInt(uint16(s.Port()))
+		CrossCompiled.NFapi_IsInit(CrossCompiled.NFapi_ApiInit())
+		CrossCompiled.NFapi_UdpSendReceiveFunc(s.udpNFSendReceive)
+		ok := CrossCompiled.NFapi_IsInit()
+		if ok {
+			CrossCompiled.DrvInitState = CrossCompiled.DrvNF
+		} else {
+			CrossCompiled.DrvInitState = CrossCompiled.DrvUndefined
+		}
+		return ok
 	}
-	CrossCompiled.NFapi_SunnyPointer(uintptr(unsafe.Pointer(s)))
-	CrossCompiled.NFapi_ProcessPortInt(uint16(s.Port()))
-	CrossCompiled.NFapi_IsInit(CrossCompiled.NFapi_ApiInit())
-	CrossCompiled.NFapi_UdpSendReceiveFunc(s.udpNFSendReceive)
-	return CrossCompiled.NFapi_IsInit()
+	if (CrossCompiled.DrvInitState == CrossCompiled.DrvUndefined && !IsNfapi) || (CrossCompiled.DrvInitState == CrossCompiled.DrvPr && !IsNfapi) {
+		if !CrossCompiled.Pr_Install() {
+			return false
+		}
+		ok := CrossCompiled.Pr_IsInit()
+		if !ok {
+			if CrossCompiled.Pr_SetHandle(s.handleClientConn) {
+				CrossCompiled.DrvInitState = CrossCompiled.DrvPr
+				return true
+			}
+		}
+		//已经启动或已经在其他SunnyNet启动
+		return false
+	}
+	fmt.Println("你已选择另一个模式,不可切换")
+	return false
 }
 
 // ProcessALLName 是否允许所有进程通过 所有 SunnyNet 通用,
-// 请注意GoLang调试时候，请不要使用此命令，因为不管开启或关闭，都会将当前所有TCP链接断开一次
+// StopNetwork 是否对所有进程执行一次断网操作
+// 请注意GoLang调试时候，StopNetwork请不要设置true
 // 因为如果不断开的一次的话,已经建立的TCP链接无法抓包。
 // Go程序调试，是通过TCP连接的，若使用此命令将无法调试。
-func (s *Sunny) ProcessALLName(open bool) *Sunny {
-	CrossCompiled.NFapi_SetHookProcess(open)
-	//CrossCompiled.NFapi_ClosePidTCP(-1)
+func (s *Sunny) ProcessALLName(open, StopNetwork bool) *Sunny {
+	CrossCompiled.NFapi_HookAllProcess(open, StopNetwork)
 	return s
 }
 
@@ -2524,8 +2545,13 @@ func (s *Sunny) Close() *Sunny {
 		_ = conn.Close()
 		delete(s.connList, k)
 	}
-	if CrossCompiled.NFapi_SunnyPointer() == uintptr(unsafe.Pointer(s)) {
-		CrossCompiled.NFapi_ProcessPortInt(0)
+	if CrossCompiled.DrvInitState == CrossCompiled.DrvNF {
+		if CrossCompiled.NFapi_SunnyPointer() == uintptr(unsafe.Pointer(s)) {
+			CrossCompiled.NFapi_ProcessPortInt(0)
+		}
+	}
+	if CrossCompiled.DrvInitState == CrossCompiled.DrvPr {
+		CrossCompiled.Pr_SetHandle(nil)
 	}
 	s.lock.Unlock()
 	return s
@@ -2602,6 +2628,18 @@ func (s *proxyRequest) free() {
 	s.Request = nil
 	s.Target = nil
 }
+func (s *proxyRequest) isDriveConn() (Info.ProxyProcessInfo, uint16) {
+	if s == nil {
+		return nil, 0
+	}
+	addr, ok := s.Conn.RemoteAddr().(*net.TCPAddr)
+	if ok {
+		u := uint16(addr.Port)
+		info := CrossCompiled.NFapi_GetTcpConnectInfo(u)
+		return info, u
+	}
+	return nil, 0
+}
 func (s *Sunny) handleClientConn(conn net.Conn) {
 	Theoni := atomic.AddInt64(&public.Theology, 1)
 	//存入会话列表 方便停止时，将所以连接断开
@@ -2626,24 +2664,16 @@ func (s *Sunny) handleClientConn(conn net.Conn) {
 	req.RwObj = ReadWriteObject.NewReadWriteObject(conn) //构造客户端读写对象
 	req.Theology = int(Theoni)                           //当前请求唯一ID
 	req.Response = response{}
-	addr, ok := conn.RemoteAddr().(*net.TCPAddr)
-	if ok {
-		u := uint16(addr.Port)
-		//这里是判断 是否是通过 NFapi 驱动进来的数据
-		if runtime.GOOS == "windows" {
-			info := CrossCompiled.NFapi_GetTcpConnectInfo(u)
-			if info != nil {
-				//如果是 通过 NFapi 驱动进来的数据 对连接信息进行赋值
-				req.Pid = info.Pid
-				req.Target.Parse(info.RemoteAddress, info.RemoteProt, info.V6)
-				req.Target.Parse(req.Target.String(), 0)
-				//然后进行数据处理,按照HTTPS数据进行处理
-				req.https()
-				CrossCompiled.NFapi_DelTcpConnectInfo(u)
-				CrossCompiled.NFapi_API_NfTcpClose(info.Id)
-				return
-			}
-		}
+	info, DrivePort := req.isDriveConn()
+	if info != nil {
+		//如果是 通过 NFapi 驱动进来的数据 对连接信息进行赋值
+		req.Pid = info.GetPid()
+		req.Target.Parse(info.GetRemoteAddress(), info.GetRemotePort(), info.IsV6())
+		//然后进行数据处理,按照HTTPS数据进行处理
+		req.https()
+		info.Close()
+		CrossCompiled.NFapi_DelTcpConnectInfo(DrivePort)
+		return
 	}
 	req.Pid = CrossCompiled.GetTcpInfoPID(conn.RemoteAddr().String(), s.port)
 	//若不是 通过 NFapi 驱动进来的数据 那么就是通过代理传递过来的数据
@@ -2683,6 +2713,6 @@ func (s *Sunny) handleClientConn(conn net.Conn) {
 		req.httpProcessing(nil, public.TagTcpAgreement)
 	}
 }
-func SetDnsServer(server string) {
+func (s *Sunny) SetDnsServer(server string) {
 	dns.SetDnsServer(server)
 }

@@ -510,9 +510,14 @@ WebpToPng Webp图片转Png图片 根据文件名
 extern __declspec(dllexport) GoUint8 WebpToPng(char* webpPath, char* savePath);
 
 /*
-StartProcess 开启进程代理 加载 nf api 驱动
+OpenDrive 开启进程代理/打开驱动
 */
-extern __declspec(dllexport) GoUint8 StartProcess(GoInt SunnyContext);
+extern __declspec(dllexport) GoUint8 OpenDrive(GoInt SunnyContext, GoUint8 isNf);
+
+/*
+UnDrive 卸载驱动，仅Windows 有效【需要管理权限】执行成功后会立即重启系统,若函数执行后没有重启系统表示没有管理员权限
+*/
+extern __declspec(dllexport) void UnDrive(GoInt SunnyContext);
 
 /*
 ProcessAddName 进程代理 添加进程名
@@ -542,7 +547,7 @@ extern __declspec(dllexport) void ProcessCancelAll(GoInt SunnyContext);
 /*
 ProcessALLName 进程代理 设置是否全部进程通过
 */
-extern __declspec(dllexport) void ProcessALLName(GoInt SunnyContext, GoUint8 open);
+extern __declspec(dllexport) void ProcessALLName(GoInt SunnyContext, GoUint8 open, GoUint8 StopNetwork);
 
 /*
 GetCommonName 证书管理器 获取证书 CommonName 字段

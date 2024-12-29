@@ -11,83 +11,112 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/Trisia/gosysproxy"
+	"github.com/qtgolang/SunnyNet/src/ProcessDrv/Info"
+	"github.com/qtgolang/SunnyNet/src/ProcessDrv/Proxifier"
+	NFapi2 "github.com/qtgolang/SunnyNet/src/ProcessDrv/nfapi"
 	"github.com/qtgolang/SunnyNet/src/iphlpapi"
-	NFapi "github.com/qtgolang/SunnyNet/src/nfapi"
 	"github.com/qtgolang/SunnyNet/src/public"
 	"golang.org/x/sys/windows"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
+const DrvUndefined = 0
+const DrvNF = 1
+const DrvPr = 2
+
+var DrvInitState = 0
+
 func NFapi_SunnyPointer(a ...uintptr) uintptr {
 	if len(a) > 0 {
-		NFapi.SunnyPointer = a[0]
+		NFapi2.SunnyPointer = a[0]
 	}
-	return NFapi.SunnyPointer
+	return NFapi2.SunnyPointer
 }
 func NFapi_IsInit(a ...bool) bool {
 	if len(a) > 0 {
-		NFapi.IsInit = a[0]
+		NFapi2.IsInit = a[0]
 	}
-	return NFapi.IsInit
+	return NFapi2.IsInit
+}
+func Pr_Install() bool {
+	return Proxifier.Install()
+}
+func Pr_IsInit() bool {
+	return Proxifier.IsInit()
+}
+
+func Pr_SetHandle(Handle func(conn net.Conn)) bool {
+	return Proxifier.SetHandle(Handle)
 }
 func NFapi_ProcessPortInt(a ...uint16) uint16 {
 	if len(a) > 0 {
-		NFapi.ProcessPortInt = a[0]
+		NFapi2.ProcessPortInt = a[0]
 	}
-	return NFapi.ProcessPortInt
+	return NFapi2.ProcessPortInt
 }
 func NFapi_ApiInit() bool {
-	return NFapi.ApiInit()
+	return NFapi2.ApiInit()
 }
 func NFapi_MessageBox(caption, text string, style uintptr) (result int) {
-	return NFapi.MessageBox(caption, text, style)
+	return NFapi2.MessageBox(caption, text, style)
 }
-func NFapi_SetHookProcess(open bool) {
-	NFapi.SetHookProcess(open)
+func Drive_UnInstall() {
+	tmp := NFapi2.System32Dir + "\\111111.tmp"
+	if err := os.WriteFile(tmp, []byte("check"), 0777); err != nil {
+		return
+	}
+	_ = os.Remove(tmp)
+	NFapi2.UnInstall()
+	Proxifier.UnInstall()
+	Proxifier.Run("shutdown", "/r", "/f", "/t", "0")
+	time.Sleep(2 * time.Second)
+}
+func NFapi_HookAllProcess(open, StopNetwork bool) {
+	Info.HookAllProcess(open, StopNetwork)
+
 }
 func NFapi_ClosePidTCP(pid int) {
-	NFapi.ClosePidTCP(pid)
+	Info.ClosePidTCP(pid)
 }
 func NFapi_DelName(u string) {
-	NFapi.DelName(u)
+	Info.DelName(u)
 }
 func NFapi_AddName(u string) {
-	NFapi.AddName(u)
+	Info.AddName(u)
 }
 func NFapi_DelPid(pid uint32) {
-	NFapi.DelPid(pid)
+	Info.DelPid(pid)
 }
 func NFapi_AddPid(pid uint32) {
-	NFapi.AddPid(pid)
+	Info.AddPid(pid)
 }
 func NFapi_CloseNameTCP(u string) {
-	NFapi.CloseNameTCP(u)
+	Info.CloseNameTCP(u)
 }
 func NFapi_CancelAll() {
-	NFapi.CancelAll()
+	Info.CancelAll()
 }
 func NFapi_DelTcpConnectInfo(U uint16) {
-	NFapi.DelTcpConnectInfo(U)
+	Info.DelTcpConnectInfo(U)
 }
-func NFapi_GetTcpConnectInfo(U uint16) *NFapi.ProcessInfo {
-	return NFapi.GetTcpConnectInfo(U)
+func NFapi_GetTcpConnectInfo(U uint16) Info.ProxyProcessInfo {
+	return Info.GetTcpConnectInfo(U)
 }
 
-func NFapi_API_NfTcpClose(U uint64) {
-	NFapi.Api.NfTcpClose(U)
-}
 func NFapi_UdpSendReceiveFunc(udp func(Type int, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte) func(Type int, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte {
-	NFapi.UdpSendReceiveFunc = udp
-	return NFapi.UdpSendReceiveFunc
+	NFapi2.UdpSendReceiveFunc = udp
+	return NFapi2.UdpSendReceiveFunc
 }
-func NFapi_Api_NfUdpPostSend(id uint64, remoteAddress *NFapi.SockaddrInx, buf []byte, option *NFapi.NF_UDP_OPTIONS) (NFapi.NF_STATUS, error) {
-	return NFapi.Api.NfUdpPostSend(id, remoteAddress, buf, option)
+func NFapi_Api_NfUdpPostSend(id uint64, remoteAddress *NFapi2.SockaddrInx, buf []byte, option *NFapi2.NF_UDP_OPTIONS) (NFapi2.NF_STATUS, error) {
+	return NFapi2.Api.NfUdpPostSend(id, remoteAddress, buf, option)
 }
 
 func SetIeProxy(Off bool, Port int) bool {
@@ -232,7 +261,7 @@ func SetNetworkConnectNumber() {
 	args = append(args, "tcp")
 	args = append(args, "start=10000")
 	args = append(args, "num=55000")
-	NFapi.ExecCommand("netsh", args)
+	Info.ExecCommand("netsh", args)
 	var args1 []string
 	args1 = append(args1, "int")
 	args1 = append(args1, "ipv6")
@@ -241,7 +270,7 @@ func SetNetworkConnectNumber() {
 	args1 = append(args1, "tcp")
 	args1 = append(args1, "start=10000")
 	args1 = append(args1, "num=55000")
-	NFapi.ExecCommand("netsh", args1)
+	Info.ExecCommand("netsh", args1)
 }
 
 // CloseCurrentSocket  关闭指定进程的所有TCP连接

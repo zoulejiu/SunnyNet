@@ -32,7 +32,9 @@ func errReplaceAll(s string) string {
 		return "客户端关闭了连接"
 	}
 	m := strings.ReplaceAll(s, "read tcp ", "读取连接 ")
+	m = strings.ReplaceAll(m, "dial tcp ", "连接到 ")
 	m = strings.ReplaceAll(m, "i/o timeout", "超时")
+	m = strings.ReplaceAll(m, ": 超时", " 超时")
 	m = strings.ReplaceAll(m, "expected declaration, found", "没有找到声明:")
 	if strings.Contains(m, "EOF") {
 		return "连接已关闭"
