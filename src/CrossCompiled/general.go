@@ -7,6 +7,12 @@ import (
 	"strconv"
 )
 
+const DrvUndefined = 0
+const DrvNF = 1
+const DrvPr = 2
+
+var DrvInitState = 0
+
 // GetTcpInfoPID 用于获取指定 TCP 连接信息的 PID
 func GetTcpInfoPID(tcpInfo string, SunnyPort int) string {
 	connections, _ := net.Connections("tcp")
@@ -39,11 +45,11 @@ func IsLoopRequest(Port string, SunnyPort int) bool {
 	if p == 0 {
 		return false
 	}
-	pp := uint32(p)
-	pp2 := uint32(SunnyPort)
+	_ConnPort := uint32(p)
+	_SunnyPort := uint32(SunnyPort)
 	connections, _ := net.ConnectionsPid("tcp", myPid)
 	for _, conn := range connections {
-		if conn.Laddr.Port == pp && conn.Raddr.Port == pp2 {
+		if conn.Laddr.Port == _ConnPort && conn.Raddr.Port == _SunnyPort {
 			return true
 		}
 	}

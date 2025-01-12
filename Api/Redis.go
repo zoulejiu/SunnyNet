@@ -17,8 +17,6 @@ var RedisL sync.Mutex
 
 const nbsp = "++&nbsp&++"
 
-var ErrorNull = errors.New("")
-
 func DelRedisContext(Context int) {
 	RedisL.Lock()
 	delete(RedisMap, Context)
@@ -66,9 +64,9 @@ func RemoveRedis(Context int) {
 
 // RedisDial Redis 连接
 func RedisDial(Context int, host, pass string, db, PoolSize, MinIdleCons, DialTimeout, ReadTimeout, WriteTimeout, PoolTimeout, IdleCheckFrequency, IdleTimeout int, error uintptr) bool {
-	public.WriteErr(ErrorNull, error)
 	w := LoadRedisContext(Context)
 	if w == nil {
+		public.WriteErr(errors.New("Context 未创建 "), error)
 		return false
 	}
 	ex := w.Open(
@@ -119,38 +117,34 @@ func RedisExists(Context int, key string) bool {
 }
 
 // RedisGetStr Redis 取文本值
-func RedisGetStr(Context int, key string) uintptr {
+func RedisGetStr(Context int, key string) string {
 	w := LoadRedisContext(Context)
 	if w == nil {
-		return 0
+		return ""
 	}
 	s := w.GetStr(key)
-	if s == "" {
-		return 0
-	}
-	return public.PointerPtr(s)
+	return s
 }
 
 // RedisGetBytes Redis 取文本值
-func RedisGetBytes(Context int, key string) uintptr {
+func RedisGetBytes(Context int, key string) []byte {
 	w := LoadRedisContext(Context)
 	if w == nil {
-		return 0
+		return nil
 	}
 	s := w.GetBytes(key)
 	if len(s) < 1 {
-		return 0
+		return nil
 	}
-	return public.PointerPtr(s)
+	return s
 }
 
 // RedisDo Redis 自定义 执行和查询命令 返回操作结果可能是值 也可能是JSON文本
-func RedisDo(Context int, args string, error uintptr) uintptr {
-	public.WriteErr(ErrorNull, error)
+func RedisDo(Context int, args string) ([]byte, error) {
+
 	w := LoadRedisContext(Context)
 	if w == nil {
-		public.WriteErr(errors.New("Redis no create 0x002 "), error)
-		return 0
+		return nil, errors.New("Redis no create 0x002 ")
 	}
 	arr := strings.Split(strings.ReplaceAll(args, "\\ ", nbsp), " ")
 	var InterFaceArr = make([]interface{}, 0)
@@ -160,31 +154,27 @@ func RedisDo(Context int, args string, error uintptr) uintptr {
 		}
 	}
 	if len(InterFaceArr) < 1 {
-		public.WriteErr(errors.New("Parameter error "), error)
-		return 0
+		return nil, errors.New("Parameter error ")
 	}
 	Val, er := w.Client.Do(InterFaceArr...).Result()
 	if er != nil {
-		public.WriteErr(er, error)
-		return 0
+		return nil, er
 	}
 	b, er := json.Marshal(Val)
 	if er != nil {
-		public.WriteErr(er, error)
-		return 0
+		return nil, er
 	}
 	if len(b) < 1 {
-		public.WriteErr(errors.New("The execution succeeds but no data is returned "), error)
-		return 0
+		return nil, errors.New("The execution succeeds but no data is returned ")
 	}
-	return public.PointerPtr(b)
+	return b, nil
 }
 
 // RedisGetKeys Redis 取指定条件键名
-func RedisGetKeys(Context int, key string) uintptr {
+func RedisGetKeys(Context int, key string) []byte {
 	w := LoadRedisContext(Context)
 	if w == nil {
-		return 0
+		return nil
 	}
 	var b bytes.Buffer
 	keys, _ := w.Client.Keys(key).Result()
@@ -192,7 +182,7 @@ func RedisGetKeys(Context int, key string) uintptr {
 		b.WriteString(v)
 		b.WriteByte(0)
 	}
-	return public.PointerPtr(public.BytesCombine(public.IntToBytes(b.Len()), b.Bytes()))
+	return b.Bytes()
 }
 
 // RedisGetInt Redis 取整数值
@@ -249,4 +239,15 @@ func RedisSubscribe(Context int, scribe string, call int, nc bool) {
 		return
 	}
 	w.Sub(scribe, call, nc, SubCall)
+}
+
+// RedisSubscribeGo Redis 订阅消息
+func RedisSubscribeGo(Context int, scribe string, call func(msg string)) {
+	w := LoadRedisContext(Context)
+	if w == nil {
+		return
+	}
+	w.Sub(scribe, 0, false, func(str string, _ int, _ bool) {
+		call(str)
+	})
 }

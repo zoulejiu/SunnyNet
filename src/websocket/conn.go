@@ -272,8 +272,8 @@ type Conn struct {
 	readLimit     int64 // Maximum message size.
 	readMaskPos   int
 	readMaskKey   [4]byte
-	handlePong    func(string) error
-	handlePing    func(string) error
+	handlePong    func([]byte) error
+	handlePing    func([]byte) error
 	handleClose   func(int, string) error
 	messageReader *messageReader // the current low-level reader
 
@@ -928,11 +928,11 @@ func (c *Conn) advanceFrame() (int, error) {
 
 	switch frameType {
 	case PongMessage:
-		if err := c.handlePong(string(payload)); err != nil {
+		if err := c.handlePong(payload); err != nil {
 			return noFrame, err
 		}
 	case PingMessage:
-		if err := c.handlePing(string(payload)); err != nil {
+		if err := c.handlePing(payload); err != nil {
 			return noFrame, err
 		}
 	case CloseMessage:
@@ -1118,7 +1118,7 @@ func (c *Conn) SetCloseHandler(h func(code int, text string) error) {
 }
 
 // PingHandler returns the current ping handler
-func (c *Conn) PingHandler() func(appData string) error {
+func (c *Conn) PingHandler() func(appData []byte) error {
 	return c.handlePing
 }
 
@@ -1129,10 +1129,10 @@ func (c *Conn) PingHandler() func(appData string) error {
 // The handler function is called from the NextReader, ReadMessage and message
 // reader Read methods. The application must read the connection to process
 // ping messages as described in the section on Control Messages above.
-func (c *Conn) SetPingHandler(h func(appData string) error) {
+func (c *Conn) SetPingHandler(h func(appData []byte) error) {
 	if h == nil {
-		h = func(message string) error {
-			err := c.WriteControl(PongMessage, []byte(message), time.Now().Add(writeWait))
+		h = func(message []byte) error {
+			err := c.WriteControl(PongMessage, message, time.Now().Add(writeWait))
 			if err == ErrCloseSent {
 				return nil
 			} else if e, ok := err.(net.Error); ok && e.Temporary() {
@@ -1145,7 +1145,7 @@ func (c *Conn) SetPingHandler(h func(appData string) error) {
 }
 
 // PongHandler returns the current pong handler
-func (c *Conn) PongHandler() func(appData string) error {
+func (c *Conn) PongHandler() func(appData []byte) error {
 	return c.handlePong
 }
 
@@ -1156,9 +1156,9 @@ func (c *Conn) PongHandler() func(appData string) error {
 // The handler function is called from the NextReader, ReadMessage and message
 // reader Read methods. The application must read the connection to process
 // pong messages as described in the section on Control Messages above.
-func (c *Conn) SetPongHandler(h func(appData string) error) {
+func (c *Conn) SetPongHandler(h func(appData []byte) error) {
 	if h == nil {
-		h = func(string) error { return nil }
+		h = func([]byte) error { return nil }
 	}
 	c.handlePong = h
 }

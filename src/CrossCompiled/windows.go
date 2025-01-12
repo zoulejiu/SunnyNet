@@ -28,12 +28,6 @@ import (
 	"unsafe"
 )
 
-const DrvUndefined = 0
-const DrvNF = 1
-const DrvPr = 2
-
-var DrvInitState = 0
-
 func NFapi_SunnyPointer(a ...uintptr) uintptr {
 	if len(a) > 0 {
 		NFapi2.SunnyPointer = a[0]
@@ -81,7 +75,6 @@ func Drive_UnInstall() {
 }
 func NFapi_HookAllProcess(open, StopNetwork bool) {
 	Info.HookAllProcess(open, StopNetwork)
-
 }
 func NFapi_ClosePidTCP(pid int) {
 	Info.ClosePidTCP(pid)
@@ -107,7 +100,7 @@ func NFapi_CancelAll() {
 func NFapi_DelTcpConnectInfo(U uint16) {
 	Info.DelTcpConnectInfo(U)
 }
-func NFapi_GetTcpConnectInfo(U uint16) Info.ProxyProcessInfo {
+func NFapi_GetTcpConnectInfo(U uint16) Info.DrvInfo {
 	return Info.GetTcpConnectInfo(U)
 }
 
@@ -276,4 +269,23 @@ func SetNetworkConnectNumber() {
 // CloseCurrentSocket  关闭指定进程的所有TCP连接
 func CloseCurrentSocket(PID int, ulAf uint) {
 	iphlpapi.CloseCurrentSocket(PID, ulAf)
+}
+
+// 添加 Windows 防火墙规则
+func AddFirewallRule() {
+	executablePath, _ := os.Executable()
+	// 删除现有规则
+	cmd := exec.Command("netsh", "advfirewall", "firewall", "delete", "rule", "name=SunnyNet")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} // 隐藏窗口
+	_ = cmd.Run()
+
+	// 添加入站规则
+	cmd = exec.Command("netsh", "advfirewall", "firewall", "add", "rule", "name=SunnyNet", "dir=in", "action=allow", "program="+executablePath)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} // 隐藏窗口
+	_ = cmd.Run()
+
+	// 添加出站规则
+	cmd = exec.Command("netsh", "advfirewall", "firewall", "add", "rule", "name=SunnyNetOut", "dir=out", "action=allow", "program="+executablePath)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} // 隐藏窗口
+	_ = cmd.Run()
 }

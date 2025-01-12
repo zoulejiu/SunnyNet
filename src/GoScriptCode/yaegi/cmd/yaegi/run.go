@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/traefik/yaegi/interp"
-	"github.com/traefik/yaegi/stdlib"
-	"github.com/traefik/yaegi/stdlib/syscall"
-	"github.com/traefik/yaegi/stdlib/unrestricted"
-	"github.com/traefik/yaegi/stdlib/unsafe"
+	"github.com/qtgolang/SunnyNet/src/GoScriptCode/yaegi/interp"
+	"github.com/qtgolang/SunnyNet/src/GoScriptCode/yaegi/stdlib"
+	"github.com/qtgolang/SunnyNet/src/GoScriptCode/yaegi/stdlib/syscall"
+	"github.com/qtgolang/SunnyNet/src/GoScriptCode/yaegi/stdlib/unrestricted"
+	"github.com/qtgolang/SunnyNet/src/GoScriptCode/yaegi/stdlib/unsafe"
 )
 
 func run(arg []string) error {

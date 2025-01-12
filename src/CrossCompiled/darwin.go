@@ -97,7 +97,7 @@ func NFapi_ApiInit() bool {
 func NFapi_MessageBox(caption, text string, style uintptr) (result int) {
 	return 0
 }
-func NFapi_HookAllProcess(open bool) {
+func NFapi_HookAllProcess(open, StopNetwork bool) {
 }
 func NFapi_ClosePidTCP(pid int) {
 }
@@ -145,4 +145,9 @@ func CloseCurrentSocket(PID int, ulAf uint) {
 // InstallCert 安装证书 将证书安装到Windows系统内
 func InstallCert(certificates []byte) string {
 	return "no Windows"
+}
+
+// 添加 Windows 防火墙规则
+func AddFirewallRule() {
+
 }

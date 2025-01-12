@@ -37,7 +37,7 @@ var errInvalidCompression = errors.New("websocket: invalid compression negotiati
 // etc.
 //
 // Deprecated: Use Dialer instead.
-func NewClient(netConn net.Conn, u *url.URL, requestHeader http.Header, readBufSize, writeBufSize int) (c *Conn, response *http.Response, err error) {
+func NewClient(netConn net.Conn, u *url.URL, requestHeader http.Header, readBufSize, writeBufSize int) (c *Conn, response *http.Response, serverIp string, err error) {
 	d := Dialer{
 		ReadBufferSize:  readBufSize,
 		WriteBufferSize: writeBufSize,
@@ -102,7 +102,7 @@ type Dialer struct {
 	ProxyUrl *SunnyProxy.Proxy
 }
 
-func (d *Dialer) Dial(urlStr string, requestHeader http.Header, ProxyUrl *SunnyProxy.Proxy, outTime ...int) (*Conn, *http.Response, error) {
+func (d *Dialer) Dial(urlStr string, requestHeader http.Header, ProxyUrl *SunnyProxy.Proxy, outTime ...int) (*Conn, *http.Response, string, error) {
 	d.ProxyUrl = ProxyUrl
 	t := 0
 	if len(outTime) > 0 {
@@ -150,18 +150,18 @@ var nilDialer = *DefaultDialer
 // non-nil *net.Response so that callers can handle redirects, authentication,
 // etcetera. The response body may not contain the entire response and does not
 // need to be closed by the application.
-func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader http.Header, outTime ...int) (*Conn, *http.Response, error) {
+func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader http.Header, outTime ...int) (*Conn, *http.Response, string, error) {
 	if d == nil {
 		d = &nilDialer
 	}
 	challengeKey, err := generateChallengeKey()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 
 	u, err := url.Parse(urlStr)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 
 	switch u.Scheme {
@@ -174,12 +174,12 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 	case "https":
 		u.Scheme = "https"
 	default:
-		return nil, nil, errMalformedURL
+		return nil, nil, "", errMalformedURL
 	}
 
 	if u.User != nil {
 		// User name and password are not allowed in websocket URIs.
-		return nil, nil, errMalformedURL
+		return nil, nil, "", errMalformedURL
 	}
 
 	req := &http.Request{
@@ -221,9 +221,6 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 		defer cancel()
 	}
 
-	// Get network dial function.
-	var netDial func(network, add string) (net.Conn, error)
-
 	netDialer := &net.Dialer{}
 	_outTime := 3000
 	if len(outTime) > 0 {
@@ -235,44 +232,28 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 			netDialer.Timeout = 30000 * time.Millisecond
 		}
 	}
-	netDial = func(network, addr string) (net.Conn, error) {
-		return netDialer.DialContext(ctx, network, addr)
-	}
-
-	// If needed, wrap the dial function to set the connection deadline.
-	if deadline, ok := ctx.Deadline(); ok {
-		forwardDial := netDial
-		netDial = func(network, addr string) (net.Conn, error) {
-			c, err := forwardDial(network, addr)
-			if err != nil {
-				return nil, err
-			}
-			err = c.SetDeadline(deadline)
-			if err != nil {
-				c.Close()
-				return nil, err
-			}
-			return c, nil
-		}
-	}
-
-	if d.ProxyUrl != nil {
-		netDial = d.ProxyUrl.Dial
-	}
 
 	hostPort, hostNoPort := hostPortNoPort(u)
 	trace := httptrace.ContextClientTrace(ctx)
 	if trace != nil && trace.GetConn != nil {
 		trace.GetConn(hostPort)
 	}
-	netConn, err := netDial("tcp", hostPort)
+	var proxy *SunnyProxy.Proxy
+	if d.ProxyUrl == nil {
+		proxy = new(SunnyProxy.Proxy)
+	} else {
+		proxy = d.ProxyUrl.Clone()
+	}
+
+	netConn, err := proxy.Dial("tcp", hostPort)
+
 	if trace != nil && trace.GotConn != nil {
 		trace.GotConn(httptrace.GotConnInfo{
 			Conn: netConn,
 		})
 	}
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 	defer func() {
 		if netConn != nil {
@@ -301,7 +282,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 
 		if err != nil {
 			//fmt.Println("err1:=", err)
-			return nil, nil, err
+			return nil, nil, "", err
 		}
 	}
 
@@ -309,7 +290,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 
 	if err = req.Write(netConn); err != nil {
 		//fmt.Println("err2:=", err)
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 
 	_ = conn.conn.SetDeadline(time.Now().Add(time.Duration(_outTime) * time.Millisecond))
@@ -330,7 +311,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 	resp, err := http.ReadResponse(conn.br, req)
 	if err != nil {
 		//fmt.Println("err3:=", err)
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 
 	if d.Jar != nil {
@@ -349,7 +330,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 		buf := make([]byte, 1024)
 		n, _ := io.ReadFull(resp.Body, buf)
 		resp.Body = ioutil.NopCloser(bytes.NewReader(buf[:n]))
-		return nil, resp, ErrBadHandshake
+		return nil, resp, "", ErrBadHandshake
 	}
 
 	for _, ext := range parseExtensions(resp.Header) {
@@ -359,7 +340,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 		_, snct := ext["server_no_context_takeover"]
 		_, cnct := ext["client_no_context_takeover"]
 		if !snct || !cnct {
-			return nil, resp, errInvalidCompression
+			return nil, resp, "", errInvalidCompression
 		}
 		conn.newCompressionWriter = compressNoContextTakeover
 		conn.newDecompressionReader = decompressNoContextTakeover
@@ -371,8 +352,10 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 
 	netConn.SetDeadline(time.Time{})
 	netConn = nil // to avoid close in defer.
-	return conn, resp, nil
+	return conn, resp, proxy.DialAddr, nil
 }
+
+const SunnyNetServerIpTags = "ServerAddr"
 
 // ConnDialContext 自己改写的 返回Websocket.Conn 和httpResponse
 func (d *Dialer) ConnDialContext(request *http.Request, ProxyUrl *SunnyProxy.Proxy) (*Conn, *http.Response, error) {
@@ -433,7 +416,24 @@ func (d *Dialer) ConnDialContext(request *http.Request, ProxyUrl *SunnyProxy.Pro
 	if trace != nil && trace.GetConn != nil {
 		trace.GetConn(hostPort)
 	}
-	netConn, err := d.ProxyUrl.Dial("tcp", hostPort)
+
+	var proxy *SunnyProxy.Proxy
+	if d.ProxyUrl == nil {
+		proxy = new(SunnyProxy.Proxy)
+	} else {
+		proxy = d.ProxyUrl.Clone()
+	}
+	netConn, err := proxy.Dial("tcp", hostPort)
+	defer func() {
+		address, p, _ := net.SplitHostPort(proxy.DialAddr)
+		ip := net.ParseIP(address)
+		if ip == nil {
+			request.SetContext(SunnyNetServerIpTags, proxy.DialAddr)
+		} else {
+			request.SetContext(SunnyNetServerIpTags, SunnyProxy.FormatIP(ip, p))
+		}
+	}()
+
 	if trace != nil && trace.GotConn != nil {
 		trace.GotConn(httptrace.GotConnInfo{
 			Conn: netConn,

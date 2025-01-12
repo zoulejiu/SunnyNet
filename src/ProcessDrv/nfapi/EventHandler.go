@@ -16,6 +16,7 @@ import (
 )
 
 var Api = new(NFApi)
+
 var ProcessPortInt uint16
 var SunnyPointer = uintptr(0)
 var IsInit = false

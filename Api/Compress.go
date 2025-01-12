@@ -7,17 +7,15 @@ import (
 )
 
 // DeflateCompress Deflate压缩 (可能等同于zlib压缩)
-func DeflateCompress(data uintptr, dataLen int) uintptr {
-	bin := public.CStringToBytes(data, dataLen)
+func DeflateCompress(bin []byte) []byte {
 	if len(bin) < 1 {
-		return 0
+		return nil
 	}
 	bx := Compress.DeflateCompress(bin)
 	if len(bx) < 1 {
-		return 0
+		return nil
 	}
-	bx = public.BytesCombine(public.IntToBytes(len(bx)), bx)
-	return public.PointerPtr(string(bx))
+	return bx
 }
 
 // DeflateUnCompress Deflate解压缩 (可能等同于zlib解压缩)

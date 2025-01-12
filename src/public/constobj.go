@@ -11,11 +11,12 @@ package public
 import "C"
 import (
 	"github.com/qtgolang/SunnyNet/src/http"
+	"github.com/qtgolang/SunnyNet/src/websocket"
 	"math/rand"
 	"time"
 )
 
-const SunnyVersion = "2024-12-25 临时测试版"
+const SunnyVersion = "2025-01-03"
 
 // TCP请求相关
 const (
@@ -76,6 +77,9 @@ const (
 	SunnyNetRawRequestBody       = http.SunnyNetRawRequestBody
 	SunnyNetRawRequestBodyLength = http.SunnyNetRawRequestBodyLength
 	SunnyNetRawBodySaveFilePath  = http.SunnyNetRawBodySaveFilePath
+
+	HTTPClientTags       = "SunnyNetHTTPClient"
+	SunnyNetServerIpTags = websocket.SunnyNetServerIpTags
 )
 
 // 用户浏览器访问 以下地址 可以下载证书(要访问以下地址用户必须设置代理)

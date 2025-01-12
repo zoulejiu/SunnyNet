@@ -17,6 +17,9 @@ var TcpStorage = make(map[int]*public.TCP)
 // WsStorage Sunny中间件http回调CALL时储存对象
 var wsStorage = make(map[int]*public.WebsocketMsg)
 
+// wsClientStorage 主动调用时需要使用
+var wsClientStorage = make(map[int]*public.WebsocketMsg)
+
 // 储存管理 MessageId
 // ---------------------------------------------
 var messageIdLock sync.Mutex

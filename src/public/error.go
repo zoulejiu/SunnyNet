@@ -12,6 +12,9 @@ func ProcessError(err error) string {
 	}
 	er := errorToString(err)
 	//fmt.Println(er)
+	if !strings.Contains(er, "[SunnyNet]") {
+		return "[SunnyNet]" + er
+	}
 	return er
 }
 func errorToString(err error) string {
@@ -38,6 +41,9 @@ func errReplaceAll(s string) string {
 	m = strings.ReplaceAll(m, "expected declaration, found", "没有找到声明:")
 	if strings.Contains(m, "EOF") {
 		return "连接已关闭"
+	}
+	if strings.Contains(m, "Client.Timeout") {
+		return "请求超时"
 	}
 	return m
 }

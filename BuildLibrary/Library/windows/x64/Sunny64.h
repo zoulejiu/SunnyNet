@@ -21,6 +21,7 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 
 
 
+
 /* End of preamble from import "C" comments.  */
 
 
@@ -74,6 +75,870 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 extern "C" {
 #endif
 
+
+/*
+Java_com_SunnyNet_api_GetSunnyVersion 获取SunnyNet版本
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetSunnyVersion(GoUintptr envObj, GoUintptr clazz);
+
+/*
+Java_com_SunnyNet_api_CreateSunnyNet 创建Sunny中间件对象,可创建多个
+*/
+extern __declspec(dllexport) GoInt64 Java_com_SunnyNet_api_CreateSunnyNet(GoUintptr envObj, GoUintptr clazz);
+
+/*
+Java_com_SunnyNet_api_ReleaseSunnyNet  释放SunnyNet
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_ReleaseSunnyNet(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext);
+
+/*
+Java_com_SunnyNet_api_SunnyNetStart 启动Sunny中间件 成功返回true
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SunnyNetStart(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext);
+
+/*
+Java_com_SunnyNet_api_SunnyNetSetPort 设置指定端口 Sunny中间件启动之前调用
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SunnyNetSetPort(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoInt64 Port);
+
+/*
+Java_com_SunnyNet_api_SunnyNetClose 关闭停止指定Sunny中间件
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SunnyNetClose(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext);
+
+/*
+Java_com_SunnyNet_api_SunnyNetSetCert 设置自定义证书
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SunnyNetSetCert(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoInt64 CertificateManagerId);
+
+/*
+Java_com_SunnyNet_api_SunnyNetInstallCert 安装证书 将证书安装到Windows系统内
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_SunnyNetInstallCert(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext);
+
+/*
+Java_com_SunnyNet_api_SunnyNetSetCallback 设置中间件回调地址 httpCallback
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SunnyNetSetCallback(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUintptr Callback);
+
+/*
+Java_com_SunnyNet_api_SunnyNetSocket5AddUser 添加 S5代理需要验证的用户名
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SunnyNetSocket5AddUser(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUintptr User, GoUintptr Pass);
+
+/*
+Java_com_SunnyNet_api_SunnyNetVerifyUser 开启身份验证模式
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SunnyNetVerifyUser(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUint8 open);
+
+/*
+Java_com_SunnyNet_api_SunnyNetSocket5DelUser 删除 S5需要验证的用户名
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SunnyNetSocket5DelUser(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUintptr User);
+
+/*
+Java_com_SunnyNet_api_SunnyNetGetSocket5User 开启身份验证模式后 获取授权的S5账号,注意UDP请求无法获取到授权的s5账号
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_SunnyNetGetSocket5User(GoUintptr envObj, GoUintptr clazz, GoInt64 Theology);
+
+/*
+Java_com_SunnyNet_api_SunnyNetMustTcp 设置中间件是否开启强制走TCP
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_SunnyNetMustTcp(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUint8 open);
+
+/*
+Java_com_SunnyNet_api_CompileProxyRegexp 设置中间件上游代理使用规则
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_CompileProxyRegexp(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUintptr Regexp);
+
+/*
+Java_com_SunnyNet_api_SetMustTcpRegexp 设置强制走TCP规则,如果 打开了全部强制走TCP状态,本功能则无效
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetMustTcpRegexp(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUintptr Regexp, GoUint8 RulesAllow);
+
+/*
+Java_com_SunnyNet_api_SunnyNetError 获取中间件启动时的错误信息
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_SunnyNetError(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext);
+
+/*
+Java_com_SunnyNet_api_SetGlobalProxy 设置全局上游代理 仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
+*/
+//
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetGlobalProxy(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUintptr ProxyAddress, GoInt64 outTime);
+
+/*
+Java_com_SunnyNet_api_GetRequestProto 获取 HTTPS 请求的协议版本
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetRequestProto(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId);
+
+/*
+Java_com_SunnyNet_api_GetResponseProto 获取 HTTPS 响应的协议版本
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetResponseProto(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId);
+
+/*
+Java_com_SunnyNet_api_ExportCert 导出已设置的证书
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_ExportCert(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext);
+
+/*
+Java_com_SunnyNet_api_SetHTTPRequestMaxUpdateLength 设置HTTP请求,提交数据,最大的长度
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetHTTPRequestMaxUpdateLength(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoInt64 i);
+
+/*
+Java_com_SunnyNet_api_SetIeProxy 设置IE代理 Off=true 取消 反之 设置 在中间件设置端口后调用
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetIeProxy(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUint8 Off);
+
+/*
+Java_com_SunnyNet_api_SetRequestCookie 修改、设置 HTTP/S当前请求数据中指定Cookie
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_SetRequestCookie(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr name, GoUintptr val);
+
+/*
+Java_com_SunnyNet_api_SetRequestAllCookie 修改、设置 HTTP/S当前请求数据中的全部Cookie
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_SetRequestAllCookie(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr val);
+
+/*
+Java_com_SunnyNet_api_GetRequestCookie 获取 HTTP/S当前请求数据中指定的Cookie
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetRequestCookie(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr name);
+
+/*
+Java_com_SunnyNet_api_GetRequestALLCookie 获取 HTTP/S 当前请求全部Cookie
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetRequestALLCookie(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId);
+
+/*
+Java_com_SunnyNet_api_DelResponseHeader 删除HTTP/S返回数据中指定的协议头
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_DelResponseHeader(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr name);
+
+/*
+Java_com_SunnyNet_api_DelRequestHeader 删除HTTP/S请求数据中指定的协议头
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_DelRequestHeader(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr name);
+
+/*
+Java_com_SunnyNet_api_SetRequestOutTime 请求设置超时-毫秒
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_SetRequestOutTime(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoInt64 times);
+
+/*
+Java_com_SunnyNet_api_SetRequestALLHeader 设置HTTP/ S请求体中的全部协议头
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_SetRequestALLHeader(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr val);
+
+/*
+Java_com_SunnyNet_api_SetRequestHeader 设置HTTP/S请求体中的协议头
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_SetRequestHeader(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr name, GoUintptr val);
+
+/*
+Java_com_SunnyNet_api_RandomRequestCipherSuites 随机设置请求 CipherSuites
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_RandomRequestCipherSuites(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId);
+
+/*
+Java_com_SunnyNet_api_SetRequestHTTP2Config  设置HTTP 2.0 请求指纹配置 (若服务器支持则使用,若服务器不支持,设置了也不会使用)
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetRequestHTTP2Config(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr h2Config);
+
+/*
+Java_com_SunnyNet_api_SetResponseHeader 修改、设置 HTTP/S当前返回数据中的指定协议头
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_SetResponseHeader(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr name, GoUintptr val);
+
+/*
+Java_com_SunnyNet_api_GetRequestHeader 获取 HTTP/S当前请求数据中的指定协议头
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetRequestHeader(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr name);
+
+/*
+Java_com_SunnyNet_api_GetResponseHeader 获取 HTTP/S 当前返回数据中指定的协议头
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetResponseHeader(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr name);
+
+/*
+Java_com_SunnyNet_api_GetResponseServerAddress 获取 HTTP/S 相应的服务器地址
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetResponseServerAddress(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId);
+
+/*
+Java_com_SunnyNet_api_SetResponseAllHeader 修改、设置 HTTP/S当前返回数据中的全部协议头，例如设置返回两条Cookie 使用本命令设置 使用设置、修改 单条命令无效
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_SetResponseAllHeader(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr value);
+
+/*
+Java_com_SunnyNet_api_GetResponseAllHeader 获取 HTTP/S 当前响应全部协议头
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetResponseAllHeader(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId);
+
+/*
+Java_com_SunnyNet_api_GetRequestAllHeader 获取 HTTP/S 当前请求数据全部协议头
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetRequestAllHeader(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId);
+
+/*
+Java_com_SunnyNet_api_SetRequestProxy 设置HTTP/S请求代理，仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
+*/
+//
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetRequestProxy(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr ProxyUrl, GoInt outTime);
+
+/*
+Java_com_SunnyNet_api_GetResponseStatusCode 获取HTTP/S返回的状态码
+*/
+extern __declspec(dllexport) GoInt64 Java_com_SunnyNet_api_GetResponseStatusCode(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId);
+
+/*
+Java_com_SunnyNet_api_GetRequestClientIp 获取当前HTTP/S请求由哪个IP发起
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetRequestClientIp(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId);
+
+/*
+Java_com_SunnyNet_api_GetResponseStatus 获取HTTP/S返回的状态文本 例如 [200 OK]
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetResponseStatus(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId);
+
+/*
+Java_com_SunnyNet_api_SetResponseStatus 修改HTTP/S返回的状态码
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_SetResponseStatus(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoInt64 code);
+
+/*
+Java_com_SunnyNet_api_SetRequestUrl 修改HTTP/S当前请求的URL
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetRequestUrl(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr URI);
+
+/*
+Java_com_SunnyNet_api_SetResponseData 设置、修改 HTTP/S 当前请求返回数据 如果再发起请求时调用本命令，请求将不会被发送，将会直接返回 data=数据
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetResponseData(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_SetRequestData 设置、修改 HTTP/S 当前请求POST提交数据  data=数据
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetRequestData(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_GetRequestBody 获取 HTTP/S 当前POST提交数据 返回 数据指针
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetRequestBody(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId);
+
+/*
+Java_com_SunnyNet_api_IsRequestRawBody 此请求是否为原始body 如果是 将无法修改提交的Body，请使用 RawRequestDataToFile 命令来储存到文件
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_IsRequestRawBody(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId);
+
+/*
+Java_com_SunnyNet_api_RawRequestDataToFile 获取 HTTP/ S 当前POST提交数据原始Data,传入保存文件名路径,例如"c:\1.txt"
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_RawRequestDataToFile(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr saveFileName);
+
+/*
+Java_com_SunnyNet_api_GetResponseBody 获取 HTTP/S 当前返回数据
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetResponseBody(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId);
+
+/*
+Java_com_SunnyNet_api_CloseWebsocket 主动关闭Websocket
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_CloseWebsocket(GoUintptr envObj, GoUintptr clazz, GoInt64 Theology);
+
+/*
+Java_com_SunnyNet_api_GetWebsocketBody 获取 WebSocket消息
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetWebsocketBody(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId);
+
+/*
+Java_com_SunnyNet_api_SetWebsocketBody 修改 WebSocket消息 data=数据
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetWebsocketBody(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_SendWebsocketBody 主动向Websocket服务器发送消息 MessageType=WS消息类型 data=数据指针  dataLen=数据长度
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SendWebsocketBody(GoUintptr envObj, GoUintptr clazz, GoInt64 Theology, GoInt64 MessageType, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_SendWebsocketClientBody  主动向Websocket客户端发送消息 MessageType=WS消息类型 data=数据指针  dataLen=数据长度
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SendWebsocketClientBody(GoUintptr envObj, GoUintptr clazz, GoInt64 Theology, GoInt64 MessageType, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_SetTcpBody 修改 TCP消息数据 MsgType=1 发送的消息 MsgType=2 接收的消息 如果 MsgType和MessageId不匹配，将不会执行操作  data=数据指针  dataLen=数据长度
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetTcpBody(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoInt64 MsgType, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_SetTcpAgent 给当前TCP连接设置代理 仅限 TCP回调 即将连接时使用 仅支持S5代理 例如 socket5://admin:123456@127.0.0.1:8888
+*/
+//
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetTcpAgent(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr ProxyUrl);
+
+/*
+Java_com_SunnyNet_api_TcpCloseClient 根据唯一ID关闭指定的TCP连接  唯一ID在回调参数中
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_TcpCloseClient(GoUintptr envObj, GoUintptr clazz, GoInt64 theology);
+
+/*
+Java_com_SunnyNet_api_SetTcpConnectionIP 给指定的TCP连接 修改目标连接地址 目标地址必须带端口号 例如 baidu.com:443
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetTcpConnectionIP(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr address);
+
+/*
+Java_com_SunnyNet_api_TcpSendMsg 指定的TCP连接 模拟客户端向服务器端主动发送数据
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_TcpSendMsg(GoUintptr envObj, GoUintptr clazz, GoInt64 theology, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_TcpSendMsgClient 指定的TCP连接 模拟服务器端向客户端主动发送数据
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_TcpSendMsgClient(GoUintptr envObj, GoUintptr clazz, GoInt64 theology, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_GzipUnCompress Gzip解压缩
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GzipUnCompress(GoUintptr envObj, GoUintptr clazz, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_BrUnCompress br解压缩
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_BrUnCompress(GoUintptr envObj, GoUintptr clazz, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_BrCompress br压缩
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_BrCompress(GoUintptr envObj, GoUintptr clazz, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_ZSTDDecompress ZSTD解压缩
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_ZSTDDecompress(GoUintptr envObj, GoUintptr clazz, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_ZSTDCompress ZSTD压缩
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_ZSTDCompress(GoUintptr envObj, GoUintptr clazz, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_GzipCompress Gzip压缩
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GzipCompress(GoUintptr envObj, GoUintptr clazz, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_ZlibCompress Zlib压缩
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_ZlibCompress(GoUintptr envObj, GoUintptr clazz, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_ZlibUnCompress Zlib解压缩
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_ZlibUnCompress(GoUintptr envObj, GoUintptr clazz, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_DeflateUnCompress Deflate解压缩 (可能等同于zlib解压缩)
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_DeflateUnCompress(GoUintptr envObj, GoUintptr clazz, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_DeflateCompress Deflate压缩 (可能等同于zlib压缩)
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_DeflateCompress(GoUintptr envObj, GoUintptr clazz, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_WebpToJpegBytes Webp图片转JEG图片字节数组 SaveQuality=质量(默认75)
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_WebpToJpegBytes(GoUintptr envObj, GoUintptr clazz, GoUintptr data, GoInt64 SaveQuality);
+
+/*
+Java_com_SunnyNet_api_WebpToPngBytes Webp图片转Png图片字节数组
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_WebpToPngBytes(GoUintptr envObj, GoUintptr clazz, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_WebpToJpeg Webp图片转JEG图片 根据文件名 SaveQuality=质量(默认75)
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_WebpToJpeg(GoUintptr envObj, GoUintptr clazz, GoUintptr webpPath, GoUintptr savePath, GoInt64 SaveQuality);
+
+/*
+Java_com_SunnyNet_api_WebpToPng Webp图片转Png图片 根据文件名
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_WebpToPng(GoUintptr envObj, GoUintptr clazz, GoUintptr webpPath, GoUintptr savePath);
+
+/*
+Java_com_SunnyNet_api_OpenDrive 开启进程代理/打开驱动
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_OpenDrive(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUint8 isNf);
+
+/*
+Java_com_SunnyNet_api_UnDrive 卸载驱动，仅Windows 有效【需要管理权限】执行成功后会立即重启系统,若函数执行后没有重启系统表示没有管理员权限
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_UnDrive(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext);
+
+/*
+Java_com_SunnyNet_api_ProcessAddName 进程代理 添加进程名
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_ProcessAddName(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUintptr Name);
+
+/*
+Java_com_SunnyNet_api_ProcessDelName 进程代理 删除进程名
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_ProcessDelName(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUintptr Name);
+
+/*
+Java_com_SunnyNet_api_ProcessAddPid 进程代理 添加PID
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_ProcessAddPid(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoInt64 pid);
+
+/*
+Java_com_SunnyNet_api_ProcessDelPid 进程代理 删除PID
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_ProcessDelPid(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoInt64 pid);
+
+/*
+Java_com_SunnyNet_api_ProcessCancelAll 进程代理 取消全部已设置的进程名
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_ProcessCancelAll(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext);
+
+/*
+Java_com_SunnyNet_api_ProcessALLName 进程代理 设置是否全部进程通过
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_ProcessALLName(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUint8 open, GoUint8 StopNetwork);
+
+/*
+Java_com_SunnyNet_api_GetCommonName 证书管理器 获取证书 CommonName 字段
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetCommonName(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_ExportP12 证书管理器 导出为P12
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_ExportP12(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr path, GoUintptr pass);
+
+/*
+Java_com_SunnyNet_api_ExportPub 证书管理器 导出公钥
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_ExportPub(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_ExportKEY 证书管理器 导出私钥
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_ExportKEY(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_ExportCA 证书管理器 导出证书
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_ExportCA(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_CreateCA 证书管理器 创建证书
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_CreateCA(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr Country, GoUintptr Organization, GoUintptr OrganizationalUnit, GoUintptr Province, GoUintptr CommonName, GoUintptr Locality, GoInt64 bits, GoInt64 NotAfter);
+
+/*
+Java_com_SunnyNet_api_AddClientAuth 证书管理器 设置ClientAuth
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_AddClientAuth(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoInt64 val);
+
+/*
+Java_com_SunnyNet_api_SetCipherSuites   证书管理器 设置CipherSuites
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetCipherSuites(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr val);
+
+/*
+Java_com_SunnyNet_api_AddCertPoolText 证书管理器 设置信任的证书 从 文本
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_AddCertPoolText(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr cer);
+
+/*
+Java_com_SunnyNet_api_AddCertPoolPath 证书管理器 设置信任的证书 从 文件
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_AddCertPoolPath(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr cer);
+
+/*
+Java_com_SunnyNet_api_GetServerName 证书管理器 取ServerName
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetServerName(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_SetServerName 证书管理器 设置ServerName
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetServerName(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr name);
+
+/*
+Java_com_SunnyNet_api_SetInsecureSkipVerify 证书管理器 设置跳过主机验证
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetInsecureSkipVerify(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUint8 b);
+
+/*
+Java_com_SunnyNet_api_LoadX509Certificate 证书管理器 载入X509证书
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_LoadX509Certificate(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr Host, GoUintptr CA, GoUintptr KEY);
+
+/*
+Java_com_SunnyNet_api_LoadX509KeyPair 证书管理器 载入X509证书2
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_LoadX509KeyPair(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr CaPath, GoUintptr KeyPath);
+
+/*
+Java_com_SunnyNet_api_LoadP12Certificate 证书管理器 载入p12证书
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_LoadP12Certificate(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr Name, GoUintptr Password);
+
+/*
+Java_com_SunnyNet_api_RemoveCertificate 释放 证书管理器 对象
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_RemoveCertificate(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_CreateCertificate 创建 证书管理器 对象
+*/
+extern __declspec(dllexport) GoInt64 Java_com_SunnyNet_api_CreateCertificate(GoUintptr envObj, GoUintptr clazz);
+
+/*
+Java_com_SunnyNet_api_HTTPSetH2Config HTTP 客户端 设置HTTP2指纹
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_HTTPSetH2Config(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr config);
+
+/*
+Java_com_SunnyNet_api_HTTPSetRandomTLS HTTP 客户端 设置随机使用TLS指纹
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_HTTPSetRandomTLS(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUint8 RandomTLS);
+
+/*
+Java_com_SunnyNet_api_HTTPSetRedirect HTTP 客户端 设置重定向
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_HTTPSetRedirect(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUint8 Redirect);
+
+/*
+Java_com_SunnyNet_api_HTTPGetCode HTTP 客户端 返回响应状态码
+*/
+extern __declspec(dllexport) GoInt64 Java_com_SunnyNet_api_HTTPGetCode(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_HTTPSetCertManager HTTP 客户端 设置证书管理器
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_HTTPSetCertManager(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoInt64 CertManagerContext);
+
+/*
+Java_com_SunnyNet_api_HTTPGetBody HTTP 客户端 返回响应内容
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_HTTPGetBody(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_HTTPGetHeader HTTP 客户端 返回响应HTTPGetHeader
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_HTTPGetHeader(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr name);
+
+/*
+Java_com_SunnyNet_api_HTTPGetHeads HTTP 客户端 返回响应全部Heads
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_HTTPGetHeads(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_HTTPGetBodyLen HTTP 客户端 返回响应长度
+*/
+extern __declspec(dllexport) GoInt64 Java_com_SunnyNet_api_HTTPGetBodyLen(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_HTTPSendBin HTTP 客户端 发送Body
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_HTTPSendBin(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr body);
+
+/*
+Java_com_SunnyNet_api_HTTPSetTimeouts HTTP 客户端 设置超时 毫秒
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_HTTPSetTimeouts(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoInt64 t1);
+
+/*
+Java_com_SunnyNet_api_HTTPSetProxyIP HTTP 客户端 设置代理IP 仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
+*/
+//
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_HTTPSetProxyIP(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr ProxyUrl);
+
+/*
+Java_com_SunnyNet_api_HTTPSetHeader HTTP 客户端 设置协议头
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_HTTPSetHeader(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr name, GoUintptr value);
+
+/*
+Java_com_SunnyNet_api_HTTPOpen HTTP 客户端 Open
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_HTTPOpen(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr Method, GoUintptr URL);
+
+/*
+Java_com_SunnyNet_api_RemoveHTTPClient 释放 HTTP客户端
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_RemoveHTTPClient(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_CreateHTTPClient 创建 HTTP 客户端
+*/
+extern __declspec(dllexport) GoInt64 Java_com_SunnyNet_api_CreateHTTPClient(GoUintptr envObj, GoUintptr clazz);
+
+/*
+Java_com_SunnyNet_api_JsonToPB JSON格式的protobuf数据转为protobuf二进制数据
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_JsonToPB(GoUintptr envObj, GoUintptr clazz, GoUintptr bin);
+
+/*
+Java_com_SunnyNet_api_PbToJson protobuf数据转为JSON格式
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_PbToJson(GoUintptr envObj, GoUintptr clazz, GoUintptr bin);
+
+/*
+Java_com_SunnyNet_api_QueuePull 队列弹出
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_QueuePull(GoUintptr envObj, GoUintptr clazz, GoUintptr name);
+
+/*
+Java_com_SunnyNet_api_QueuePush 加入队列
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_QueuePush(GoUintptr envObj, GoUintptr clazz, GoUintptr name, GoUintptr val);
+
+/*
+Java_com_SunnyNet_api_QueueLength 取队列长度
+*/
+extern __declspec(dllexport) GoInt64 Java_com_SunnyNet_api_QueueLength(GoUintptr envObj, GoUintptr clazz, GoUintptr name);
+
+/*
+Java_com_SunnyNet_api_QueueRelease 清空销毁队列
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_QueueRelease(GoUintptr envObj, GoUintptr clazz, GoUintptr name);
+
+/*
+Java_com_SunnyNet_api_QueueIsEmpty 队列是否为空
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_QueueIsEmpty(GoUintptr envObj, GoUintptr clazz, GoUintptr name);
+
+/*
+Java_com_SunnyNet_api_CreateQueue 创建队列
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_CreateQueue(GoUintptr envObj, GoUintptr clazz, GoUintptr name);
+
+/*
+Java_com_SunnyNet_api_SocketClientWrite TCP客户端 发送数据
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SocketClientWrite(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoInt64 OutTimes, GoUintptr val);
+
+/*
+Java_com_SunnyNet_api_SocketClientClose TCP客户端 断开连接
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_SocketClientClose(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_SocketClientReceive TCP客户端 同步模式下 接收数据
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_SocketClientReceive(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoInt64 OutTimes);
+
+/*
+Java_com_SunnyNet_api_SocketClientDial TCP客户端 连接
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SocketClientDial(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr addr, GoUintptr call, GoUint8 isTls, GoUint8 synchronous, GoUintptr ProxyUrl, GoInt64 CertificateContext, GoInt64 OutTime);
+
+/*
+Java_com_SunnyNet_api_SocketClientSetBufferSize TCP客户端 置缓冲区大小
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SocketClientSetBufferSize(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoInt64 BufferSize);
+
+/*
+Java_com_SunnyNet_api_SocketClientGetErr TCP客户端 取错误
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_SocketClientGetErr(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_RemoveSocketClient 释放 TCP客户端
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_RemoveSocketClient(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_CreateSocketClient 创建 TCP客户端
+*/
+extern __declspec(dllexport) GoInt64 Java_com_SunnyNet_api_CreateSocketClient(GoUintptr envObj, GoUintptr clazz);
+
+/*
+Java_com_SunnyNet_api_WebsocketClientReceive Websocket客户端 同步模式下 接收数据 返回数据指针 失败返回0 length=返回数据长度
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_WebsocketClientReceive(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoInt64 OutTimes);
+
+/*
+Java_com_SunnyNet_api_WebsocketReadWrite Websocket客户端  发送数据
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_WebsocketReadWrite(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr val, GoInt64 messageType);
+
+/*
+Java_com_SunnyNet_api_WebsocketClose Websocket客户端 断开
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_WebsocketClose(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_WebsocketDial Websocket客户端 连接
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_WebsocketDial(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr URL, GoUintptr Heads, GoUintptr call, GoUint8 synchronous, GoUintptr ProxyUrl, GoInt64 CertificateConText, GoInt64 outTime);
+
+/*
+Java_com_SunnyNet_api_WebsocketGetErr Websocket客户端 获取错误
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_WebsocketGetErr(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_RemoveWebsocket 释放 Websocket客户端 对象
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_RemoveWebsocket(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_CreateWebsocket 创建 Websocket客户端 对象
+*/
+extern __declspec(dllexport) GoInt64 Java_com_SunnyNet_api_CreateWebsocket(GoUintptr envObj, GoUintptr clazz);
+
+/*
+Java_com_SunnyNet_api_AddHttpCertificate 创建 Http证书管理器 对象 实现指定Host使用指定证书
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_AddHttpCertificate(GoUintptr envObj, GoUintptr clazz, GoUintptr host, GoInt64 CertManagerId, GoInt64 Rules);
+
+/*
+Java_com_SunnyNet_api_DelHttpCertificate 删除 Http证书管理器 对象
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_DelHttpCertificate(GoUintptr envObj, GoUintptr clazz, GoUintptr host);
+
+/*
+Java_com_SunnyNet_api_RedisSubscribe Redis 订阅消息
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_RedisSubscribe(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr scribe, GoUintptr call);
+
+/*
+Java_com_SunnyNet_api_RedisDelete Redis 删除
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_RedisDelete(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr key);
+
+/*
+Java_com_SunnyNet_api_RedisFlushDB Redis 清空当前数据库
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_RedisFlushDB(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_RedisFlushAll Redis 清空redis服务器
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_RedisFlushAll(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_RedisClose Redis 关闭
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_RedisClose(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_RedisGetInt Redis 取整数值
+*/
+extern __declspec(dllexport) GoInt64 Java_com_SunnyNet_api_RedisGetInt(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr key);
+
+/*
+Java_com_SunnyNet_api_RedisGetKeys Redis 取指定条件键名
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_RedisGetKeys(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr key);
+
+/*
+Java_com_SunnyNet_api_RedisDo Redis 自定义 执行和查询命令 返回操作结果可能是值 也可能是JSON文本
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_RedisDo(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr args);
+
+/*
+Java_com_SunnyNet_api_RedisGetStr Redis 取文本值
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_RedisGetStr(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr key);
+
+/*
+Java_com_SunnyNet_api_RedisGetBytes Redis 取Bytes值
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_RedisGetBytes(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr key);
+
+/*
+Java_com_SunnyNet_api_RedisExists Redis 检查指定 key 是否存在
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_RedisExists(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr key);
+
+/*
+Java_com_SunnyNet_api_RedisSetNx Redis 设置NX 【如果键名存在返回假】
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_RedisSetNx(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr key, GoUintptr val, GoInt expr);
+
+/*
+Java_com_SunnyNet_api_RedisSet Redis 设置值
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_RedisSet(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr key, GoUintptr val, GoInt64 expr);
+
+/*
+Java_com_SunnyNet_api_RedisSetBytes Redis 设置Bytes值
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_RedisSetBytes(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr key, GoUintptr val, GoInt64 expr);
+
+/*
+Java_com_SunnyNet_api_RedisDial Redis 连接
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_RedisDial(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr host, GoUintptr pass, GoInt64 db, GoInt64 PoolSize, GoInt64 MinIdleCons, GoInt64 DialTimeout, GoInt64 ReadTimeout, GoInt64 WriteTimeout, GoInt64 PoolTimeout, GoInt64 IdleCheckFrequency, GoInt64 IdleTimeout);
+
+/*
+Java_com_SunnyNet_api_RemoveRedis 释放 Redis 对象
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_RemoveRedis(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
+
+/*
+Java_com_SunnyNet_api_CreateRedis 创建 Redis 对象
+*/
+extern __declspec(dllexport) GoInt64 Java_com_SunnyNet_api_CreateRedis(GoUintptr envObj, GoUintptr clazz);
+
+/*
+Java_com_SunnyNet_api_SetUdpData 设置修改UDP数据
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetUdpData(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_GetUdpData 获取UDP数据
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_GetUdpData(GoUintptr envObj, GoUintptr clazz, GoInt64 MessageId);
+
+/*
+Java_com_SunnyNet_api_UdpSendToClient 指定的UDP连接 模拟服务器端向客户端主动发送数据
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_UdpSendToClient(GoUintptr envObj, GoUintptr clazz, GoInt64 theology, GoUintptr data);
+
+/*
+Java_com_SunnyNet_api_UdpSendToServer 指定的UDP连接 模拟客户端向服务器端主动发送数据
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_UdpSendToServer(GoUintptr envObj, GoUintptr clazz, GoInt64 theology, GoUintptr data);
+
+// Java_com_SunnyNet_api_SetScriptCode 加载用户的脚本代码
+//
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_SetScriptCode(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUintptr code);
+
+/*
+Java_com_SunnyNet_api_SetScriptPage  设置脚本编辑器页面 需不少于8个字符
+*/
+extern __declspec(dllexport) GoUintptr Java_com_SunnyNet_api_SetScriptPage(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUintptr Page);
+
+/*
+Java_com_SunnyNet_api_DisableTCP  禁用TCP 仅对当前SunnyContext有效
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_DisableTCP(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUint8 Disable);
+
+/*
+Java_com_SunnyNet_api_DisableUDP  禁用TCP 仅对当前SunnyContext有效
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_DisableUDP(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUint8 Disable);
+
+/*
+Java_com_SunnyNet_api_SetRandomTLS 是否使用随机TLS指纹 仅对当前SunnyContext有效
+*/
+extern __declspec(dllexport) GoUint8 Java_com_SunnyNet_api_SetRandomTLS(GoUintptr envObj, GoUintptr clazz, GoInt64 SunnyContext, GoUint8 open);
+
+/*
+Java_com_SunnyNet_api_SetDnsServer Dns解析服务器 默认:223.5.5.5:853
+*/
+extern __declspec(dllexport) void Java_com_SunnyNet_api_SetDnsServer(GoUintptr envObj, GoUintptr clazz, GoUintptr ServerName);
+extern __declspec(dllexport) GoInt JNI_OnLoad(GoUintptr JavaVM, GoUintptr reserved);
 
 /*
 GetSunnyVersion 获取SunnyNet版本
@@ -207,11 +1072,6 @@ SetRequestAllCookie 修改、设置 HTTP/S当前请求数据中的全部Cookie
 extern __declspec(dllexport) void SetRequestAllCookie(GoInt MessageId, char* val);
 
 /*
-GetHttpServerName 获取HTTP请求远程服务器名称
-*/
-extern __declspec(dllexport) GoUintptr GetHttpServerName(GoInt MessageId);
-
-/*
 GetRequestCookie 获取 HTTP/S当前请求数据中指定的Cookie
 */
 extern __declspec(dllexport) GoUintptr GetRequestCookie(GoInt MessageId, char* name);
@@ -255,11 +1115,6 @@ extern __declspec(dllexport) GoUint8 RandomRequestCipherSuites(GoInt MessageId);
 SetRequestHTTP2Config  设置HTTP 2.0 请求指纹配置 (若服务器支持则使用,若服务器不支持,设置了也不会使用)
 */
 extern __declspec(dllexport) GoUint8 SetRequestHTTP2Config(GoInt MessageId, char* h2Config);
-
-/*
-GetRequestCipherSuites GetRequestCipherSuites 获取请求 CipherSuites
-*/
-extern __declspec(dllexport) GoUintptr GetRequestCipherSuites(GoInt MessageId);
 
 /*
 SetResponseHeader 修改、设置 HTTP/S当前返回数据中的指定协议头
@@ -510,9 +1365,14 @@ WebpToPng Webp图片转Png图片 根据文件名
 extern __declspec(dllexport) GoUint8 WebpToPng(char* webpPath, char* savePath);
 
 /*
-StartProcess 开启进程代理 加载 nf api 驱动
+OpenDrive 开启进程代理/打开驱动
 */
-extern __declspec(dllexport) GoUint8 StartProcess(GoInt SunnyContext);
+extern __declspec(dllexport) GoUint8 OpenDrive(GoInt SunnyContext, GoUint8 isNf);
+
+/*
+UnDrive 卸载驱动，仅Windows 有效【需要管理权限】执行成功后会立即重启系统,若函数执行后没有重启系统表示没有管理员权限
+*/
+extern __declspec(dllexport) void UnDrive(GoInt SunnyContext);
 
 /*
 ProcessAddName 进程代理 添加进程名
@@ -542,7 +1402,7 @@ extern __declspec(dllexport) void ProcessCancelAll(GoInt SunnyContext);
 /*
 ProcessALLName 进程代理 设置是否全部进程通过
 */
-extern __declspec(dllexport) void ProcessALLName(GoInt SunnyContext, GoUint8 open);
+extern __declspec(dllexport) void ProcessALLName(GoInt SunnyContext, GoUint8 open, GoUint8 StopNetwork);
 
 /*
 GetCommonName 证书管理器 获取证书 CommonName 字段
@@ -710,6 +1570,16 @@ CreateKeys GoMap 创建
 extern __declspec(dllexport) GoInt CreateKeys();
 
 /*
+HTTPSetH2Config HTTP 客户端 设置HTTP2指纹
+*/
+extern __declspec(dllexport) GoUint8 HTTPSetH2Config(GoInt Context, char* config);
+
+/*
+HTTPSetRandomTLS HTTP 客户端 设置随机使用TLS指纹
+*/
+extern __declspec(dllexport) GoUint8 HTTPSetRandomTLS(GoInt Context, GoUint8 RandomTLS);
+
+/*
 HTTPSetRedirect HTTP 客户端 设置重定向
 */
 extern __declspec(dllexport) GoUint8 HTTPSetRedirect(GoInt Context, GoUint8 Redirect);
@@ -730,6 +1600,11 @@ HTTPGetBody HTTP 客户端 返回响应内容
 extern __declspec(dllexport) GoUintptr HTTPGetBody(GoInt Context);
 
 /*
+HTTPGetHeader HTTP 客户端 返回响应HTTPGetHeader
+*/
+extern __declspec(dllexport) GoUintptr HTTPGetHeader(GoInt Context, char* name);
+
+/*
 HTTPGetHeads HTTP 客户端 返回响应全部Heads
 */
 extern __declspec(dllexport) GoUintptr HTTPGetHeads(GoInt Context);
@@ -747,13 +1622,13 @@ extern __declspec(dllexport) void HTTPSendBin(GoInt Context, GoUintptr body, GoI
 /*
 HTTPSetTimeouts HTTP 客户端 设置超时 毫秒
 */
-extern __declspec(dllexport) void HTTPSetTimeouts(GoInt Context, GoInt t1, GoInt t2, GoInt t3);
+extern __declspec(dllexport) void HTTPSetTimeouts(GoInt Context, GoInt t1);
 
 /*
 HTTPSetProxyIP HTTP 客户端 设置代理IP 仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
 */
 //
-extern __declspec(dllexport) void HTTPSetProxyIP(GoInt Context, char* ProxyUrl);
+extern __declspec(dllexport) GoUint8 HTTPSetProxyIP(GoInt Context, char* ProxyUrl);
 
 /*
 HTTPSetHeader HTTP 客户端 设置协议头
@@ -764,11 +1639,6 @@ extern __declspec(dllexport) void HTTPSetHeader(GoInt Context, char* name, char*
 HTTPOpen HTTP 客户端 Open
 */
 extern __declspec(dllexport) void HTTPOpen(GoInt Context, char* Method, char* URL);
-
-/*
-HTTPClientGetErr HTTP 客户端 取错误
-*/
-extern __declspec(dllexport) GoUintptr HTTPClientGetErr(GoInt Context);
 
 /*
 RemoveHTTPClient 释放 HTTP客户端
@@ -838,7 +1708,7 @@ extern __declspec(dllexport) GoUintptr SocketClientReceive(GoInt Context, GoInt 
 /*
 SocketClientDial TCP客户端 连接
 */
-extern __declspec(dllexport) GoUint8 SocketClientDial(GoInt Context, char* addr, GoInt call, GoUint8 isTls, GoUint8 synchronous, char* ProxyUrl, GoInt CertificateConText, GoInt ProxyOutTime);
+extern __declspec(dllexport) GoUint8 SocketClientDial(GoInt Context, char* addr, GoInt call, GoUint8 isTls, GoUint8 synchronous, char* ProxyUrl, GoInt CertificateConText, GoInt OutTime);
 
 /*
 SocketClientSetBufferSize TCP客户端 置缓冲区大小
@@ -1029,14 +1899,9 @@ DisableTCP  禁用TCP 仅对当前SunnyContext有效
 extern __declspec(dllexport) GoUint8 DisableTCP(GoInt SunnyContext, GoUint8 Disable);
 
 /*
-SetRandomFixedTLS  禁用TCP 仅对当前SunnyContext有效
+DisableUDP  禁用TCP 仅对当前SunnyContext有效
 */
-extern __declspec(dllexport) GoUint8 SetRandomFixedTLS(GoInt SunnyContext, GoUintptr data, GoInt len);
-
-/*
-RandomFixedTLSGet  随机生成一个密码套件
-*/
-extern __declspec(dllexport) GoUintptr RandomFixedTLSGet(GoInt SunnyContext);
+extern __declspec(dllexport) GoUint8 DisableUDP(GoInt SunnyContext, GoUint8 Disable);
 
 /*
 SetRandomTLS 是否使用随机TLS指纹 仅对当前SunnyContext有效

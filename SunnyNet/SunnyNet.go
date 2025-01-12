@@ -25,18 +25,14 @@ import (
 	"github.com/qtgolang/SunnyNet/src/websocket"
 	"io"
 	"io/ioutil"
-	mrand "math/rand"
 	"net"
 	"net/url"
-	"os"
-	"os/exec"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 	"unsafe"
 )
@@ -176,31 +172,30 @@ func (s *TargetInfo) String() string {
 
 // 请求信息
 type proxyRequest struct {
-	Conn          net.Conn                         //请求的原始TCP连接
-	RwObj         *ReadWriteObject.ReadWriteObject //读写对象
-	Theology      int                              //中间件回调唯一ID
-	Target        *TargetInfo                      //目标连接信息
-	ProxyHost     string                           //请求之上的代理
-	Pid           string                           //s5连接过来的pid
-	Global        *Sunny                           //继承全局中间件信息
-	Request       *http.Request                    //要发送的请求体
-	Response      response                         //HTTP响应体
-	TCP           public.TCP                       //TCP收发数据
-	Websocket     *public.WebsocketMsg             //Websocket会话
-	Proxy         *SunnyProxy.Proxy                //设置指定代理
-	HttpCall      int                              //http 请求回调地址
-	TcpCall       int                              //TCP请求回调地址
-	wsCall        int                              //ws回调地址
-	HttpGoCall    func(ConnHTTP)                   //http 请求回调地址
-	TcpGoCall     func(ConnTCP)                    //TCP请求回调地址
-	wsGoCall      func(ConnWebSocket)              //ws回调地址
-	NoRepairHttp  bool                             //不要纠正Http
-	Lock          sync.Mutex
-	defaultScheme string
-	SendTimeout   time.Duration
-	TlsConfig     *tls.Config
-	_Display      bool //是否允许显示到列表，也就是是否调用Call
-	ServerName    string
+	Conn                  net.Conn                         //请求的原始TCP连接
+	RwObj                 *ReadWriteObject.ReadWriteObject //读写对象
+	Theology              int                              //中间件回调唯一ID
+	Target                *TargetInfo                      //目标连接信息
+	ProxyHost             string                           //请求之上的代理
+	Pid                   string                           //s5连接过来的pid
+	Global                *Sunny                           //继承全局中间件信息
+	Request               *http.Request                    //要发送的请求体
+	Response              response                         //HTTP响应体
+	TCP                   public.TCP                       //TCP收发数据
+	Proxy                 *SunnyProxy.Proxy                //设置指定代理
+	HttpCall              int                              //http 请求回调地址
+	TcpCall               int                              //TCP请求回调地址
+	wsCall                int                              //ws回调地址
+	HttpGoCall            func(ConnHTTP)                   //http 请求回调地址
+	TcpGoCall             func(ConnTCP)                    //TCP请求回调地址
+	wsGoCall              func(ConnWebSocket)              //ws回调地址
+	NoRepairHttp          bool                             //不要纠正Http
+	Lock                  sync.Mutex
+	defaultScheme         string
+	SendTimeout           time.Duration
+	TlsConfig             *tls.Config
+	_Display              bool //是否允许显示到列表，也就是是否调用Call
+	_isRandomCipherSuites bool
 }
 
 var sUser = make(map[int]string)
@@ -768,147 +763,6 @@ func (s *proxyRequest) TcpCallback(RemoteTCP *net.Conn, Tag string, tw *ReadWrit
 	return false
 }
 
-// ConnRead
-// 从缓冲区读取字节流
-// Dosage 如果为true 多读取一会
-func (s *proxyRequest) ConnRead(aheadData []byte, Dosage bool) (rs []byte, WhetherExceedsLength bool) {
-	var st bytes.Buffer
-	st.Write(aheadData)
-	length := 512
-	bs := make([]byte, length)
-	var last []byte
-	i := 0
-	_ = s.Conn.SetWriteDeadline(time.Now().Add(1000 * time.Millisecond))
-	_ = s.Conn.SetReadDeadline(time.Now().Add(1000 * time.Millisecond))
-	_ = s.Conn.SetDeadline(time.Now().Add(1000 * time.Millisecond))
-	cLength := 0
-	var cmp = make(map[int]int)
-	defer func() {
-		_ = s.Conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
-		_ = s.Conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-		_ = s.Conn.SetDeadline(time.Now().Add(30 * time.Second))
-		for k, _ := range cmp {
-			delete(cmp, k)
-		}
-		cmp = nil
-		bs = make([]byte, 0)
-		bs = nil
-		st.Reset()
-	}()
-	kl := 10
-	if Dosage {
-		kl = kl * 10
-	}
-	var NoHttpRequest = true
-	var eRequest = errors.New("No http Request ")
-	var Method = public.Nulls
-	//验证HTTP请求体
-	//islet=是否有 HTTP Body 长度
-	//ok 是否验证成功
-	//bodyLen 已出Body长度
-	//isHttpRequest 是否HTTP请求
-	var islet, ok, isHttpRequest bool
-	var bodyLen, ContentLength int
-	for {
-		sx, e := s.RwObj.Read(bs)
-		//2024-01-20 之前版本的代码
-		/*
-			if !NoHttpRequest {
-				for n := 0; n < sx; n++ {
-					if bs[n] < 9 || bs[n] == 11 || bs[n] == 12 || (bs[n] >= 14 && bs[n] < 21) {
-						NoHttpRequest = true
-						break
-					}
-				}
-			}
-		*/
-		st.Write(bs[0:sx])
-		//-----------------------------------------
-		//----  下面是2024-01-20 修改的代码 ----------
-		bsm := st.Bytes()
-		if NoHttpRequest {
-			_index := bytes.Index(bsm, []byte("\r\n\r\n"))
-			if _index > 11 {
-				va := bsm[0:_index]
-				if public.IsHttpMethod(public.GetMethod(va)) {
-					NoHttpRequest = false
-				}
-			}
-		}
-		//-----------------------------------------
-		if NoHttpRequest {
-			e = eRequest
-		}
-		if e != nil {
-			if st.Len() < length {
-				islet, ok, bodyLen, ContentLength, isHttpRequest = public.LegitimateRequest(st.Bytes())
-				if !islet && !isHttpRequest {
-					// 如果已读入字节数 小于 512 并且 超过 10次 已读入数没有变动，那么直接返回
-					cmp[st.Len()]++
-					if cmp[st.Len()] >= kl || NoHttpRequest {
-						bs = make([]byte, 0)
-						last = public.CopyBytes(st.Bytes())
-						if last == nil {
-							last = []byte{}
-						}
-						_ = s.Conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-						return last, false
-					} else {
-						_ = s.Conn.SetReadDeadline(time.Now().Add(3 * time.Millisecond))
-						continue
-					}
-				}
-			}
-			//如果错误是超时那么进行判断 如果不是超时 那么直接返回
-			if strings.Index(e.Error(), public.Timeout) != -1 || NoHttpRequest {
-				if NoHttpRequest && Method != public.Nulls {
-					Method = public.GetMethod(st.Bytes())
-					if Method == public.NULL {
-						last = public.CopyBytes(st.Bytes())
-						break
-					}
-				}
-				i++
-				islet, ok, bodyLen, ContentLength, isHttpRequest = public.LegitimateRequest(st.Bytes())
-				if ContentLength > int(s.Global._http_max_body_len) {
-					last = public.CopyBytes(st.Bytes())
-					return last, true
-				}
-				if ok == false {
-					//Body中没有长度
-					if islet == false {
-						_ = s.Conn.SetReadDeadline(time.Now().Add(300 * time.Millisecond))
-						//验证失败
-						if st.Len() < length {
-							if i < 10 {
-								continue
-							}
-						} else if i < 15 {
-							continue
-						}
-					} else {
-						_ = s.Conn.SetReadDeadline(time.Now().Add(3 * time.Millisecond))
-						if cLength == bodyLen {
-							if i < 1000 {
-								continue
-							}
-						} else {
-							cLength = bodyLen
-							i--
-							continue
-						}
-					}
-				}
-			}
-			last = public.CopyBytes(st.Bytes())
-			break
-		} else {
-			_ = s.Conn.SetReadDeadline(time.Now().Add(3 * time.Millisecond))
-		}
-	}
-	return last, false
-}
-
 // transparentProcessing 透明代理请求 处理过程
 func (s *proxyRequest) transparentProcessing() {
 	//将数据全部取出，稍后重新放进去
@@ -951,7 +805,6 @@ func (s *proxyRequest) transparentProcessing() {
 			s.RwObj = ReadWriteObject.NewReadWriteObject(T) //重新包装读写对象
 			//开始按照HTTP请求流程处理
 			s.TlsConfig = cfg
-			s.ServerName = s.Target.Host
 			s.httpProcessing(nil, public.TagTcpSSLAgreement)
 		}
 	} else {
@@ -991,51 +844,60 @@ func (s *proxyRequest) httpProcessing(aheadData []byte, Tag string) {
 }
 
 func (s *proxyRequest) isCerDownloadPage(request *http.Request) bool {
-	if s.isLoop() {
-		if request.URL != nil {
-			defer func() { _ = s.Conn.Close() }()
-			if request.URL.Path == "/favicon.ico" {
-				_, _ = s.RwObj.Write(public.LocalBuildBody("image/x-icon", Resource.Icon))
-				return true
-			}
-
-			if request.URL.Path == "/" || request.URL.Path == "/ssl" || request.URL.Path == public.NULL {
-				_, _ = s.RwObj.Write(public.LocalBuildBody("text/html", `<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>证书安装</title></head><body style="font-family: arial,sans-serif;"><h1>[SunnyNet网络中间件] 证书安装</h1><br /><ul><li>您可以下载 <a href="SunnyRoot.cer">SunnyRoot 证书</a></ul><ul><li>您也可以 <a href="install.html">查看证书安装教程</a></ul></body></html>`))
-				return true
-			}
-			if request.URL.Path == "/SunnyRoot.cer" || request.URL.Path == "SunnyRoot.cer" {
-				_, _ = s.RwObj.Write(public.LocalBuildBody("application/x-x509-ca-cert", s.Global.ExportCert()))
-				return true
-			}
-			if request.URL.Path == "/install.html" || request.URL.Path == "install.html" {
-				bs := bytes.ReplaceAll(Resource.FrontendIndex, []byte(`/assets/index`), []byte(`install/assets/index`))
-				_, _ = s.RwObj.Write(public.LocalBuildBody("text/html", bs))
-				return true
-			}
-			if strings.HasPrefix(request.URL.Path, "/install/assets/") || strings.HasPrefix(request.URL.Path, "install/assets/") {
-				data, err := Resource.ReadVueFile(strings.ReplaceAll(request.URL.Path, "/install/", ""))
-				if err == nil {
-					_FileType := strings.ToLower(request.URL.Path)
-					_, _ = s.RwObj.WriteString("HTTP/1.1 200 OK\r\nCache-Control: no-cache, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\nContent-Length: ")
-					if strings.HasSuffix(_FileType, ".css") {
-						mData := bytes.ReplaceAll(data, []byte("url(/assets/codicon"), []byte(strings.ReplaceAll("url("+"install/assets/codicon", "//", "/")))
-						data = mData
-						_, _ = s.RwObj.WriteString(fmt.Sprintf("%d\r\nContent-Type:  text/css\r\n\r\n", len(data)))
-					}
-					if strings.HasSuffix(_FileType, ".js") {
-						_, _ = s.RwObj.WriteString(fmt.Sprintf("%d\r\nContent-Type:  application/x-javascript\r\n\r\n", len(data)))
-					}
-					if strings.HasSuffix(_FileType, ".ttf") {
-						_, _ = s.RwObj.WriteString(fmt.Sprintf("%d\r\nContent-Type:  application/application/x-font-ttf\r\n\r\n", len(data)))
-					}
-					_, _ = s.RwObj.Write(data)
-					return true
+	i := int(s.Target.Port)
+	if (s.Target.Host == "localhost" && i == s.Global.port) || (s.Target.Host == "127.0.0.1" && i == s.Global.port) || (s.Target.Host == public.CertDownloadHost2) || (s.Target.Host == public.CertDownloadHost1) || s.isLoop() {
+		if request != nil {
+			if request.Header != nil {
+				if request.Header.Get(public.HTTPClientTags) == "true" {
+					request.Header.Del(public.HTTPClientTags)
+					return false
 				}
 			}
-			if !s.isUserScriptCodeEditRequest(request) {
-				_, _ = s.RwObj.Write(public.LocalBuildBody("text/html", "404 Not Found"))
+			if request.URL != nil {
+				defer func() { _ = s.Conn.Close() }()
+				if request.URL.Path == "/favicon.ico" {
+					_, _ = s.RwObj.Write(public.LocalBuildBody("image/x-icon", Resource.Icon))
+					return true
+				}
+
+				if request.URL.Path == "/" || request.URL.Path == "/ssl" || request.URL.Path == public.NULL {
+					_, _ = s.RwObj.Write(public.LocalBuildBody("text/html", `<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>证书安装</title></head><body style="font-family: arial,sans-serif;"><h1>[SunnyNet网络中间件] 证书安装</h1><br /><ul><li>您可以下载 <a href="SunnyRoot.cer">SunnyRoot 证书</a></ul><ul><li>您也可以 <a href="install.html">查看证书安装教程</a></ul></body></html>`))
+					return true
+				}
+				if request.URL.Path == "/SunnyRoot.cer" || request.URL.Path == "SunnyRoot.cer" {
+					_, _ = s.RwObj.Write(public.LocalBuildBody("application/x-x509-ca-cert", s.Global.ExportCert()))
+					return true
+				}
+				if request.URL.Path == "/install.html" || request.URL.Path == "install.html" {
+					bs := bytes.ReplaceAll(Resource.FrontendIndex, []byte(`/assets/index`), []byte(`install/assets/index`))
+					_, _ = s.RwObj.Write(public.LocalBuildBody("text/html", bs))
+					return true
+				}
+				if strings.HasPrefix(request.URL.Path, "/install/assets/") || strings.HasPrefix(request.URL.Path, "install/assets/") {
+					data, err := Resource.ReadVueFile(strings.ReplaceAll(request.URL.Path, "/install/", ""))
+					if err == nil {
+						_FileType := strings.ToLower(request.URL.Path)
+						_, _ = s.RwObj.WriteString("HTTP/1.1 200 OK\r\nCache-Control: no-cache, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\nContent-Length: ")
+						if strings.HasSuffix(_FileType, ".css") {
+							mData := bytes.ReplaceAll(data, []byte("url(/assets/codicon"), []byte(strings.ReplaceAll("url("+"install/assets/codicon", "//", "/")))
+							data = mData
+							_, _ = s.RwObj.WriteString(fmt.Sprintf("%d\r\nContent-Type:  text/css\r\n\r\n", len(data)))
+						}
+						if strings.HasSuffix(_FileType, ".js") {
+							_, _ = s.RwObj.WriteString(fmt.Sprintf("%d\r\nContent-Type:  application/x-javascript\r\n\r\n", len(data)))
+						}
+						if strings.HasSuffix(_FileType, ".ttf") {
+							_, _ = s.RwObj.WriteString(fmt.Sprintf("%d\r\nContent-Type:  application/application/x-font-ttf\r\n\r\n", len(data)))
+						}
+						_, _ = s.RwObj.Write(data)
+						return true
+					}
+				}
+				if !s.isUserScriptCodeEditRequest(request) {
+					_, _ = s.RwObj.Write(public.LocalBuildBody("text/html", "404 Not Found"))
+				}
+				return true
 			}
-			return true
 		}
 	}
 	return false
@@ -1096,10 +958,11 @@ func (s *proxyRequest) doRequest() error {
 	var n net.Conn
 	var err error
 	var Close func()
-	do, n, err, Close = httpClient.Do(s.Request, s.Proxy, false, s.TlsConfig, s.SendTimeout, s.Global.GetTLSValues)
+	do, n, err, Close = httpClient.Do(s.Request, s.Proxy, false, s.TlsConfig, s.SendTimeout, s.getTLSValues)
 	s.Response.Conn = n
-	if n != nil {
-		s.Response.ServerIP = n.RemoteAddr().String()
+	ip, _ := s.Request.Context().Value(public.SunnyNetServerIpTags).(string)
+	if ip != "" {
+		s.Response.ServerIP = ip
 	} else {
 		s.Response.ServerIP = "unknown"
 	}
@@ -1118,9 +981,8 @@ func (s *proxyRequest) sendHttps(req *http.Request) {
 }
 
 func (s *proxyRequest) https() {
-	s.ServerName = s.Target.Host
 	//判断有没有连接信息，没有连接地址信息就直接返回
-	if s.ServerName == public.NULL || s.Target.Port < 1 {
+	if s.Target.Host == public.NULL || s.Target.Port < 1 {
 		return
 	}
 	//是否开启了强制走TCP
@@ -1176,7 +1038,6 @@ func (s *proxyRequest) https() {
 			}
 			name := ""
 			if serverName != "" {
-				s.ServerName = serverName
 				name = fmt.Sprintf("%s:%d", serverName, s.Target.Port)
 			}
 			var certificate *tls.Certificate
@@ -1196,10 +1057,11 @@ func (s *proxyRequest) https() {
 				s.MustTcpProcessing(public.TagMustTCP)
 				return
 			}
+			ServerName := s.Target.String()
 			for _, v := range DNSNames {
 				if ip := net.ParseIP(v); ip == nil {
 					if !strings.Contains(v, "*") {
-						s.ServerName = v
+						ServerName = v
 						//s.Target.Parse(v, 0)
 					}
 				}
@@ -1208,7 +1070,7 @@ func (s *proxyRequest) https() {
 				err = noHttps
 			} else {
 				tlsConfig.Certificates = []tls.Certificate{*certificate}
-				tlsConfig.ServerName = s.ServerName
+				tlsConfig.ServerName = ServerName
 				tlsConfig.InsecureSkipVerify = true
 				//继续握手
 				err = tlsConn.ServerHandshake(HelloMsg)
@@ -1313,6 +1175,12 @@ func (s *proxyRequest) handleWss() bool {
 		}
 		//发送请求
 		Server, r, er := dialer.ConnDialContext(s.Request, s.Proxy)
+		ip, _ := s.Request.Context().Value(public.SunnyNetServerIpTags).(string)
+		if ip != "" {
+			s.Response.ServerIP = ip
+		} else {
+			s.Response.ServerIP = "unknown"
+		}
 		s.Response.Response = r
 		defer func() {
 			if Server != nil {
@@ -1324,6 +1192,7 @@ func (s *proxyRequest) handleWss() bool {
 			s.Error(er, true)
 			return true
 		}
+		s.Response.ServerIP = Server.RemoteAddr().String()
 		_ = s.Conn.SetDeadline(time.Time{})
 		//通知http请求完成回调
 		s.CallbackBeforeResponse()
@@ -1341,21 +1210,88 @@ func (s *proxyRequest) handleWss() bool {
 		var sc sync.Mutex
 		var wg sync.WaitGroup
 		wg.Add(1)
-
-		s.Websocket = &public.WebsocketMsg{Mt: 255, Server: Server, Client: Client, Sync: &sc}
-		messageIdLock.Lock()
-		httpStorage[s.Theology] = s
-		messageIdLock.Unlock()
 		//开始转发消息
 		receive := func() {
 			as := &public.WebsocketMsg{Mt: 255, Server: Server, Client: Client, Sync: &sc}
 			MessageId := 0
+			Server.SetCloseHandler(func(code int, text string) error {
+				message := websocket.FormatCloseMessage(code, text)
+				as1 := &public.WebsocketMsg{Mt: websocket.CloseMessage, Server: Server, Client: Client, Sync: &sc}
+				as1.Data.Write(message)
+				//构造一个新的MessageId
+				MessageId1 := NewMessageId()
+				//储存对象
+				messageIdLock.Lock()
+				wsStorage[MessageId1] = as1
+				httpStorage[MessageId1] = s
+				messageIdLock.Unlock()
+				defer func() {
+					as1.Data.Reset()
+					messageIdLock.Lock()
+					wsStorage[MessageId1] = nil
+					delete(wsStorage, MessageId1)
+					httpStorage[MessageId1] = nil
+					delete(httpStorage, MessageId1)
+					messageIdLock.Unlock()
+				}()
+				s.CallbackWssRequest(public.WebsocketServerSend, Method, Url, as1, MessageId1)
+				_ = Client.WriteControl(websocket.CloseMessage, as1.Data.Bytes(), time.Now().Add(time.Second*30))
+				return nil
+			})
+			Server.SetPingHandler(func(appData []byte) error {
+				as1 := &public.WebsocketMsg{Mt: websocket.PingMessage, Server: Server, Client: Client, Sync: &sc}
+				as1.Data.Write(appData)
+				//构造一个新的MessageId
+				MessageId1 := NewMessageId()
+				//储存对象
+				messageIdLock.Lock()
+				wsStorage[MessageId1] = as1
+				httpStorage[MessageId1] = s
+				messageIdLock.Unlock()
+				defer func() {
+					as1.Data.Reset()
+					messageIdLock.Lock()
+					wsStorage[MessageId1] = nil
+					delete(wsStorage, MessageId1)
+					httpStorage[MessageId1] = nil
+					delete(httpStorage, MessageId1)
+					messageIdLock.Unlock()
+				}()
+				s.CallbackWssRequest(public.WebsocketServerSend, Method, Url, as1, MessageId1)
+				_ = Client.WriteMessage(websocket.PingMessage, as1.Data.Bytes())
+				return nil
+			})
+			Server.SetPongHandler(func(appData []byte) error {
+				as1 := &public.WebsocketMsg{Mt: websocket.PongMessage, Server: Server, Client: Client, Sync: &sc}
+				as1.Data.Write(appData)
+				//构造一个新的MessageId
+				MessageId1 := NewMessageId()
+				//储存对象
+				messageIdLock.Lock()
+				wsStorage[MessageId1] = as1
+				httpStorage[MessageId] = s
+				messageIdLock.Unlock()
+				defer func() {
+					as1.Data.Reset()
+					messageIdLock.Lock()
+					wsStorage[MessageId1] = nil
+					delete(wsStorage, MessageId1)
+					httpStorage[MessageId1] = nil
+					delete(httpStorage, MessageId1)
+					messageIdLock.Unlock()
+				}()
+				s.CallbackWssRequest(public.WebsocketServerSend, Method, Url, as1, MessageId1)
+				_ = Client.WriteMessage(websocket.PongMessage, as1.Data.Bytes())
+				return nil
+			})
 			for {
 				{
 					//清除上次的 MessageId
 					messageIdLock.Lock()
 					wsStorage[MessageId] = nil
 					delete(wsStorage, MessageId)
+					httpStorage[MessageId] = nil
+					delete(httpStorage, MessageId)
 					messageIdLock.Unlock()
 
 					//构造一个新的MessageId
@@ -1363,6 +1299,7 @@ func (s *proxyRequest) handleWss() bool {
 
 					//储存对象
 					messageIdLock.Lock()
+					httpStorage[MessageId] = s
 					wsStorage[MessageId] = as
 					messageIdLock.Unlock()
 				}
@@ -1386,22 +1323,103 @@ func (s *proxyRequest) handleWss() bool {
 			messageIdLock.Lock()
 			wsStorage[MessageId] = nil
 			delete(wsStorage, MessageId)
+			httpStorage[MessageId] = nil
+			delete(httpStorage, MessageId)
 			messageIdLock.Unlock()
+			_ = Client.Close()
+			_ = Server.Close()
 			wg.Done()
 		}
 		as := &public.WebsocketMsg{Mt: 255, Server: Server, Client: Client, Sync: &sc}
 		MessageId := NewMessageId()
 		messageIdLock.Lock()
 		wsStorage[MessageId] = as
+		httpStorage[MessageId] = s
+		wsClientStorage[s.Theology] = as
 		messageIdLock.Unlock()
 		s.CallbackWssRequest(public.WebsocketConnectionOK, Method, Url, as, MessageId)
 		go receive()
+
+		// Client > Server
+		Client.SetCloseHandler(func(code int, text string) error {
+			message := websocket.FormatCloseMessage(code, text)
+			as1 := &public.WebsocketMsg{Mt: websocket.CloseMessage, Server: Server, Client: Client, Sync: &sc}
+			as1.Data.Write(message)
+			//构造一个新的MessageId
+			MessageId1 := NewMessageId()
+			//储存对象
+			messageIdLock.Lock()
+			wsStorage[MessageId1] = as1
+			httpStorage[MessageId1] = s
+			messageIdLock.Unlock()
+			defer func() {
+				as1.Data.Reset()
+				messageIdLock.Lock()
+				wsStorage[MessageId1] = nil
+				delete(wsStorage, MessageId1)
+				httpStorage[MessageId1] = nil
+				delete(httpStorage, MessageId1)
+				messageIdLock.Unlock()
+			}()
+			s.CallbackWssRequest(public.WebsocketUserSend, Method, Url, as1, MessageId1)
+			_ = Server.WriteControl(websocket.CloseMessage, as1.Data.Bytes(), time.Now().Add(time.Second*30))
+			return nil
+		})
+		Client.SetPingHandler(func(appData []byte) error {
+			as1 := &public.WebsocketMsg{Mt: websocket.PingMessage, Server: Server, Client: Client, Sync: &sc}
+			as1.Data.Write(appData)
+			//构造一个新的MessageId
+			MessageId1 := NewMessageId()
+			//储存对象
+			messageIdLock.Lock()
+			wsStorage[MessageId1] = as1
+			httpStorage[MessageId1] = s
+			messageIdLock.Unlock()
+			defer func() {
+				as1.Data.Reset()
+				messageIdLock.Lock()
+				wsStorage[MessageId1] = nil
+				delete(wsStorage, MessageId1)
+				httpStorage[MessageId1] = nil
+				delete(httpStorage, MessageId1)
+				messageIdLock.Unlock()
+			}()
+			s.CallbackWssRequest(public.WebsocketUserSend, Method, Url, as1, MessageId1)
+			_ = Server.WriteMessage(websocket.PingMessage, as1.Data.Bytes())
+			return nil
+		})
+		Client.SetPongHandler(func(appData []byte) error {
+			as1 := &public.WebsocketMsg{Mt: websocket.PongMessage, Server: Server, Client: Client, Sync: &sc}
+			as1.Data.Write(appData)
+			//构造一个新的MessageId
+			MessageId1 := NewMessageId()
+			//储存对象
+			messageIdLock.Lock()
+			wsStorage[MessageId1] = as1
+			httpStorage[MessageId1] = s
+			messageIdLock.Unlock()
+			defer func() {
+				as1.Data.Reset()
+				messageIdLock.Lock()
+				wsStorage[MessageId1] = nil
+				delete(wsStorage, MessageId1)
+				httpStorage[MessageId1] = nil
+				delete(httpStorage, MessageId1)
+				messageIdLock.Unlock()
+			}()
+			s.CallbackWssRequest(public.WebsocketUserSend, Method, Url, as1, MessageId1)
+			_ = Server.WriteMessage(websocket.PongMessage, as1.Data.Bytes())
+			return nil
+		})
+
 		for {
 			{
 				//清除上次的 MessageId
 				messageIdLock.Lock()
 				wsStorage[MessageId] = nil
 				delete(wsStorage, MessageId)
+				httpStorage[MessageId] = nil
+				delete(httpStorage, MessageId)
 				messageIdLock.Unlock()
 
 				//构造一个新的MessageId
@@ -1410,6 +1428,7 @@ func (s *proxyRequest) handleWss() bool {
 				//储存对象
 				messageIdLock.Lock()
 				wsStorage[MessageId] = as
+				httpStorage[MessageId] = s
 				messageIdLock.Unlock()
 			}
 			as.Data.Reset()
@@ -1417,6 +1436,8 @@ func (s *proxyRequest) handleWss() bool {
 			as.Data.Write(message1)
 			as.Mt = mt
 			if err != nil {
+				_ = Client.Close()
+				_ = Server.Close()
 				as.Data.Reset()
 				s.CallbackWssRequest(public.WebsocketDisconnect, Method, Url, as, MessageId)
 				break
@@ -1426,6 +1447,8 @@ func (s *proxyRequest) handleWss() bool {
 			err = Server.WriteMessage(as.Mt, as.Data.Bytes())
 			sc.Unlock()
 			if err != nil {
+				_ = Client.Close()
+				_ = Server.Close()
 				as.Data.Reset()
 				s.CallbackWssRequest(public.WebsocketDisconnect, Method, Url, as, MessageId)
 				break
@@ -1433,10 +1456,16 @@ func (s *proxyRequest) handleWss() bool {
 		}
 		wg.Wait()
 		messageIdLock.Lock()
+
 		wsStorage[MessageId] = nil
 		delete(wsStorage, MessageId)
-		httpStorage[s.Theology] = nil
-		delete(httpStorage, s.Theology)
+
+		httpStorage[MessageId] = nil
+		delete(httpStorage, MessageId)
+
+		wsClientStorage[s.Theology] = nil
+		delete(wsClientStorage, s.Theology)
+
 		messageIdLock.Unlock()
 		return true
 	}
@@ -1550,7 +1579,7 @@ func (s *proxyRequest) CompleteRequest(req *http.Request) {
 			if s.TlsConfig == nil {
 				s.TlsConfig = &tls.Config{InsecureSkipVerify: true}
 			}
-			tv := s.Global.GetTLSValues()
+			tv := s.getTLSValues()
 			if len(tv) > 0 {
 				s.TlsConfig.CipherSuites = tv
 			}
@@ -1598,6 +1627,7 @@ func (s *proxyRequest) CompleteRequest(req *http.Request) {
 	//为了保证在请求完成时,还能获取到到请求的提交信息,先备份数据
 	bakBytes := s.Request.GetData()
 	err := s.doRequest()
+
 	//为了保证在请求完成时,还能获取到到请求的提交信息,这里还原数据
 	s.Request.SetData(bakBytes)
 	defer func() {
@@ -1607,31 +1637,18 @@ func (s *proxyRequest) CompleteRequest(req *http.Request) {
 	}()
 	if err != nil || s.Response.Response == nil {
 		if s.Response.Response == nil && err == nil {
-			err = errors.New("[Sunny]No data obtained")
+			err = errors.New("No data obtained. ")
 		}
 		s.Error(err, true)
 		return
 	}
 
 	if s.Response.Header == nil {
-		err = errors.New("[Sunny]Response.Header=null")
+		err = errors.New("Response.Header=null")
 		s.Error(err, true)
 		return
 	}
 	Length, _ := strconv.Atoi(s.Response.Header.Get("Content-Length"))
-	if Length < 1 {
-		if s.Response.Header != nil {
-			for k, v := range s.Response.Header {
-				ks := strings.ToUpper(k)
-				if ks == "CONTENT-LENGTH" {
-					if len(v) > 0 {
-						Length, _ = strconv.Atoi(v[0])
-						break
-					}
-				}
-			}
-		}
-	}
 	Method := ""
 	if req != nil {
 		Method = req.Method
@@ -1944,6 +1961,7 @@ func resize(slice []byte, newLength int) []byte {
 // Sunny  请使用 NewSunny 方法 请不要直接构造
 type Sunny struct {
 	disableTCP            bool                //禁止TCP连接
+	disableUDP            bool                //禁止TCP连接
 	certificates          []byte              //CA证书原始数据
 	rootCa                *x509.Certificate   //中间件CA证书
 	rootKey               *rsa.PrivateKey     // 证书私钥
@@ -1972,11 +1990,9 @@ type Sunny struct {
 	mustTcpRulesAllow     bool                // true 表示 mustTcpRegexp 规则内的强制走TCP，反之不在规则内的强制都TCP
 	isRun                 bool                //是否在运行中
 	SunnyContext          int
-	fixedTLS              []uint16 //固定的TLS指纹
-	isRandomTLS           bool     //是否随机使用TLS指纹
-	randomTLSValue        []uint16 //tls 指纹选项合集
-	userScriptCode        []byte   //用户脚本代码
-	_http_max_body_len    int64    //最大的用户提交数据长度
+	isRandomTLS           bool   //是否随机使用TLS指纹
+	userScriptCode        []byte //用户脚本代码
+	_http_max_body_len    int64  //最大的用户提交数据长度
 	script                struct {
 		http         GoScriptCode.GoScriptTypeHTTP  //脚本代码	HTTP		事件入口函数
 		tcp          GoScriptCode.GoScriptTypeTCP   //脚本代码	TCP			事件入口函数
@@ -1988,16 +2004,6 @@ type Sunny struct {
 	}
 }
 
-func (s *Sunny) TcpRulesString() string {
-	if s.isMustTcp {
-		return "当前强制所有走TCP"
-	}
-	if s.mustTcpRulesAllow {
-		return "规则内的-强制走TCP：" + s.mustTcpRegexp.String()
-	} else {
-		return "规则内的-不走TCP：" + s.mustTcpRegexp.String()
-	}
-}
 func (s *Sunny) scriptHTTPCall(arg Interface.ConnHTTPScriptCall) {
 	s.lock.Lock()
 	_call := s.script.http
@@ -2061,60 +2067,6 @@ func (s *Sunny) SetRandomTLS(open bool) {
 	}
 	s.lock.Lock()
 	s.isRandomTLS = open
-	s.fixedTLS = nil
-	s.lock.Unlock()
-}
-
-// GetTLSValues 获取固定的TLS指纹列表或随机TLS指纹列表,如果未开启使用随机TLS指纹,并且未设置固定TLS指纹,则返回nil
-func (s *Sunny) GetTLSValues() []uint16 {
-	if s == nil {
-		return nil
-	}
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	if !s.isRandomTLS {
-		if len(s.fixedTLS) > 0 {
-			return s.fixedTLS
-		}
-		return nil
-	}
-	n := mrand.Intn(public.RandomTLSValueArrayLen) + 1
-	for i := public.RandomTLSValueArrayLen - 1; i > 0; i-- {
-		j := mrand.Intn(i + 1)
-		s.randomTLSValue[i], s.randomTLSValue[j] = s.randomTLSValue[j], s.randomTLSValue[i]
-	}
-	shuffledArray := make([]uint16, n)
-	copy(shuffledArray, s.randomTLSValue[:n])
-	return shuffledArray
-}
-
-// GetTLSTestValues 随机生成一个TLS指纹列表
-func (s *Sunny) GetTLSTestValues() []uint16 {
-	if s == nil {
-		return nil
-	}
-	s.lock.Lock()
-	n := mrand.Intn(public.RandomTLSValueArrayLen) + 1
-	for i := public.RandomTLSValueArrayLen - 1; i > 0; i-- {
-		j := mrand.Intn(i + 1)
-		s.randomTLSValue[i], s.randomTLSValue[j] = s.randomTLSValue[j], s.randomTLSValue[i]
-	}
-	shuffledArray := make([]uint16, n)
-	copy(shuffledArray, s.randomTLSValue[:n])
-	s.lock.Unlock()
-	return shuffledArray
-}
-
-// SetRandomFixedTLS 是否使用固定的TLS指纹 请注意这个函数是一个全局函数
-func (s *Sunny) SetRandomFixedTLS(value string) {
-	m := strings.Split(value, ",")
-	array := make([]uint16, 0)
-	for _, v := range m {
-		zm, _ := strconv.Atoi(strings.TrimSpace(v))
-		array = append(array, uint16(zm))
-	}
-	s.lock.Lock()
-	s.fixedTLS = array
 	s.lock.Unlock()
 }
 
@@ -2137,8 +2089,6 @@ func NewSunny() *Sunny {
 	s.script.AdminPage = "SunnyNetScriptEdit"
 	_, s.script.http, s.script.websocket, s.script.tcp, s.script.udp = GoScriptCode.RunCode(s.userScriptCode, nil)
 	s.SetCert(defaultManager)
-	s.randomTLSValue = make([]uint16, public.RandomTLSValueArrayLen)
-	copy(s.randomTLSValue, public.RandomTLSValueArray)
 	SunnyStorageLock.Lock()
 	SunnyStorage[s.SunnyContext] = s
 	SunnyStorageLock.Unlock()
@@ -2235,9 +2185,14 @@ func (s *Sunny) ExportCert() []byte {
 	return public.CopyBytes(b.Bytes())
 }
 
-// SetIeProxy 设置IE代理 [Off=true 取消] [Off=false 设置] 在中间件设置端口后调用
-func (s *Sunny) SetIeProxy(Off bool) bool {
-	return CrossCompiled.SetIeProxy(Off, s.Port())
+// SetIEProxy 设置IE代理
+func (s *Sunny) SetIEProxy() bool {
+	return CrossCompiled.SetIeProxy(false, s.Port())
+}
+
+// CancelIEProxy 取消设置的IE代理
+func (s *Sunny) CancelIEProxy() bool {
+	return CrossCompiled.SetIeProxy(true, s.Port())
 }
 
 // SetGlobalProxy 设置全局上游代理 仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
@@ -2313,6 +2268,13 @@ func (s *Sunny) DisableTCP(disable bool) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	s.disableTCP = disable
+}
+
+// DisableUDP 禁用UDP
+func (s *Sunny) DisableUDP(disable bool) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.disableUDP = disable
 }
 
 // Port 获取端口号
@@ -2466,27 +2428,6 @@ func (s *Sunny) SetScriptCode(code string) string {
 	return err
 }
 
-// 添加 Windows 防火墙规则
-func (s *Sunny) addFirewallRule() {
-	if runtime.GOOS == "windows" {
-		executablePath, _ := os.Executable()
-		// 删除现有规则
-		cmd := exec.Command("netsh", "advfirewall", "firewall", "delete", "rule", "name=SunnyNet")
-		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} // 隐藏窗口
-		_ = cmd.Run()
-
-		// 添加入站规则
-		cmd = exec.Command("netsh", "advfirewall", "firewall", "add", "rule", "name=SunnyNet", "dir=in", "action=allow", "program="+executablePath)
-		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} // 隐藏窗口
-		_ = cmd.Run()
-
-		// 添加出站规则
-		cmd = exec.Command("netsh", "advfirewall", "firewall", "add", "rule", "name=SunnyNetOut", "dir=out", "action=allow", "program="+executablePath)
-		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} // 隐藏窗口
-		_ = cmd.Run()
-	}
-}
-
 // Start 开始启动  调用 Error 获取错误信息 成功=nil
 func (s *Sunny) Start() *Sunny {
 	if s.isRun {
@@ -2500,7 +2441,7 @@ func (s *Sunny) Start() *Sunny {
 	if !s.initCertOK {
 		return s
 	}
-	s.addFirewallRule()
+	CrossCompiled.AddFirewallRule()
 	tcpListen, err := net.Listen("tcp", "0.0.0.0:"+strconv.Itoa(s.port))
 	if err != nil {
 		s.Error = err
@@ -2594,12 +2535,10 @@ func (s *proxyRequest) clone() *proxyRequest {
 		Pid:           s.Pid,
 		Request:       s.Request,
 		Response:      response{},
-		Websocket:     s.Websocket,
 		Proxy:         s.Proxy,
 		NoRepairHttp:  s.NoRepairHttp,
 		defaultScheme: s.defaultScheme,
 		SendTimeout:   s.SendTimeout,
-		ServerName:    s.ServerName,
 	}
 	req.updateSocket5User()
 	Theoni := int64(req.Theology)
@@ -2628,7 +2567,7 @@ func (s *proxyRequest) free() {
 	s.Request = nil
 	s.Target = nil
 }
-func (s *proxyRequest) isDriveConn() (Info.ProxyProcessInfo, uint16) {
+func (s *proxyRequest) isDriveConn() (Info.DrvInfo, uint16) {
 	if s == nil {
 		return nil, 0
 	}
@@ -2640,6 +2579,21 @@ func (s *proxyRequest) isDriveConn() (Info.ProxyProcessInfo, uint16) {
 	}
 	return nil, 0
 }
+func (s *proxyRequest) RandomCipherSuites() {
+	s._isRandomCipherSuites = true
+}
+
+// getTLSValues 获取固定的TLS指纹列表或随机TLS指纹列表,如果未开启使用随机TLS指纹,并且未设置固定TLS指纹,则返回nil
+func (s *proxyRequest) getTLSValues() []uint16 {
+	if s == nil {
+		return nil
+	}
+	if !s.Global.isRandomTLS && !s._isRandomCipherSuites {
+		return nil
+	}
+	return public.GetTLSValues()
+}
+
 func (s *Sunny) handleClientConn(conn net.Conn) {
 	Theoni := atomic.AddInt64(&public.Theology, 1)
 	//存入会话列表 方便停止时，将所以连接断开

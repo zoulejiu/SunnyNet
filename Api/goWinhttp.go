@@ -1,27 +1,37 @@
 package Api
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/qtgolang/SunnyNet/src/Certificate"
+	"github.com/qtgolang/SunnyNet/src/SunnyProxy"
+	"github.com/qtgolang/SunnyNet/src/crypto/tls"
+	"github.com/qtgolang/SunnyNet/src/http"
+	"github.com/qtgolang/SunnyNet/src/httpClient"
 	"github.com/qtgolang/SunnyNet/src/public"
-	mrand "math/rand"
-	"net/http"
-	"net/url"
+	"io"
+	"sort"
 	"sync"
+	"time"
 )
 
 // ---------------------------------------------
-type h struct {
-	Error error
-	Lock  sync.Mutex
-	Body  []byte
-	Heads []byte
-	Resp  *http.Response
+type request struct {
+	resp      *http.Response
+	req       *http.Request
+	lock      sync.Mutex
+	proxy     *SunnyProxy.Proxy
+	outTime   int
+	redirect  bool
+	tlsConfig *tls.Config
+	randomTLS bool
+	respBody  []byte
 }
 
-var HTTPMap = make(map[int]*h)
+var HTTPMap = make(map[int]*request)
 var HTTPMapLock sync.Mutex
 
-func LoadHTTPClient(Context int) *h {
+func LoadHTTPClient(Context int) *request {
 	HTTPMapLock.Lock()
 	s := HTTPMap[Context]
 	HTTPMapLock.Unlock()
@@ -35,11 +45,9 @@ func LoadHTTPClient(Context int) *h {
 //
 //export CreateHTTPClient
 func CreateHTTPClient() int {
-	HTTPMapLock.Lock()
-	HTTPMapLock.Unlock()
 	Context := newMessageId()
 	HTTPMapLock.Lock()
-	//HTTPMap[Context] = &h{WinHttp: GoWinHttp.NewGoWinHttp()}
+	HTTPMap[Context] = &request{req: &http.Request{}, tlsConfig: &tls.Config{NextProtos: []string{http.H11Proto, http.H2Proto}}}
 	HTTPMapLock.Unlock()
 	return Context
 }
@@ -49,21 +57,22 @@ func CreateHTTPClient() int {
 func RemoveHTTPClient(Context int) {
 	HTTPMapLock.Lock()
 	defer HTTPMapLock.Unlock()
-	delete(HTTPMap, Context)
-}
-
-// HTTPClientGetErr
-// HTTP 客户端 取错误
-func HTTPClientGetErr(Context int) uintptr {
-	k := LoadHTTPClient(Context)
-	if k != nil {
-		k.Lock.Lock()
-		defer k.Lock.Unlock()
-		if k.Error != nil {
-			return public.PointerPtr(k.Error.Error())
+	obj := HTTPMap[Context]
+	if obj != nil {
+		obj.lock.Lock()
+		defer obj.lock.Unlock()
+		if obj.req != nil {
+			if obj.req.Body != nil {
+				_ = obj.req.Body.Close()
+			}
+		}
+		if obj.resp != nil {
+			if obj.resp.Body != nil {
+				_ = obj.resp.Body.Close()
+			}
 		}
 	}
-	return 0
+	delete(HTTPMap, Context)
 }
 
 // HTTPOpen
@@ -73,9 +82,15 @@ func HTTPOpen(Context int, Method, URL string) {
 	if k == nil {
 		return
 	}
-	k.Lock.Lock()
-	defer k.Lock.Unlock()
-	//k.Open(Method, URL)
+
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	if k.req != nil {
+		if k.req.Body != nil {
+			_ = k.req.Body.Close()
+		}
+	}
+	k.req, _ = http.NewRequest(Method, URL, nil)
 }
 
 // HTTPSetHeader
@@ -85,84 +100,88 @@ func HTTPSetHeader(Context int, name, value string) {
 	if k == nil {
 		return
 	}
-	k.Lock.Lock()
-	defer k.Lock.Unlock()
-	//k.SetHeader(name, value)
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	k.req.Header.Add(name, value)
 }
 
 // HTTPSetProxyIP
-// HTTP 客户端 设置代理IP 127.0.0.1:8888
+// HTTP 客户端 设置代理IP http://admin:pass@127.0.0.1:8888
 func HTTPSetProxyIP(Context int, ProxyUrl string) bool {
 	k := LoadHTTPClient(Context)
 	if k == nil {
 		return false
 	}
-	k.Lock.Lock()
-	defer k.Lock.Unlock()
-	proxy, err := url.Parse(ProxyUrl)
-	if err != nil || proxy == nil {
-		return false
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	k.proxy, _ = SunnyProxy.ParseProxy(ProxyUrl)
+	if k.outTime != 0 {
+		k.proxy.SetTimeout(time.Duration(k.outTime) * time.Millisecond)
 	}
-	if proxy.Scheme != "http" && proxy.Scheme != "socket5" && proxy.Scheme != "socket" && proxy.Scheme != "socks5" {
-		return false
-	}
-	if len(proxy.Host) < 3 {
-		return false
-	}
-	//k.SetProxyType(proxy.Scheme != "http")
-	//k.SetProxyIP(proxy.Host)
-	//PWD, _ := proxy.User.Password()
-	//k.SetProxyUser(proxy.User.Username(), PWD)
-	return true
+	return k.proxy != nil
 }
 
 // HTTPSetTimeouts
 // HTTP 客户端 设置超时 毫秒
-func HTTPSetTimeouts(Context int, t1, t2, t3 int) {
+func HTTPSetTimeouts(Context int, t1 int) {
 	k := LoadHTTPClient(Context)
 	if k == nil {
 		return
 	}
-	k.Lock.Lock()
-	defer k.Lock.Unlock()
-	//	k.SetOutTime(t2, t3, t1)
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	k.outTime = t1
+	if k.proxy != nil {
+		k.proxy.SetTimeout(time.Duration(t1) * time.Millisecond)
+	}
 }
 
 // HTTPSendBin
 // HTTP 客户端 发送Body
-func HTTPSendBin(Context int, b uintptr, l int) {
-	//data := public.CStringToBytes(b, l)
+func HTTPSendBin(Context int, data []byte) {
+
 	k := LoadHTTPClient(Context)
 	if k == nil {
 		return
 	}
-	k.Lock.Lock()
-	defer k.Lock.Unlock()
-	/*k.Resp, k.Error = k.Send(data)
-	defer func() {
-		if k != nil {
-			if k.Resp != nil {
-				if k.Resp.Body != nil {
-					_ = k.Resp.Body.Close()
-				}
-			}
-			k.Save()
-		}
-	}()
-	var B string
-	if k.Resp != nil {
-		if k.Resp.Body != nil {
-			i, _ := io.ReadAll(k.Resp.Body)
-			k.Body = i
-			_ = k.Resp.Body.Close()
-		}
-		for name, values := range k.Resp.Header {
-			for _, value := range values {
-				B += name + ": " + value + "\r\n"
-			}
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	if k.req != nil {
+		if k.req.Body != nil {
+			_ = k.req.Body.Close()
 		}
 	}
-	k.Heads = []byte(B)*/
+	k.req.Body = io.NopCloser(bytes.NewReader(data))
+	k.req.ContentLength = int64(len(data))
+	if k.req.ContentLength > 0 {
+		k.req.Header["Content-Length"] = []string{fmt.Sprintf("%d", len(data))}
+	} else {
+		k.req.Header.Del("Content-Length")
+	}
+	var random func() []uint16
+	if k.randomTLS {
+		random = public.GetTLSValues
+	}
+	k.respBody = nil
+	resp, _, _, f := httpClient.Do(k.req, k.proxy, k.redirect, k.tlsConfig, time.Duration(k.outTime)*time.Millisecond, random)
+
+	defer func() {
+		if f != nil {
+			f()
+		}
+	}()
+	if k.resp != nil {
+		if k.resp.Body != nil {
+			_ = k.resp.Body.Close()
+		}
+	}
+	k.resp = resp
+	if k.resp != nil {
+		if k.resp.Body != nil {
+			i, _ := io.ReadAll(k.resp.Body)
+			k.respBody = i
+		}
+	}
 }
 
 // HTTPGetBodyLen
@@ -172,48 +191,95 @@ func HTTPGetBodyLen(Context int) int {
 	if k == nil {
 		return 0
 	}
-	k.Lock.Lock()
-	defer k.Lock.Unlock()
-	if k.Body == nil {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	if k.respBody == nil {
 		return 0
 	}
-	return len(k.Body)
+	return len(k.respBody)
 }
 
 // HTTPGetHeads
 // HTTP 客户端 返回响应全部Heads
-func HTTPGetHeads(Context int) uintptr {
+func HTTPGetHeads(Context int) string {
 	k := LoadHTTPClient(Context)
 	if k == nil {
-		return 0
+		return ""
 	}
-	k.Lock.Lock()
-	defer k.Lock.Unlock()
-	if k.Heads == nil {
-		return 0
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	if k.resp == nil {
+		return ""
 	}
-	if len(k.Heads) < 1 {
-		return 0
+	if k.resp.Header == nil {
+		return ""
 	}
-	return public.PointerPtr(k.Heads)
+	if len(k.resp.Header) < 1 {
+		return ""
+	}
+	Head := ""
+	var key []string
+	for value, _ := range k.resp.Header {
+		key = append(key, value)
+	}
+	sort.Strings(key)
+	for _, kv := range key {
+		for _, value := range k.resp.Header[kv] {
+			if Head == "" {
+				Head = kv + ": " + value
+			} else {
+				Head += "\r\n" + kv + ": " + value
+			}
+		}
+	}
+	return Head
+}
+
+// HTTPGetHeader
+// HTTP 客户端 返回响应Header
+func HTTPGetHeader(Context int, name string) string {
+	k := LoadHTTPClient(Context)
+	if k == nil {
+		return ""
+	}
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	if k.resp == nil {
+		return ""
+	}
+	if k.resp.Header == nil {
+		return ""
+	}
+	if len(k.resp.Header) < 1 {
+		return ""
+	}
+	Head := ""
+	for _, value := range k.resp.Header.GetArray(name) {
+		if Head == "" {
+			Head = value
+		} else {
+			Head += "\r\n" + value
+		}
+	}
+	return Head
 }
 
 // HTTPGetBody
 // HTTP 客户端 返回响应内容
-func HTTPGetBody(Context int) uintptr {
+func HTTPGetBody(Context int) []byte {
 	k := LoadHTTPClient(Context)
 	if k == nil {
-		return 0
+		return nil
 	}
-	k.Lock.Lock()
-	defer k.Lock.Unlock()
-	if k.Body == nil {
-		return 0
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	if k.respBody == nil {
+		return nil
 	}
-	if len(k.Body) < 1 {
-		return 0
+	if len(k.respBody) < 1 {
+		return nil
 	}
-	return public.PointerPtr(k.Body)
+	return k.respBody
 }
 
 // HTTPGetCode
@@ -223,12 +289,12 @@ func HTTPGetCode(Context int) int {
 	if k == nil {
 		return 0
 	}
-	k.Lock.Lock()
-	defer k.Lock.Unlock()
-	if k.Resp == nil {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	if k.resp == nil {
 		return 0
 	}
-	return k.Resp.StatusCode
+	return k.resp.StatusCode
 }
 
 // HTTPSetCertManager
@@ -238,9 +304,8 @@ func HTTPSetCertManager(Context, CertManagerContext int) bool {
 	if k == nil {
 		return false
 	}
-	k.Lock.Lock()
-	defer k.Lock.Unlock()
-
+	k.lock.Lock()
+	defer k.lock.Unlock()
 	Certificate.Lock.Lock()
 	defer Certificate.Lock.Unlock()
 	c := Certificate.LoadCertificateContext(CertManagerContext)
@@ -250,7 +315,8 @@ func HTTPSetCertManager(Context, CertManagerContext int) bool {
 	if c.Tls == nil {
 		return false
 	}
-	//k.SetTlsConfig(c.Tls)
+	k.tlsConfig = c.Tls
+	k.tlsConfig.NextProtos = []string{http.H11Proto, http.H2Proto}
 	return true
 }
 
@@ -261,44 +327,38 @@ func HTTPSetRedirect(Context int, Redirect bool) bool {
 	if k == nil {
 		return false
 	}
-	k.Lock.Lock()
-	defer k.Lock.Unlock()
-	//k.SetRedirect(Redirect)
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	k.redirect = Redirect
 	return true
 }
 
 // HTTPSetRandomTLS
 // HTTP 客户端 设置随机使用TLS指纹
-func HTTPSetRandomTLS(Context int, Open bool) bool {
+func HTTPSetRandomTLS(Context int, randomTLS bool) bool {
 	k := LoadHTTPClient(Context)
 	if k == nil {
 		return false
 	}
-	k.Lock.Lock()
-	defer k.Lock.Unlock()
-	if Open {
-		//k.GetTLSValues = GetTLSValues
-	} else {
-		//k.GetTLSValues = nil
-	}
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	k.randomTLS = randomTLS
 	return true
 }
 
-var _httpRandomTLSValue []uint16
-
-func init() {
-	_httpRandomTLSValue = make([]uint16, public.RandomTLSValueArrayLen)
-	copy(_httpRandomTLSValue, public.RandomTLSValueArray)
-}
-func GetTLSValues() []uint16 {
-	HTTPMapLock.Lock()
-	defer HTTPMapLock.Unlock()
-	n := mrand.Intn(public.RandomTLSValueArrayLen) + 1
-	for i := public.RandomTLSValueArrayLen - 1; i > 0; i-- {
-		j := mrand.Intn(i + 1)
-		_httpRandomTLSValue[i], _httpRandomTLSValue[j] = _httpRandomTLSValue[j], _httpRandomTLSValue[i]
+// SetH2Config
+// HTTP 客户端 设置HTTP2指纹
+func SetH2Config(Context int, h2Config string) bool {
+	k := LoadHTTPClient(Context)
+	if k == nil {
+		return false
 	}
-	shuffledArray := make([]uint16, n)
-	copy(shuffledArray, _httpRandomTLSValue[:n])
-	return shuffledArray
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	c, e := http.StringToH2Config(h2Config)
+	if e != nil {
+		return false
+	}
+	k.req.SetHTTP2Config(c)
+	return true
 }

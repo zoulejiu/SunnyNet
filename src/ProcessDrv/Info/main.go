@@ -1,3 +1,6 @@
+//go:build windows
+// +build windows
+
 package Info
 
 /*
@@ -175,7 +178,7 @@ func ExecCommand(commandName string, params []string) string {
 	return string(s)
 }
 
-type ProxyProcessInfo interface {
+type DrvInfo interface {
 	GetRemoteAddress() string
 	GetRemotePort() uint16
 	GetPid() string
@@ -186,7 +189,7 @@ type ProxyProcessInfo interface {
 
 var Name = make(map[string]bool)
 var Pid = make(map[uint32]bool)
-var Proxy = make(map[uint16]ProxyProcessInfo)
+var Proxy = make(map[uint16]DrvInfo)
 var Lock sync.Mutex
 
 var HookProcess bool
@@ -206,7 +209,7 @@ func HookAllProcess(open, StopNetwork bool) {
 	}
 }
 
-func GetTcpConnectInfo(u uint16) ProxyProcessInfo {
+func GetTcpConnectInfo(u uint16) DrvInfo {
 	Lock.Lock()
 	k := Proxy[u]
 	Lock.Unlock()

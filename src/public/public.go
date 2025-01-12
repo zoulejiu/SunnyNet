@@ -264,6 +264,24 @@ func CStringToBytes(r uintptr, dataLen int) []byte {
 	return data
 }
 
+// BytesToCString C字符串转字节数组
+func BytesToCString(r uintptr) string {
+	data := make([]byte, 0)
+	if r == 0 {
+		return ""
+	}
+	i := 0
+	for {
+		p := *(*byte)(unsafe.Pointer(r + uintptr(i)))
+		if p == 0 {
+			break
+		}
+		data = append(data, p)
+		i++
+	}
+	return string(data)
+}
+
 // GetCertificateName 提取证书名称
 func GetCertificateName(certBytes []byte) string {
 	// 尝试解析 PEM 格式的证书

@@ -15,11 +15,20 @@ type wsConn struct {
 	Pid          int           //Pid
 	_Type        int           //消息类型 	public.Websocket...
 	Url          string        //连接请求地址
+	_Method      string        //连接时的Method
 	_Theology    int           //请求唯一ID
 	_ClientIP    string        //来源IP地址,请求从哪里来
 	Request      *http.Request //请求体
 }
- 
+
+func (k *wsConn) Method() string {
+	return k._Method
+}
+
+func (k *wsConn) GetSocket5User() string {
+	return GetSocket5User(k._Theology)
+}
+
 func (k *wsConn) GetProcessName() string {
 	if k.Pid == 0 {
 		return "代理连接"

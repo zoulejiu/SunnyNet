@@ -2,7 +2,6 @@ package Api
 
 import (
 	"github.com/qtgolang/SunnyNet/src/ProcessDrv/nfapi"
-	"github.com/qtgolang/SunnyNet/src/public"
 )
 
 func SetUdpData(MessageId int, data []byte) bool {
@@ -17,21 +16,17 @@ func SetUdpData(MessageId int, data []byte) bool {
 	NFapi.UdpSync.Unlock()
 	return false
 }
-func GetUdpData(MessageId int) uintptr {
+func GetUdpData(MessageId int) []byte {
 	NFapi.UdpSync.Lock()
 	buff := NFapi.UdpMap[MessageId]
 	if buff != nil {
 		NFapi.UdpSync.Unlock()
-		bx := buff.Bytes()
-		if len(bx) < 1 {
-			return 0
-		}
-		u := public.PointerPtr(public.BytesCombine(public.IntToBytes(len(bx)), bx))
-		return u
+		return buff.Bytes()
 	}
 	NFapi.UdpSync.Unlock()
-	return 0
+	return nil
 }
+
 func UdpSendToServer(tid int, data []byte) bool {
 	return NFapi.UdpSendToServer(int64(tid), data)
 }

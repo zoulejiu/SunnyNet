@@ -1,7 +1,6 @@
 package Api
 
 import (
-	"github.com/qtgolang/SunnyNet/src/public"
 	"sync"
 )
 
@@ -102,8 +101,7 @@ func QueueLength(name string) int {
 
 // QueuePush
 // 加入队列
-func QueuePush(name string, val uintptr, valLen int) {
-	data := public.CStringToBytes(val, valLen)
+func QueuePush(name string, data []byte) {
 	QueueLock.Lock()
 	Object := Queue[name]
 	QueueLock.Unlock()
@@ -115,16 +113,16 @@ func QueuePush(name string, val uintptr, valLen int) {
 
 // QueuePull
 // 队列弹出
-func QueuePull(name string) uintptr {
+func QueuePull(name string) []byte {
 	QueueLock.Lock()
 	Object := Queue[name]
 	QueueLock.Unlock()
 	if Object == nil {
-		return 0
+		return nil
 	}
 	bx := Object.Pull()
 	if len(bx) < 1 {
-		return 0
+		return nil
 	}
-	return public.PointerPtr(public.BytesCombine(public.IntToBytes(len(bx)), bx))
+	return bx
 }

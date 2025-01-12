@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/qtgolang/SunnyNet/src/http"
 	_ "github.com/qtgolang/SunnyNet/src/http/pprof"
+	"github.com/qtgolang/SunnyNet/src/public"
 	"github.com/qtgolang/SunnyNet/src/tlsClient/srt"
 	tlsClient "github.com/qtgolang/SunnyNet/src/tlsClient/tlsClient"
 	"github.com/qtgolang/SunnyNet/src/tlsClient/tlsClient/profiles"
@@ -16,7 +17,7 @@ import (
 
 const information = `
 ------------------------------------------------------
-               欢迎使用Sunny网络中间件   
+       欢迎使用 SunnyNet 网络中间件 - V` + public.SunnyVersion + `   
                  本项目为开源项目  
             仅用于技术交流学习和研究的目的 
           请遵守法律法规,请勿用作任何非法用途 

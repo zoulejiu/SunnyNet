@@ -152,8 +152,10 @@ func (s *Sunny) listenUdpGo() {
 		// 获取连接并发送数据
 		conn, Tid := NFapi.UdpSenders.Get(k)
 		if conn != nil {
-			bs := s.udpNFSendReceive(public.SunnyNetUDPTypeSend, Tid, 0, addr.String(), _info.RemoteAddress, _info.Data)
-			_, _ = conn.Write(bs)
+			bs = s.udpNFSendReceive(public.SunnyNetUDPTypeSend, Tid, 0, addr.String(), _info.RemoteAddress, _info.Data)
+			if len(bs) > 0 {
+				_, _ = conn.Write(bs)
+			}
 		}
 	}
 }
@@ -189,6 +191,9 @@ func (s *Sunny) goUdp(info *udpInfo, tid int64, Local, Remote string, conn *net.
 }
 
 func (s *Sunny) udpNFSendReceive(Type int, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte {
+	if s.disableUDP {
+		return nil
+	}
 	n := &udpConn{theology: Theoni, messageId: NewMessageId(), _type: Type, sunnyContext: s.SunnyContext, pid: int(pid), localAddress: LocalAddress, remoteAddress: RemoteAddress, data: data}
 	s.scriptUDPCall(n)
 	//GoScriptCode.RunUdpScriptCode(_call, n)

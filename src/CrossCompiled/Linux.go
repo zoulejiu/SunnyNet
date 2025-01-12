@@ -3,9 +3,7 @@
 
 package CrossCompiled
 
-import (
-	"github.com/qtgolang/SunnyNet/src/ProcessDrv/nfapi"
-)
+import "github.com/qtgolang/SunnyNet/src/ProcessDrv/Info"
 
 func SetIeProxy(Off bool, Port int) bool {
 	return false
@@ -25,7 +23,7 @@ func NFapi_ApiInit() bool {
 func NFapi_MessageBox(caption, text string, style uintptr) (result int) {
 	return 0
 }
-func NFapi_HookAllProcess(open bool) {
+func NFapi_HookAllProcess(open, StopNetwork bool) {
 }
 func NFapi_ClosePidTCP(pid int) {
 }
@@ -43,7 +41,7 @@ func NFapi_CancelAll() {
 }
 func NFapi_DelTcpConnectInfo(U uint16) {
 }
-func NFapi_GetTcpConnectInfo(U uint16) *NFapi.ProcessInfo {
+func NFapi_GetTcpConnectInfo(U uint16) Info.DrvInfo {
 	return nil
 }
 func Pr_Install() bool {
@@ -75,4 +73,9 @@ func CloseCurrentSocket(PID int, ulAf uint) {
 // InstallCert 安装证书 将证书安装到Windows系统内
 func InstallCert(certificates []byte) string {
 	return "no Windows"
+}
+
+// 添加 Windows 防火墙规则
+func AddFirewallRule() {
+
 }

@@ -125,6 +125,13 @@ func do(req *http.Request, RequestProxy *SunnyProxy.Proxy, CheckRedirect bool, c
 			reqs.Header.Del("Transfer-Encoding")
 		}
 	}
+	address, proxy, _ := net.SplitHostPort(client.RequestProxy.DialAddr)
+	ip := net.ParseIP(address)
+	if ip == nil {
+		req.SetContext(public.SunnyNetServerIpTags, client.RequestProxy.DialAddr)
+	} else {
+		req.SetContext(public.SunnyNetServerIpTags, SunnyProxy.FormatIP(ip, proxy))
+	}
 	return reqs, rConn, err, func() { httpClientPop(client) }
 }
 
@@ -148,7 +155,16 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 		if len(clients) > 0 {
 			for key, client := range clients {
 				delete(clients, key)
-				client.RequestProxy = Proxy
+				var nproxy *SunnyProxy.Proxy
+				if Proxy != nil {
+					nproxy = Proxy.Clone()
+				} else {
+					nproxy = new(SunnyProxy.Proxy)
+				}
+				if client.RequestProxy != nil {
+					nproxy.DialAddr = client.RequestProxy.DialAddr
+				}
+				client.RequestProxy = nproxy
 				return client
 			}
 		}
@@ -209,14 +225,17 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 	var isLookupIP bool
 	var ProxyHost string
 	var dial func(network string, addr string) (net.Conn, error)
+	var nproxy *SunnyProxy.Proxy
 	if Proxy != nil {
-		ProxyHost = Proxy.Host
-		dial = Proxy.Dial
+		nproxy = Proxy.Clone()
+		dial = nproxy.Dial
+	} else {
+		nproxy = new(SunnyProxy.Proxy)
+		dial = nproxy.Dial
 	}
 	cc := http.Client{Transport: Tr, Timeout: timeout}
-	res := &clientPart{Client: cc, s: s, RequestProxy: Proxy}
+	res := &clientPart{Client: cc, s: s, RequestProxy: nproxy}
 	Tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-
 		address, port, err := net.SplitHostPort(addr)
 		if err != nil {
 			return nil, err

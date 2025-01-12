@@ -5,6 +5,7 @@ import (
 	"github.com/qtgolang/SunnyNet/src/crypto/tls"
 	"github.com/qtgolang/SunnyNet/src/public"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 )
@@ -41,16 +42,14 @@ func GetTlsConfig(host string, Rules uint8) *tls.Config {
 		return nil
 	}
 	RequestHost := ParsingHost(host)
-	RequestHostLen := len(RequestHost)
 	Lock.Lock()
 	defer Lock.Unlock()
 	for RulesHost, v := range Map {
-		RulesHostLen := len(RulesHost)
-		if RequestHostLen >= RulesHostLen {
-			if RequestHost[RequestHostLen-RulesHostLen:] == RulesHost {
-				if v.Rules == Rules || v.Rules == public.CertificateRequestManagerRulesSendAndReceive {
-					return v.Config
-				}
+		if v.Rules == Rules || v.Rules == public.CertificateRequestManagerRulesSendAndReceive {
+			pattern := strings.ReplaceAll(strings.ReplaceAll(RulesHost, ".", "\\."), "*", ".*")
+			re := regexp.MustCompile(pattern)
+			if re.MatchString(RequestHost) {
+				return v.Config
 			}
 		}
 	}

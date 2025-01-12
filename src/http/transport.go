@@ -2602,8 +2602,8 @@ func (pc *persistConn) roundTrip(req *transportRequest) (resp *Response, err err
 		// We don't request gzip if the request is for a range, since
 		// auto-decoding a portion of a gzipped document will just fail
 		// anyway. See https://golang.org/issue/8923
-		requestedGzip = true
-		req.extraHeaders().Set("Accept-Encoding", "gzip")
+		//requestedGzip = true
+		//req.extraHeaders().Set("Accept-Encoding", "gzip")
 	}
 
 	var continueCh chan struct{}

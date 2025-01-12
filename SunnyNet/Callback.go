@@ -5,6 +5,7 @@ import (
 	"github.com/qtgolang/SunnyNet/src/Call"
 	"github.com/qtgolang/SunnyNet/src/public"
 	"strconv"
+	"strings"
 )
 
 const debug = "Debug"
@@ -22,6 +23,15 @@ func GetSceneWebSocketMsg(MessageId int) (*public.WebsocketMsg, bool) {
 	messageIdLock.Lock()
 	defer messageIdLock.Unlock()
 	k := wsStorage[MessageId]
+	if k == nil {
+		return nil, false
+	}
+	return k, true
+}
+func GetSceneWebSocketClient(Theology int) (*public.WebsocketMsg, bool) {
+	messageIdLock.Lock()
+	defer messageIdLock.Unlock()
+	k := wsClientStorage[Theology]
 	if k == nil {
 		return nil, false
 	}
@@ -140,6 +150,7 @@ func (s *proxyRequest) CallbackBeforeRequest() {
 	}
 	s.Global.scriptHTTPCall(m)
 	s._Display = m._Display
+	s._isRandomCipherSuites = m._isRandomCipherSuites
 	if s._Display == false {
 		return
 	}
@@ -216,10 +227,42 @@ func (s *proxyRequest) CallbackBeforeResponse() {
 
 // 不要进入回调的一些请求
 func (s *proxyRequest) noCallback() bool {
-	if (s.Target.Host == "127.0.0.1" || s.Target.Host == "::1") && s.Target.Port == 9229 {
+	if s == nil {
+		return false
+	}
+	request := s.Request
+	Port := int(s.Target.Port)
+	if (s.Target.Host == "localhost" || s.Target.Host == "127.0.0.1" || s.Target.Host == "::1") && Port == 9229 {
 		//疑似Chrome 开发人员工具正在使用专用的DevTools 即使所有选项卡都关闭，除了空白的新选项卡，它仍可能继续发送
 		//https://superuser.com/questions/1419223/google-chrome-developer-tools-start-knocking-to-127-0-0-1-and-1-ip-on-9229-por
 		return true
+	}
+
+	//下面判断是否为证书安装页面 或 脚本编辑页面  如果是 则不触发回调页面
+	if (s.Target.Host == "localhost" && Port == s.Global.port) || (s.Target.Host == "127.0.0.1" && Port == s.Global.port) || (s.Target.Host == "::1" && Port == s.Global.port) || (s.Target.Host == public.CertDownloadHost2) || (s.Target.Host == public.CertDownloadHost1) {
+		if request != nil {
+			if request.URL != nil {
+				ScriptPage := "/" + s.Global.script.AdminPage
+				if strings.HasPrefix(request.URL.Path, ScriptPage) {
+					return true
+				}
+				if request.URL.Path == "/favicon.ico" {
+					return true
+				}
+				if request.URL.Path == "/" || request.URL.Path == "/ssl" || request.URL.Path == public.NULL {
+					return true
+				}
+				if strings.HasPrefix(request.URL.Path, "/SunnyRoot") {
+					return true
+				}
+				if strings.HasPrefix(request.URL.Path, "/install.html") {
+					return true
+				}
+				if strings.HasPrefix(request.URL.Path, "/install/") {
+					return true
+				}
+			}
+		}
 	}
 	return false
 }
@@ -280,7 +323,7 @@ func (s *proxyRequest) CallbackWssRequest(State int, Method, Url string, msg *pu
 		return
 	}
 	pid, _ := strconv.Atoi(s.Pid)
-	m := &wsConn{Pid: pid, _Type: State, SunnyContext: s.Global.SunnyContext, Url: Url, c: msg, _MessageId: MessageId, _Theology: s.Theology, Request: s.Request, _ClientIP: s.Conn.RemoteAddr().String()}
+	m := &wsConn{_Method: Method, Pid: pid, _Type: State, SunnyContext: s.Global.SunnyContext, Url: Url, c: msg, _MessageId: MessageId, _Theology: s.Theology, Request: s.Request, _ClientIP: s.Conn.RemoteAddr().String()}
 	s.Global.scriptWebsocketCall(m)
 	if s.wsCall < 10 {
 		if s.wsGoCall != nil {

@@ -4,6 +4,7 @@ import "C"
 import (
 	"fmt"
 	"github.com/qtgolang/SunnyNet/SunnyNet"
+	"github.com/qtgolang/SunnyNet/src/Certificate"
 	"github.com/qtgolang/SunnyNet/src/GoScriptCode"
 	"github.com/qtgolang/SunnyNet/src/public"
 	"log"
@@ -12,15 +13,15 @@ import (
 )
 
 func Test() {
-
 	s := SunnyNet.NewSunny()
-	//i := CreateCertificate()
-	//ok := LoadP12Certificate(i, C.CString("C:\\Users\\qinka\\Desktop\\74fe394a37757545d8cfbd2ea264c7c3.p12"), C.CString("qyrhudhZ"))
+
+	i := CreateCertificate()
+	ok := LoadP12Certificate(i, C.CString("C:\\Users\\Qin\\Desktop\\Cert\\ca6afc5aa40fcbd3.p12"), C.CString("GXjc75IRAO0T"))
 	//ok := AddCertPoolPath(i, C.CString("C:\\Users\\qinka\\Desktop\\P12\\certificate.pem"))
-	//fmt.Println("载入P12:", ok)
-	//c := Certificate.LoadCertificateContext(i)
-	//fmt.Println("证书名称：", c.GetCommonName())
-	//AddHttpCertificate(C.CString("ws-gateway-odis.volkswagenag.com"), i, 1)
+	fmt.Println("载入P12:", ok)
+	c := Certificate.LoadCertificateContext(i)
+	fmt.Println("证书名称：", c.GetCommonName())
+	AddHttpCertificate(C.CString("api.vlightv.com"), i, 2)
 	//如果在Go中使用 设置Go的回调地址
 	//s.SetGlobalProxy("socket://192.168.31.1:4321", 30000)
 	//s.SetScriptCall(func(info ...any) {
@@ -33,14 +34,14 @@ func Test() {
 
 	//s.MustTcp(true)
 	//s.DisableTCP(true)
-	//s.SetGlobalProxy("socket://192.168.31.1:4321", 60000)
+	s.SetGlobalProxy("socket://192.168.31.1:4321", 60000)
 	s.SetMustTcpRegexp("zz.com", true)
 	Port := 2024
 	//s.SetMustTcpRegexp("*.baidu.com")
 	s = s.SetPort(Port).Start()
 	//s.SetIeProxy(true)
 	s.SetHTTPRequestMaxUpdateLength(100000000)
-	fmt.Println(s.OpenDrive(false))
+	//fmt.Println(s.OpenDrive(false))
 
 	// 请注意GoLang调试时候，请不要使用此(ProcessALLName)命令，因为不管开启或关闭，都会将当前所有TCP链接断开一次
 	// 因为如果不断开的一次的话,已经建立的TCP链接无法抓包。

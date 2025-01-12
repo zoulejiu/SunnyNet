@@ -5,9 +5,11 @@ package main
 
 import "C"
 import (
+	"errors"
 	"github.com/qtgolang/SunnyNet/Api"
 	"github.com/qtgolang/SunnyNet/src/dns"
 	"github.com/qtgolang/SunnyNet/src/public"
+	"unsafe"
 )
 
 /*
@@ -196,11 +198,19 @@ func SetHTTPRequestMaxUpdateLength(SunnyContext int, i int64) bool {
 }
 
 /*
-SetIeProxy 设置IE代理 Off=true 取消 反之 设置 在中间件设置端口后调用
+SetIeProxy 设置IE代理 ，Windows 有效
 */
 //export SetIeProxy
-func SetIeProxy(SunnyContext int, Off bool) bool {
-	return Api.SetIeProxy(SunnyContext, Off)
+func SetIeProxy(SunnyContext int) bool {
+	return Api.SetIeProxy(SunnyContext)
+}
+
+/*
+CancelIEProxy  取消设置的IE代理，Windows 有效
+*/
+//export CancelIEProxy
+func CancelIEProxy(SunnyContext int) bool {
+	return Api.CancelIEProxy(SunnyContext)
 }
 
 /*
@@ -220,19 +230,15 @@ func SetRequestAllCookie(MessageId int, val *C.char) {
 }
 
 /*
-GetHttpServerName 获取HTTP请求远程服务器名称
-*/
-//export GetHttpServerName
-func GetHttpServerName(MessageId int) uintptr {
-	return Api.GetHttpServerName(MessageId)
-}
-
-/*
 GetRequestCookie 获取 HTTP/S当前请求数据中指定的Cookie
 */
 //export GetRequestCookie
 func GetRequestCookie(MessageId int, name *C.char) uintptr {
-	return Api.GetRequestCookie(MessageId, C.GoString(name))
+	r := Api.GetRequestCookie(MessageId, C.GoString(name))
+	if r == "" {
+		return 0
+	}
+	return public.PointerPtr(r)
 }
 
 /*
@@ -240,7 +246,11 @@ GetRequestALLCookie 获取 HTTP/S 当前请求全部Cookie
 */
 //export GetRequestALLCookie
 func GetRequestALLCookie(MessageId int) uintptr {
-	return Api.GetRequestALLCookie(MessageId)
+	r := Api.GetRequestALLCookie(MessageId)
+	if r == "" {
+		return 0
+	}
+	return public.PointerPtr(r)
 }
 
 /*
@@ -300,14 +310,6 @@ func SetRequestHTTP2Config(MessageId int, h2Config *C.char) bool {
 }
 
 /*
-GetRequestCipherSuites GetRequestCipherSuites 获取请求 CipherSuites
-*/
-//export GetRequestCipherSuites
-func GetRequestCipherSuites(MessageId int) uintptr {
-	return public.PointerPtr(Api.GetRequestCipherSuites(MessageId))
-}
-
-/*
 SetResponseHeader 修改、设置 HTTP/S当前返回数据中的指定协议头
 */
 //export SetResponseHeader
@@ -320,7 +322,11 @@ GetRequestHeader 获取 HTTP/S当前请求数据中的指定协议头
 */
 //export GetRequestHeader
 func GetRequestHeader(MessageId int, name *C.char) uintptr {
-	return Api.GetRequestHeader(MessageId, C.GoString(name))
+	r := Api.GetRequestHeader(MessageId, C.GoString(name))
+	if r == "" {
+		return 0
+	}
+	return public.PointerPtr(r)
 }
 
 /*
@@ -328,7 +334,11 @@ GetResponseHeader 获取 HTTP/S 当前返回数据中指定的协议头
 */
 //export GetResponseHeader
 func GetResponseHeader(MessageId int, name *C.char) uintptr {
-	return Api.GetResponseHeader(MessageId, C.GoString(name))
+	r := Api.GetResponseHeader(MessageId, C.GoString(name))
+	if r == "" {
+		return 0
+	}
+	return public.PointerPtr(r)
 }
 
 /*
@@ -336,7 +346,11 @@ GetResponseServerAddress 获取 HTTP/S 相应的服务器地址
 */
 //export GetResponseServerAddress
 func GetResponseServerAddress(MessageId int) uintptr {
-	return Api.GetResponseServerAddress(MessageId)
+	r := Api.GetResponseServerAddress(MessageId)
+	if r == "" {
+		return 0
+	}
+	return public.PointerPtr(r)
 }
 
 /*
@@ -352,7 +366,11 @@ GetResponseAllHeader 获取 HTTP/S 当前返回全部协议头
 */
 //export GetResponseAllHeader
 func GetResponseAllHeader(MessageId int) uintptr {
-	return Api.GetResponseAllHeader(MessageId)
+	r := Api.GetResponseAllHeader(MessageId)
+	if r == "" {
+		return 0
+	}
+	return public.PointerPtr(r)
 }
 
 /*
@@ -360,7 +378,11 @@ GetRequestAllHeader 获取 HTTP/S 当前请求数据全部协议头
 */
 //export GetRequestAllHeader
 func GetRequestAllHeader(MessageId int) uintptr {
-	return Api.GetRequestAllHeader(MessageId)
+	r := Api.GetRequestAllHeader(MessageId)
+	if r == "" {
+		return 0
+	}
+	return public.PointerPtr(r)
 }
 
 /*
@@ -385,7 +407,11 @@ GetRequestClientIp 获取当前HTTP/S请求由哪个IP发起
 */
 //export GetRequestClientIp
 func GetRequestClientIp(MessageId int) uintptr {
-	return Api.GetRequestClientIp(MessageId)
+	r := Api.GetRequestClientIp(MessageId)
+	if r == "" {
+		return 0
+	}
+	return public.PointerPtr(r)
 }
 
 /*
@@ -393,7 +419,11 @@ GetResponseStatus 获取HTTP/S返回的状态文本 例如 [200 OK]
 */
 //export GetResponseStatus
 func GetResponseStatus(MessageId int) uintptr {
-	return Api.GetResponseStatus(MessageId)
+	r := Api.GetResponseStatus(MessageId)
+	if r == "" {
+		return 0
+	}
+	return public.PointerPtr(r)
 }
 
 /*
@@ -433,7 +463,7 @@ SetResponseData 设置、修改 HTTP/S 当前请求返回数据 如果再发起�
 */
 //export SetResponseData
 func SetResponseData(MessageId int, data uintptr, dataLen int) bool {
-	return Api.SetResponseData(MessageId, data, dataLen)
+	return Api.SetResponseData(MessageId, public.CStringToBytes(data, dataLen))
 }
 
 /*
@@ -441,7 +471,7 @@ SetRequestData 设置、修改 HTTP/S 当前请求POST提交数据  data=数据�
 */
 //export SetRequestData
 func SetRequestData(MessageId int, data uintptr, dataLen int) bool {
-	return Api.SetRequestData(MessageId, data, dataLen)
+	return Api.SetRequestData(MessageId, public.CStringToBytes(data, dataLen))
 }
 
 /*
@@ -449,7 +479,11 @@ GetRequestBody 获取 HTTP/S 当前POST提交数据 返回 数据指针
 */
 //export GetRequestBody
 func GetRequestBody(MessageId int) uintptr {
-	return Api.GetRequestBody(MessageId)
+	bs := Api.GetRequestBody(MessageId)
+	if bs == nil {
+		return 0
+	}
+	return public.PointerPtr(bs)
 }
 
 /*
@@ -473,7 +507,11 @@ GetResponseBody 获取 HTTP/S 当前返回数据  返回 数据指针
 */
 //export GetResponseBody
 func GetResponseBody(MessageId int) uintptr {
-	return Api.GetResponseBody(MessageId)
+	bs := Api.GetResponseBody(MessageId)
+	if bs == nil {
+		return 0
+	}
+	return public.PointerPtr(bs)
 }
 
 /*
@@ -497,7 +535,11 @@ GetWebsocketBody 获取 WebSocket消息 返回数据指针
 */
 //export GetWebsocketBody
 func GetWebsocketBody(MessageId int) uintptr {
-	return Api.GetWebsocketBody(MessageId)
+	bs := Api.GetWebsocketBody(MessageId)
+	if bs == nil {
+		return 0
+	}
+	return public.PointerPtr(bs)
 }
 
 /*
@@ -505,7 +547,7 @@ SetWebsocketBody 修改 WebSocket消息 data=数据指针  dataLen=数据长度
 */
 //export SetWebsocketBody
 func SetWebsocketBody(MessageId int, data uintptr, dataLen int) bool {
-	return Api.SetWebsocketBody(MessageId, data, dataLen)
+	return Api.SetWebsocketBody(MessageId, public.CStringToBytes(data, dataLen))
 }
 
 /*
@@ -513,7 +555,8 @@ SendWebsocketBody 主动向Websocket服务器发送消息 MessageType=WS消息�
 */
 //export SendWebsocketBody
 func SendWebsocketBody(Theology, MessageType int, data uintptr, dataLen int) bool {
-	return Api.SendWebsocketBody(Theology, MessageType, data, dataLen)
+	bs := public.CStringToBytes(data, dataLen)
+	return Api.SendWebsocketBody(Theology, MessageType, bs)
 }
 
 /*
@@ -521,7 +564,8 @@ SendWebsocketClientBody SendWebsocketClientBody 主动向Websocket客户端发�
 */
 //export SendWebsocketClientBody
 func SendWebsocketClientBody(Theology, MessageType int, data uintptr, dataLen int) bool {
-	return Api.SendWebsocketClientBody(Theology, MessageType, data, dataLen)
+	bs := public.CStringToBytes(data, dataLen)
+	return Api.SendWebsocketClientBody(Theology, MessageType, bs)
 }
 
 /*
@@ -529,7 +573,7 @@ SetTcpBody 修改 TCP消息数据 MsgType=1 发送的消息 MsgType=2 接收的�
 */
 //export SetTcpBody
 func SetTcpBody(MessageId, MsgType int, data uintptr, dataLen int) bool {
-	return Api.SetTcpBody(MessageId, MsgType, data, dataLen)
+	return Api.SetTcpBody(MessageId, MsgType, public.CStringToBytes(data, dataLen))
 }
 
 /*
@@ -562,7 +606,7 @@ TcpSendMsg 指定的TCP连接 模拟客户端向服务器端主动发送数据
 */
 //export TcpSendMsg
 func TcpSendMsg(theology int, data uintptr, dataLen int) int {
-	return Api.TcpSendMsg(theology, data, dataLen)
+	return Api.TcpSendMsg(theology, public.CStringToBytes(data, dataLen))
 }
 
 /*
@@ -570,7 +614,7 @@ TcpSendMsgClient 指定的TCP连接 模拟服务器端向客户端主动发送�
 */
 //export TcpSendMsgClient
 func TcpSendMsgClient(theology int, data uintptr, dataLen int) int {
-	return Api.TcpSendMsgClient(theology, data, dataLen)
+	return Api.TcpSendMsgClient(theology, public.CStringToBytes(data, dataLen))
 }
 
 //export HexDump
@@ -671,7 +715,13 @@ DeflateCompress Deflate压缩 (可能等同于zlib压缩)
 */
 //export DeflateCompress
 func DeflateCompress(data uintptr, dataLen int) uintptr {
-	return Api.DeflateCompress(data, dataLen)
+	bin := public.CStringToBytes(data, dataLen)
+	bx := Api.DeflateCompress(bin)
+	if bx == nil {
+		return 0
+	}
+	bx = public.BytesCombine(public.IntToBytes(len(bx)), bx)
+	return public.PointerPtr(string(bx))
 }
 
 /*
@@ -679,7 +729,10 @@ WebpToJpegBytes Webp图片转JEG图片字节数组 SaveQuality=质量(默认75)
 */
 //export WebpToJpegBytes
 func WebpToJpegBytes(data uintptr, dataLen int, SaveQuality int) uintptr {
-	return Api.WebpToJpegBytes(data, dataLen, SaveQuality)
+	_webp := public.CStringToBytes(data, dataLen)
+	bs := Api.WebpToJpegBytes(_webp, SaveQuality)
+	bn := public.BytesCombine(public.IntToBytes(len(bs)), bs)
+	return public.PointerPtr(string(bn))
 }
 
 /*
@@ -687,7 +740,13 @@ WebpToPngBytes Webp图片转Png图片字节数组
 */
 //export WebpToPngBytes
 func WebpToPngBytes(data uintptr, dataLen int) uintptr {
-	return Api.WebpToPngBytes(data, dataLen)
+	_webp := public.CStringToBytes(data, dataLen)
+	bs := Api.WebpToPngBytes(_webp)
+	if bs == nil {
+		return 0
+	}
+	bn := public.BytesCombine(public.IntToBytes(len(bs)), bs)
+	return public.PointerPtr(string(bn))
 }
 
 /*
@@ -793,7 +852,11 @@ ExportPub 证书管理器 导出公钥
 */
 //export ExportPub
 func ExportPub(Context int) uintptr {
-	return Api.ExportPub(Context)
+	p := Api.ExportPub(Context)
+	if p == "" {
+		return 0
+	}
+	return public.PointerPtr(p)
 }
 
 /*
@@ -1038,7 +1101,23 @@ func CreateKeys() int {
 	return Api.CreateKeys()
 }
 
-//===================================================== go win http ====================================================
+//===================================================== go http Client ================================================
+
+/*
+HTTPSetH2Config HTTP 客户端 设置HTTP2指纹
+*/
+//export HTTPSetH2Config
+func HTTPSetH2Config(Context int, config *C.char) bool {
+	return Api.SetH2Config(Context, C.GoString(config))
+}
+
+/*
+HTTPSetRandomTLS HTTP 客户端 设置随机使用TLS指纹
+*/
+//export HTTPSetRandomTLS
+func HTTPSetRandomTLS(Context int, RandomTLS bool) bool {
+	return Api.HTTPSetRandomTLS(Context, RandomTLS)
+}
 
 /*
 HTTPSetRedirect HTTP 客户端 设置重定向
@@ -1069,7 +1148,23 @@ HTTPGetBody HTTP 客户端 返回响应内容
 */
 //export HTTPGetBody
 func HTTPGetBody(Context int) uintptr {
-	return Api.HTTPGetBody(Context)
+	r := Api.HTTPGetBody(Context)
+	if r == nil {
+		return 0
+	}
+	return public.PointerPtr(r)
+}
+
+/*
+HTTPGetHeader HTTP 客户端 返回响应HTTPGetHeader
+*/
+//export HTTPGetHeader
+func HTTPGetHeader(Context int, name *C.char) uintptr {
+	s := Api.HTTPGetHeader(Context, C.GoString(name))
+	if s == "" {
+		return 0
+	}
+	return public.PointerPtr(s)
 }
 
 /*
@@ -1077,7 +1172,11 @@ HTTPGetHeads HTTP 客户端 返回响应全部Heads
 */
 //export HTTPGetHeads
 func HTTPGetHeads(Context int) uintptr {
-	return Api.HTTPGetHeads(Context)
+	r := Api.HTTPGetHeads(Context)
+	if r == "" {
+		return 0
+	}
+	return public.PointerPtr(r)
 }
 
 /*
@@ -1093,15 +1192,15 @@ HTTPSendBin HTTP 客户端 发送Body
 */
 //export HTTPSendBin
 func HTTPSendBin(Context int, body uintptr, bodyLength int) {
-	Api.HTTPSendBin(Context, body, bodyLength)
+	Api.HTTPSendBin(Context, public.CStringToBytes(body, bodyLength))
 }
 
 /*
 HTTPSetTimeouts HTTP 客户端 设置超时 毫秒
 */
 //export HTTPSetTimeouts
-func HTTPSetTimeouts(Context int, t1, t2, t3 int) {
-	Api.HTTPSetTimeouts(Context, t1, t2, t3)
+func HTTPSetTimeouts(Context int, t1 int) {
+	Api.HTTPSetTimeouts(Context, t1)
 }
 
 /*
@@ -1109,8 +1208,8 @@ HTTPSetProxyIP HTTP 客户端 设置代理IP 仅支持Socket5和http 例如 sock
 */
 //
 //export HTTPSetProxyIP
-func HTTPSetProxyIP(Context int, ProxyUrl *C.char) {
-	Api.HTTPSetProxyIP(Context, C.GoString(ProxyUrl))
+func HTTPSetProxyIP(Context int, ProxyUrl *C.char) bool {
+	return Api.HTTPSetProxyIP(Context, C.GoString(ProxyUrl))
 }
 
 /*
@@ -1127,14 +1226,6 @@ HTTPOpen HTTP 客户端 Open
 //export HTTPOpen
 func HTTPOpen(Context int, Method, URL *C.char) {
 	Api.HTTPOpen(Context, C.GoString(Method), C.GoString(URL))
-}
-
-/*
-HTTPClientGetErr HTTP 客户端 取错误
-*/
-//export HTTPClientGetErr
-func HTTPClientGetErr(Context int) uintptr {
-	return Api.HTTPClientGetErr(Context)
 }
 
 /*
@@ -1160,7 +1251,12 @@ JsonToPB JSON格式的protobuf数据转为protobuf二进制数据
 */
 //export JsonToPB
 func JsonToPB(bin uintptr, binLen int) uintptr {
-	return Api.JsonToPB(bin, binLen)
+	b := Api.JsonToPB(string(public.CStringToBytes(bin, binLen)))
+	if len(b) < 1 {
+		return 0
+	}
+	c := public.BytesCombine(public.Int64ToBytes(int64(len(b))), b)
+	return public.PointerPtr(c)
 }
 
 /*
@@ -1168,7 +1264,8 @@ PbToJson protobuf数据转为JSON格式
 */
 //export PbToJson
 func PbToJson(bin uintptr, binLen int) uintptr {
-	return Api.PbToJson(bin, binLen)
+	n := C.CString(Api.PbToJson(public.CStringToBytes(bin, binLen)))
+	return uintptr(unsafe.Pointer(n))
 }
 
 //===========================================================================================
@@ -1178,7 +1275,11 @@ QueuePull 队列弹出
 */
 //export QueuePull
 func QueuePull(name *C.char) uintptr {
-	return Api.QueuePull(C.GoString(name))
+	bx := Api.QueuePull(C.GoString(name))
+	if bx == nil {
+		return 0
+	}
+	return public.PointerPtr(public.BytesCombine(public.IntToBytes(len(bx)), bx))
 }
 
 /*
@@ -1186,7 +1287,7 @@ QueuePush 加入队列
 */
 //export QueuePush
 func QueuePush(name *C.char, val uintptr, valLen int) {
-	Api.QueuePush(C.GoString(name), val, valLen)
+	Api.QueuePush(C.GoString(name), public.CStringToBytes(val, valLen))
 }
 
 /*
@@ -1228,7 +1329,8 @@ SocketClientWrite TCP客户端 发送数据
 */
 //export SocketClientWrite
 func SocketClientWrite(Context, OutTimes int, val uintptr, valLen int) int {
-	return Api.SocketClientWrite(Context, OutTimes, val, valLen)
+	data := public.CStringToBytes(val, valLen)
+	return Api.SocketClientWrite(Context, OutTimes, data)
 }
 
 /*
@@ -1244,15 +1346,19 @@ SocketClientReceive TCP客户端 同步模式下 接收数据
 */
 //export SocketClientReceive
 func SocketClientReceive(Context, OutTimes int) uintptr {
-	return Api.SocketClientReceive(Context, OutTimes)
+	bs := Api.SocketClientReceive(Context, OutTimes)
+	if bs == nil {
+		return 0
+	}
+	return public.PointerPtr(public.BytesCombine(public.IntToBytes(len(bs)), bs))
 }
 
 /*
 SocketClientDial TCP客户端 连接
 */
 //export SocketClientDial
-func SocketClientDial(Context int, addr *C.char, call int, isTls, synchronous bool, ProxyUrl *C.char, CertificateConText int, ProxyOutTime int) bool {
-	return Api.SocketClientDial(Context, C.GoString(addr), call, isTls, synchronous, C.GoString(ProxyUrl), CertificateConText, ProxyOutTime)
+func SocketClientDial(Context int, addr *C.char, call int, isTls, synchronous bool, ProxyUrl *C.char, CertificateConText int, OutTime int) bool {
+	return Api.SocketClientDial(Context, C.GoString(addr), call, nil, isTls, synchronous, C.GoString(ProxyUrl), CertificateConText, OutTime)
 }
 
 /*
@@ -1294,7 +1400,11 @@ WebsocketClientReceive Websocket客户端 同步模式下 接收数据 返回数
 */
 //export WebsocketClientReceive
 func WebsocketClientReceive(Context, OutTimes int) uintptr {
-	return Api.WebsocketClientReceive(Context, OutTimes)
+	Buff, messageType := Api.WebsocketClientReceive(Context, OutTimes)
+	if Buff == nil {
+		return 0
+	}
+	return public.PointerPtr(public.BytesCombine(public.IntToBytes(len(Buff)), public.BytesCombine(public.IntToBytes(messageType), Buff)))
 }
 
 /*
@@ -1302,7 +1412,7 @@ WebsocketReadWrite Websocket客户端  发送数据
 */
 //export WebsocketReadWrite
 func WebsocketReadWrite(Context int, val uintptr, valLen int, messageType int) bool {
-	return Api.WebsocketReadWrite(Context, val, valLen, messageType)
+	return Api.WebsocketReadWrite(Context, public.CStringToBytes(val, valLen), messageType)
 }
 
 /*
@@ -1318,7 +1428,7 @@ WebsocketDial Websocket客户端 连接
 */
 //export WebsocketDial
 func WebsocketDial(Context int, URL, Heads *C.char, call int, synchronous bool, ProxyUrl *C.char, CertificateConText, outTime int) bool {
-	return Api.WebsocketDial(Context, C.GoString(URL), C.GoString(Heads), call, synchronous, C.GoString(ProxyUrl), CertificateConText, outTime)
+	return Api.WebsocketDial(Context, C.GoString(URL), C.GoString(Heads), call, nil, synchronous, C.GoString(ProxyUrl), CertificateConText, outTime)
 }
 
 /*
@@ -1418,15 +1528,27 @@ RedisGetKeys Redis 取指定条件键名
 */
 //export RedisGetKeys
 func RedisGetKeys(Context int, key *C.char) uintptr {
-	return Api.RedisGetKeys(Context, C.GoString(key))
+	bs := Api.RedisGetKeys(Context, C.GoString(key))
+	if bs == nil {
+		return 0
+	}
+	return public.PointerPtr(public.BytesCombine(public.IntToBytes(len(bs)), bs))
 }
+
+var errorNull = errors.New("")
 
 /*
 RedisDo Redis 自定义 执行和查询命令 返回操作结果可能是值 也可能是JSON文本
 */
 //export RedisDo
 func RedisDo(Context int, args *C.char, error uintptr) uintptr {
-	return Api.RedisDo(Context, C.GoString(args), error)
+	public.WriteErr(errorNull, error)
+	p, e := Api.RedisDo(Context, C.GoString(args))
+	if e != nil {
+		public.WriteErr(e, error)
+		return 0
+	}
+	return public.PointerPtr(p)
 }
 
 /*
@@ -1434,8 +1556,11 @@ RedisGetStr Redis 取文本值
 */
 //export RedisGetStr
 func RedisGetStr(Context int, key *C.char) uintptr {
-
-	return Api.RedisGetStr(Context, C.GoString(key))
+	s := Api.RedisGetStr(Context, C.GoString(key))
+	if s == "" {
+		return 0
+	}
+	return public.PointerPtr(s)
 }
 
 /*
@@ -1443,7 +1568,11 @@ RedisGetBytes Redis 取Bytes值
 */
 //export RedisGetBytes
 func RedisGetBytes(Context int, key *C.char) uintptr {
-	return Api.RedisGetBytes(Context, C.GoString(key))
+	p := Api.RedisGetBytes(Context, C.GoString(key))
+	if p == nil {
+		return 0
+	}
+	return public.PointerPtr(p)
 }
 
 /*
@@ -1484,6 +1613,7 @@ RedisDial Redis 连接
 */
 //export RedisDial
 func RedisDial(Context int, host, pass *C.char, db, PoolSize, MinIdleCons, DialTimeout, ReadTimeout, WriteTimeout, PoolTimeout, IdleCheckFrequency, IdleTimeout int, error uintptr) bool {
+	public.WriteErr(errorNull, error)
 	return Api.RedisDial(Context, C.GoString(host), C.GoString(pass), db, PoolSize, MinIdleCons, DialTimeout, ReadTimeout, WriteTimeout, PoolTimeout, IdleCheckFrequency, IdleTimeout, error)
 }
 
@@ -1517,7 +1647,12 @@ GetUdpData 获取UDP数据
 */
 //export GetUdpData
 func GetUdpData(MessageId int) uintptr {
-	return Api.GetUdpData(MessageId)
+	bx := Api.GetUdpData(MessageId)
+	if len(bx) < 1 {
+		return 0
+	}
+	u := public.PointerPtr(public.BytesCombine(public.IntToBytes(len(bx)), bx))
+	return u
 }
 
 /*
@@ -1570,19 +1705,11 @@ func DisableTCP(SunnyContext int, Disable bool) bool {
 }
 
 /*
-SetRandomFixedTLS  禁用TCP 仅对当前SunnyContext有效
+DisableUDP  禁用TCP 仅对当前SunnyContext有效
 */
-//export SetRandomFixedTLS
-func SetRandomFixedTLS(SunnyContext int, data uintptr, len int) bool {
-	return Api.SetRandomFixedTLS(SunnyContext, public.CStringToBytes(data, len))
-}
-
-/*
-RandomFixedTLSGet  随机生成一个密码套件
-*/
-//export RandomFixedTLSGet
-func RandomFixedTLSGet(SunnyContext int) uintptr {
-	return Api.RandomFixedTLSGet(SunnyContext)
+//export DisableUDP
+func DisableUDP(SunnyContext int, Disable bool) bool {
+	return Api.DisableUDP(SunnyContext, Disable)
 }
 
 /*

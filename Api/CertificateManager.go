@@ -3,7 +3,6 @@ package Api
 import "C"
 import (
 	"github.com/qtgolang/SunnyNet/src/Certificate"
-	"github.com/qtgolang/SunnyNet/src/public"
 )
 
 // CreateCertificate 创建 证书管理器 对象
@@ -168,14 +167,14 @@ func ExportKEY(Context int) string {
 }
 
 // ExportPub 证书管理器 导出公钥
-func ExportPub(Context int) uintptr {
+func ExportPub(Context int) string {
 	Certificate.Lock.Lock()
 	defer Certificate.Lock.Unlock()
 	c := Certificate.LoadCertificateContext(Context)
 	if c == nil {
-		return 0
+		return ""
 	}
-	return public.PointerPtr(c.ExportPub())
+	return c.ExportPub()
 }
 
 // GetCommonName 证书管理器 获取证书 CommonName 字段

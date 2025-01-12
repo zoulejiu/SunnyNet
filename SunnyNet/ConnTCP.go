@@ -20,6 +20,10 @@ type tcpConn struct {
 	pid          int            //Pid
 }
 
+func (k *tcpConn) GetSocket5User() string {
+	return GetSocket5User(k.theology)
+}
+
 func (k *tcpConn) GetProcessName() string {
 	if k.pid == 0 {
 		return "代理连接"

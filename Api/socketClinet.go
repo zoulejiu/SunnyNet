@@ -19,6 +19,7 @@ type SocketClient struct {
 	err         error
 	wb          net.Conn
 	call        int
+	goCall      func(Context, types int, bs []byte)
 	Context     int
 	BufferSize  int
 	synchronous bool
@@ -105,7 +106,7 @@ func SocketClientSetBufferSize(Context, BufferSize int) bool {
 // SocketClientDial
 //
 //	TCP客户端 连接
-func SocketClientDial(Context int, addr string, call int, isTls, synchronous bool, ProxyUrl string, CertificateConText int, ProxyOutTime int) bool {
+func SocketClientDial(Context int, addr string, call int, goCall func(Context, types int, bs []byte), isTls, synchronous bool, ProxyUrl string, CertificateConText int, OutTime int) bool {
 	w := LoadSocketContext(Context)
 	if w == nil {
 		return false
@@ -114,6 +115,7 @@ func SocketClientDial(Context int, addr string, call int, isTls, synchronous boo
 	defer w.l.Unlock()
 	w.err = nil
 	w.call = call
+	w.goCall = goCall
 	if w.BufferSize < 1 {
 		w.BufferSize = 4096
 	}
@@ -123,11 +125,11 @@ func SocketClientDial(Context int, addr string, call int, isTls, synchronous boo
 		w.err = errors.New("addr error ")
 		return false
 	}
+	out := OutTime
+	if OutTime < 1 {
+		out = 15000
+	}
 	if ProxyUrl != "" {
-		out := ProxyOutTime
-		if ProxyOutTime < 1 {
-			out = 15000
-		}
 		c, _ := SunnyProxy.ParseProxy(ProxyUrl, out)
 		if c == nil {
 			return false
@@ -149,7 +151,7 @@ func SocketClientDial(Context int, addr string, call int, isTls, synchronous boo
 		//w.wb = a
 		//w.err = b
 	} else {
-		a, b := net.Dial("tcp", uAddr.String())
+		a, b := net.DialTimeout("tcp", uAddr.String(), time.Millisecond*time.Duration(out))
 		w.wb = a
 		w.err = b
 	}
@@ -190,34 +192,34 @@ func SocketClientDial(Context int, addr string, call int, isTls, synchronous boo
 // TCP客户端 同步模式下 接收数据
 //
 //export SocketClientReceive
-func SocketClientReceive(Context, OutTimes int) uintptr {
+func SocketClientReceive(Context, OutTimes int) []byte {
 	w := LoadSocketContext(Context)
 	if w == nil {
 		w.err = errors.New("The Context does not exist ")
-		return 0
+		return nil
 	}
 
 	//w.l.Lock()
 	//defer w.l.Unlock()
 	if w.synchronous == false {
 		w.err = errors.New("Not synchronous mode ")
-		return 0
+		return nil
 	}
 	_OutTime := OutTimes
 	if _OutTime < 1 {
 		_OutTime = 100
 	}
 	if w.wb == nil {
-		return 0
+		return nil
 	}
 	_ = w.wb.SetReadDeadline(time.Now().Add(time.Duration(_OutTime) * time.Millisecond))
 	var Buff = make([]byte, w.BufferSize)
 	var le = 0
 	le, w.err = w.R.Read(Buff[0:])
 	if le > 0 {
-		return public.PointerPtr(public.BytesCombine(public.IntToBytes(le), Buff[0:le]))
+		return Buff[0:le]
 	}
-	return 0
+	return nil
 }
 
 // SocketClientClose
@@ -234,8 +236,7 @@ func SocketClientClose(Context int) {
 
 // SocketClientWrite
 // TCP客户端 发送数据
-func SocketClientWrite(Context, OutTimes int, val uintptr, valLen int) int {
-	data := public.CStringToBytes(val, valLen)
+func SocketClientWrite(Context, OutTimes int, data []byte) int {
 	w := LoadSocketContext(Context)
 	if w == nil {
 		return 0
@@ -250,7 +251,7 @@ func SocketClientWrite(Context, OutTimes int, val uintptr, valLen int) int {
 	m, err := w.Write(data, _OutTimes)
 	if err != nil {
 		s := err.Error()
-		SocketClientSendCall([]byte(s), w.call, 3, Context)
+		SocketClientSendCall([]byte(s), w.call, w.goCall, 3, Context)
 		//w.Close()
 		return m
 	}
@@ -278,7 +279,7 @@ func (w *SocketClient) SocketClientRead() {
 	non := 0
 	for {
 		if w.wb == nil {
-			SocketClientSendCall([]byte("The connection may be closed "), w.call, 2, w.Context)
+			SocketClientSendCall([]byte("The connection may be closed "), w.call, w.goCall, 2, w.Context)
 			w.Close()
 			return
 		}
@@ -287,17 +288,17 @@ func (w *SocketClient) SocketClientRead() {
 		if len(response) == 0 {
 			non++
 			if non > 10 {
-				SocketClientSendCall([]byte("The connection may be closed "), w.call, 2, w.Context)
+				SocketClientSendCall([]byte("The connection may be closed "), w.call, w.goCall, 2, w.Context)
 				w.Close()
 				return
 			}
 			continue
 		} else {
 			non = 0
-			SocketClientSendCall(response, w.call, 1, w.Context)
+			SocketClientSendCall(response, w.call, w.goCall, 1, w.Context)
 		}
 		if err != nil {
-			SocketClientSendCall([]byte(err.Error()), w.call, 2, w.Context)
+			SocketClientSendCall([]byte(err.Error()), w.call, w.goCall, 2, w.Context)
 			w.Close()
 			return
 		}
@@ -323,7 +324,11 @@ func (w *SocketClient) readAllShut() ([]byte, error) {
 	re.Reset()
 	return rb, nil
 }
-func SocketClientSendCall(b []byte, call, types, Context int) {
+func SocketClientSendCall(b []byte, call int, goCall func(Context, types int, bs []byte), types, Context int) {
+	if goCall != nil {
+		goCall(Context, types, b)
+		return
+	}
 	if call > 0 {
 		Call.Call(call, Context, types, b, len(b))
 	}

@@ -16,22 +16,38 @@ import (
 type ConnHTTP Interface.ConnHTTPCall
 
 type httpConn struct {
-	_Context    int
-	_Theology   int               //唯一ID
-	_MessageId  int               //消息ID,仅标识消息ID,不能用于API函数
-	_PID        int               //请求进程PID， 为0 表示 非本机设备通过代理连接
-	_Type       int               //请求类型 例如 public.HttpSendRequest  public.Http....
-	_ClientIP   string            //来源IP地址,请求从哪里来
-	_request    *http.Request     //请求体
-	_response   *http.Response    //响应体
-	_err        string            //错误信息
-	_proxy      *SunnyProxy.Proxy //代理信息
-	_getRawBody func(path string) bool
-	_isRawBody  func() bool
-	_Display    bool
-	_Break      bool
-	_tls        *tls.Config
-	_serverIP   string
+	_Context              int
+	_Theology             int               //唯一ID
+	_MessageId            int               //消息ID,仅标识消息ID,不能用于API函数
+	_PID                  int               //请求进程PID， 为0 表示 非本机设备通过代理连接
+	_Type                 int               //请求类型 例如 public.HttpSendRequest  public.Http....
+	_ClientIP             string            //来源IP地址,请求从哪里来
+	_request              *http.Request     //请求体
+	_response             *http.Response    //响应体
+	_err                  string            //错误信息
+	_proxy                *SunnyProxy.Proxy //代理信息
+	_getRawBody           func(path string) bool
+	_isRawBody            func() bool
+	_Display              bool
+	_Break                bool
+	_tls                  *tls.Config
+	_serverIP             string
+	_isRandomCipherSuites bool
+}
+
+func (h *httpConn) GetSocket5User() string {
+	return GetSocket5User(h._Theology)
+}
+
+func (h *httpConn) ServerAddress() string {
+	if h._Type != public.HttpResponseOK {
+		return ""
+	}
+	return h._serverIP
+}
+
+func (h *httpConn) RandomCipherSuites() {
+	h._isRandomCipherSuites = true
 }
 
 func (h *httpConn) UpdateURL(NewUrl string) bool {
@@ -52,10 +68,6 @@ func (h *httpConn) UpdateURL(NewUrl string) bool {
 	h._request.Host = h._request.URL.Host
 	h._request.RequestURI = ""
 	return true
-}
-
-func (h *httpConn) ServerIP() string {
-	return h._serverIP
 }
 
 func (h *httpConn) SetHTTP2Config(h2Config string) bool {

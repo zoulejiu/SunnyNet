@@ -22,6 +22,7 @@ type WebsocketClient struct {
 	err         error
 	wb          *websocket.Conn
 	call        int
+	goCall      func(int, int, []byte, int)
 	Context     int
 	synchronous bool
 	l           sync.Mutex
@@ -84,7 +85,7 @@ func WebsocketGetErr(Context int) uintptr {
 
 // WebsocketDial
 // Websocket客户端 连接
-func WebsocketDial(Context int, URL, Heads string, call int, synchronous bool, ProxyUrl string, CertificateConText int, outTime int) bool {
+func WebsocketDial(Context int, URL, Heads string, call int, goCall func(int, int, []byte, int), synchronous bool, ProxyUrl string, CertificateConText int, outTime int) bool {
 	w := LoadWebSocketContext(Context)
 	if w == nil {
 		return false
@@ -92,6 +93,7 @@ func WebsocketDial(Context int, URL, Heads string, call int, synchronous bool, P
 	w.l.Lock()
 	defer w.l.Unlock()
 	w.call = call
+	w.goCall = goCall
 	w.err = nil
 	head := strings.ReplaceAll(Heads, "\r", "")
 	var dialer websocket.Dialer
@@ -133,10 +135,26 @@ func WebsocketDial(Context int, URL, Heads string, call int, synchronous bool, P
 	Proxy_, _ := SunnyProxy.ParseProxy(ProxyUrl, outTime)
 	//w.wb, _, w.err = dialer.Dial(Request.URL.String(), Request.Header, Proxy_)
 	//w.wb, _, w.err = dialer.ConnDialContext(Request, Proxy_)
-	w.wb, _, w.err = dialer.Dial(URL, Header, Proxy_)
+	w.wb, _, _, w.err = dialer.Dial(URL, Header, Proxy_)
 	if w.err != nil {
 		return false
 	}
+	go func() {
+		w.wb.SetCloseHandler(func(code int, text string) error {
+			message := websocket.FormatCloseMessage(code, text)
+			WebsocketSendCall(message, w.call, w.goCall, 1, w.Context, websocket.CloseMessage)
+			return nil
+		})
+		w.wb.SetPingHandler(func(appData []byte) error {
+			WebsocketSendCall(appData, w.call, w.goCall, 1, w.Context, websocket.PingMessage)
+			return nil
+		})
+		w.wb.SetPongHandler(func(appData []byte) error {
+			WebsocketSendCall(appData, w.call, w.goCall, 1, w.Context, websocket.PongMessage)
+			return nil
+		})
+
+	}()
 	if w.synchronous == false {
 		go w.WebsocketRead()
 	}
@@ -159,8 +177,8 @@ func WebsocketClose(Context int) {
 
 // WebsocketReadWrite
 // Websocket客户端  发送数据
-func WebsocketReadWrite(Context int, val uintptr, valLen int, messageType int) bool {
-	data := public.CStringToBytes(val, valLen)
+func WebsocketReadWrite(Context int, data []byte, messageType int) bool {
+
 	w := LoadWebSocketContext(Context)
 	if w == nil {
 		return false
@@ -184,7 +202,7 @@ func WebsocketReadWrite(Context int, val uintptr, valLen int, messageType int) b
 	err := w.wb.WriteMessage(i, data)
 	if err != nil {
 		s := err.Error()
-		WebsocketSendCall([]byte(s), w.call, 3, Context, 255)
+		WebsocketSendCall([]byte(s), w.call, w.goCall, 3, Context, 255)
 		_ = w.wb.Close()
 		return false
 	}
@@ -193,40 +211,40 @@ func WebsocketReadWrite(Context int, val uintptr, valLen int, messageType int) b
 func (w *WebsocketClient) WebsocketRead() {
 	for {
 		if w.wb == nil {
-			WebsocketSendCall([]byte("Pointer = null"), w.call, 2, w.Context, 255)
+			WebsocketSendCall([]byte("Pointer = null"), w.call, w.goCall, 2, w.Context, 255)
 			return
 		}
 		m, msg, err := w.wb.ReadMessage()
 		if err != nil {
 			s := err.Error()
-			WebsocketSendCall([]byte(s), w.call, 2, w.Context, 255)
+			WebsocketSendCall([]byte(s), w.call, w.goCall, 2, w.Context, 255)
 			_ = w.wb.Close()
 			return
 		}
-		WebsocketSendCall(msg, w.call, 1, w.Context, m)
+		WebsocketSendCall(msg, w.call, w.goCall, 1, w.Context, m)
 	}
 }
 
 // WebsocketClientReceive
 // Websocket客户端 同步模式下 接收数据 返回数据指针 失败返回0 length=返回数据长度
-func WebsocketClientReceive(Context, OutTimes int) uintptr {
+func WebsocketClientReceive(Context, OutTimes int) ([]byte, int) {
 	w := LoadWebSocketContext(Context)
 	if w == nil {
 		w.err = errors.New("The Context does not exist ")
-		return 0
+		return nil, 0
 	}
 	w.l.Lock()
 	defer w.l.Unlock()
 	if w.synchronous == false {
 		w.err = errors.New("Not synchronous mode ")
-		return 0
+		return nil, 0
 	}
 	_OutTime := OutTimes
 	if _OutTime < 1 {
 		_OutTime = 3000
 	}
 	if w.wb == nil {
-		return 0
+		return nil, 0
 	}
 	w.err = w.wb.SetReadDeadline(time.Now().Add(time.Duration(_OutTime) * time.Millisecond))
 	var Buff []byte
@@ -236,12 +254,16 @@ func WebsocketClientReceive(Context, OutTimes int) uintptr {
 	length = len(Buff)
 	if w.err == nil {
 		if length > 0 {
-			return public.PointerPtr(public.BytesCombine(public.IntToBytes(length), public.BytesCombine(public.IntToBytes(messageType), Buff)))
+			return Buff, messageType
 		}
 	}
-	return 0
+	return nil, 0
 }
-func WebsocketSendCall(b []byte, call, types, Context, messageType int) {
+func WebsocketSendCall(b []byte, call int, goCall func(int, int, []byte, int), types, Context, messageType int) {
+	if goCall != nil {
+		goCall(Context, types, b, messageType)
+		return
+	}
 	if call > 10 {
 		Call.Call(call, Context, types, b, len(b), messageType)
 	}

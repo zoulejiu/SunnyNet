@@ -19,6 +19,10 @@ type udpConn struct {
 	data          []byte
 }
 
+func (U udpConn) GetSocket5User() string {
+	return ""
+}
+
 func (U udpConn) GetProcessName() string {
 	if U.pid == 0 {
 		return "代理连接"

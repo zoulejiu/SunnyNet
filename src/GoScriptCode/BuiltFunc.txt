@@ -207,52 +207,63 @@ func GoBase64Decode(a string) []byte {
 	b, _ := base64.StdEncoding.DecodeString(a)
 	return b
 }
-func GoHTTPRequest(method, url string, header ...any) ([]byte, http.Header, error) {
-	client := &http.Client{}
-	rBody := make([]byte, 0)
-	if len(header) > 0 {
-		switch v := header[0].(type) {
-		case string:
-			rBody = []byte(v)
-			break
-		case []byte:
-			rBody = v
-			break
 
-		}
-	}
-	rData := io.NopCloser(bytes.NewBuffer(rBody))
-	defer func() {
-		_ = rData.Close()
-	}()
-	request, err := http.NewRequest(strings.ToUpper(method), url, rData)
-	if err != nil {
-		return nil, nil, err
-	}
-	if len(header) > 1 {
-		h := header[1].(http.Header)
-		if h != nil {
-			request.Header = h
-		}
-	}
-	response, err := client.Do(request)
-	if err != nil {
-		return nil, nil, err
-	}
-	body := make([]byte, 0)
-	var _header http.Header
-	if response != nil {
-		_header = response.Header
-		if response.Body != nil {
-			defer func() { _ = response.Body.Close() }()
-			body, err = io.ReadAll(response.Body)
-		}
-	}
-	if err != nil {
-		return nil, nil, err
-	}
-	return body, _header, nil
-}
+func GoHTTPRequest(method, url string, data any, header ...any) ([]byte, http.Header, error) {
+ 	client := &http.Client{}
+ 	rBody := make([]byte, 0)
+ 	switch v := data.(type) {
+ 	case string:
+ 		rBody = []byte(v)
+ 		break
+ 	case []byte:
+ 		rBody = v
+ 		break
+
+ 	}
+ 	rData := io.NopCloser(bytes.NewBuffer(rBody))
+ 	defer func() {
+ 		_ = rData.Close()
+ 	}()
+ 	request, err := http.NewRequest(strings.ToUpper(method), url, rData)
+ 	if len(header) > 0 {
+ 		h, ok := header[0].(Header)
+ 		if ok {
+ 			request.Header = h
+ 		} else {
+ 			h1, ok1 := header[0].(http.Header)
+ 			if ok1 {
+ 				request.Header = h1
+ 			}
+ 		}
+ 	}
+ 	if err != nil {
+ 		return nil, nil, err
+ 	}
+ 	if len(header) > 1 {
+ 		h := header[1].(http.Header)
+ 		if h != nil {
+ 			request.Header = h
+ 		}
+ 	}
+ 	response, err := client.Do(request)
+ 	if err != nil {
+ 		return nil, nil, err
+ 	}
+ 	body := make([]byte, 0)
+ 	var _header http.Header
+ 	if response != nil {
+ 		_header = response.Header
+ 		if response.Body != nil {
+ 			defer func() { _ = response.Body.Close() }()
+ 			body, err = io.ReadAll(response.Body)
+ 		}
+ 	}
+ 	if err != nil {
+ 		return nil, nil, err
+ 	}
+ 	return body, _header, nil
+ }
+
 func GoRsaPrivateDecrypt(key string, cipher []byte) ([]byte, error) {
 	privateKey, _ := pem.Decode([]byte(key))
 	if privateKey == nil {

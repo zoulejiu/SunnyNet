@@ -54,11 +54,10 @@ type connHTTP interface {
 	ClientIP() string
 
 	/*
-		ServerIP
-		返回请求的服务器IP地址
+		RandomCipherSuites
+		在发起请求时,随机使用密码套件
 	*/
-	ServerIP() string
-
+	RandomCipherSuites()
 	/*
 		StopRequest
 		阻止请求,仅支持在发起请求时使用
@@ -67,6 +66,11 @@ type connHTTP interface {
 		Header=要响应的Header 可以忽略
 	*/
 	StopRequest(StatusCode int, Data any, Header ...http.Header)
+	/*
+		ServerAddress
+		在完成请求时使用,返回请求的地址响应的IP地址
+	*/
+	ServerAddress() string
 
 	/*
 		Error
@@ -252,6 +256,12 @@ type ConnWebSocketScriptCall interface {
 		当前请求的URL
 	*/
 	URL() string
+
+	/*
+		Method
+		返回请求的方法 例如 GET POST
+	*/
+	Method() string
 }
 type ConnTCPScriptCall interface {
 	general
@@ -419,4 +429,13 @@ type general interface {
 		如果非本机的设备通过代理发起,返回"代理连接"
 	*/
 	GetProcessName() string
+	/*
+		GetSocket5User
+		如果开启了用户身份验证,通过此函数获取到此请求对于的账号,如果没有开启身份验证,返回空字符串
+		注意
+		UDP请求无法获取到授权的s5账号
+		并且
+		如果通过驱动传入的请求也无法获取到
+	*/
+	GetSocket5User() string
 }

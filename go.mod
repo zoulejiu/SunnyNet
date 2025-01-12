@@ -1,8 +1,6 @@
 module github.com/qtgolang/SunnyNet
 
-go 1.22.0
-
-toolchain go1.23.4
+go 1.20
 
 require (
 	github.com/Trisia/gosysproxy v1.1.0
@@ -12,14 +10,12 @@ require (
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/go-resty/resty/v2 v2.16.2
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/websocket v1.5.3
 	github.com/klauspost/compress v1.17.11
 	github.com/quic-go/quic-go v0.48.2
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/stretchr/testify v1.10.0
 	github.com/tam7t/hpkp v0.0.0-20160821193359-2b70b4024ed5
 	github.com/tidwall/gjson v1.18.0
-	github.com/traefik/yaegi v0.16.1
 	github.com/yusufpapurcu/wmi v1.2.4
 	golang.org/x/crypto v0.31.0
 	golang.org/x/image v0.23.0

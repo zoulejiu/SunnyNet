@@ -31,25 +31,36 @@ func newResolver(proxy string, Dial func(network, address string) (net.Conn, err
 			dnsLock.Unlock()
 			var conn net.Conn
 			var err error
+
 			if _dnsServer == "" {
-				//本地解析
-				conn, err = dialer.DialContext(context, network_, address)
-			} else if proxy == "" {
-				//本地使用自定义DNS服务器解析
-				conn, err = dialer.DialContext(context, "tcp", _dnsServer)
-			} else {
-				//使用代理并使用DNS服务器解析
-				conn, err = Dial("tcp", _dnsServer)
+				if proxy == "" {
+					return dialer.DialContext(context, network_, address)
+				}
+				//使用代理进行查询，代理仅支持TCP
+				return Dial("tcp", address)
 			}
-			if err != nil {
-				return nil, err
+			_tlsTCP := strings.HasSuffix(_dnsServer, ":853")
+
+			if _tlsTCP {
+				if proxy == "" {
+					conn, err = dialer.DialContext(context, network_, _dnsServer)
+				} else {
+					//使用代理连接到自定义DNS服务器，代理仅支持TCP
+					conn, err = Dial("tcp", _dnsServer)
+				}
+				if err != nil {
+					return nil, err
+				}
+				_ = conn.(*net.TCPConn).SetKeepAlive(true)
+				_ = conn.(*net.TCPConn).SetKeepAlivePeriod(10 * time.Second)
+				return tls.Client(conn, dnsConfig), nil
 			}
-			_ = conn.(*net.TCPConn).SetKeepAlive(true)
-			_ = conn.(*net.TCPConn).SetKeepAlivePeriod(10 * time.Minute)
-			if !strings.HasSuffix(_dnsServer, ":853") {
-				return conn, nil
+
+			if proxy == "" {
+				return dialer.DialContext(context, network_, _dnsServer)
 			}
-			return tls.Client(conn, dnsConfig), nil
+			//使用代理连接到自定义DNS服务器，代理仅支持TCP
+			return Dial("tcp", _dnsServer)
 		},
 	}
 	return _default_
@@ -126,27 +137,16 @@ func LookupIP(host string, proxy string, Dial func(network, address string) (net
 	if len(ips) > 0 {
 		return ips, err
 	}
-	return lookupIP(host, proxy, Dial, "ip")
+	ips, err = lookupIP(host, proxy, Dial, "ip")
+	if len(ips) > 0 {
+		return ips, err
+	}
+	//如果远程没有解析成功,则使用本地DNS解析一次
+	return localLookupIP(host, proxy)
 }
 func lookupIP(host string, proxy string, Dial func(network, address string) (net.Conn, error), Net string) ([]net.IP, error) {
 	if proxy == "" {
-		key := "_default_" + host
-		dnsLock.Lock()
-		ips := dnsList[key]
-		if ips != nil {
-			ips.time = time.Now()
-			dnsLock.Unlock()
-			return ips.ips, nil
-		}
-		dnsLock.Unlock()
-		_ips, _err := net.LookupIP(host)
-		if len(_ips) > 0 {
-			t := &rsIps{ips: _ips, time: time.Now()}
-			dnsLock.Lock()
-			dnsList[key] = t
-			dnsLock.Unlock()
-		}
-		return _ips, _err
+		return localLookupIP(host, proxy)
 	}
 	key := proxy + "|" + host
 	dnsLock.Lock()
@@ -165,6 +165,30 @@ func lookupIP(host string, proxy string, Dial func(network, address string) (net
 	resolver.time = time.Now()
 	dnsLock.Unlock()
 	_ips, _err := resolver.rs.LookupIP(context.Background(), Net, host)
+	if len(_ips) > 0 {
+		t := &rsIps{ips: _ips, time: time.Now()}
+		dnsLock.Lock()
+		dnsList[key] = t
+		dnsLock.Unlock()
+	}
+	return _ips, _err
+}
+func localLookupIP(host, proxyHost string) ([]net.IP, error) {
+	key := ""
+	if proxyHost == "" {
+		key = "_default_" + host
+	} else {
+		key = proxyHost + "|" + host
+	}
+	dnsLock.Lock()
+	ips := dnsList[key]
+	if ips != nil {
+		ips.time = time.Now()
+		dnsLock.Unlock()
+		return ips.ips, nil
+	}
+	dnsLock.Unlock()
+	_ips, _err := net.LookupIP(host)
 	if len(_ips) > 0 {
 		t := &rsIps{ips: _ips, time: time.Now()}
 		dnsLock.Lock()

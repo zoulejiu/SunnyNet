@@ -3,7 +3,6 @@ package Api
 import "C"
 import (
 	"bytes"
-	"github.com/qtgolang/SunnyNet/src/public"
 	"golang.org/x/image/webp"
 	"image/jpeg"
 	"image/png"
@@ -69,8 +68,7 @@ func WebpToJpeg(webpName, save string, SaveQuality int) bool {
 }
 
 // WebpToPngBytes Webp图片转Png图片字节数组
-func WebpToPngBytes(data uintptr, dataLen int) uintptr {
-	_webp := public.CStringToBytes(data, dataLen)
+func WebpToPngBytes(_webp []byte) []byte {
 	var b bytes.Buffer
 	b.Write(_webp)
 	defer func() {
@@ -78,7 +76,7 @@ func WebpToPngBytes(data uintptr, dataLen int) uintptr {
 	}()
 	img0, err := webp.Decode(&b)
 	if err != nil {
-		return 0
+		return nil
 	}
 	var bs bytes.Buffer
 	defer func() {
@@ -86,16 +84,13 @@ func WebpToPngBytes(data uintptr, dataLen int) uintptr {
 	}()
 	err = (&png.Encoder{CompressionLevel: png.NoCompression}).Encode(&bs, img0)
 	if bs.Len() < 1 || err != nil {
-		return 0
+		return nil
 	}
-	bn := bs.Bytes()
-	bn = public.BytesCombine(public.IntToBytes(len(bn)), bn)
-	return public.PointerPtr(string(bn))
+	return bs.Bytes()
 }
 
 // WebpToJpegBytes Webp图片转JEG图片字节数组 SaveQuality=质量(默认75)
-func WebpToJpegBytes(data uintptr, dataLen int, SaveQuality int) uintptr {
-	_webp := public.CStringToBytes(data, dataLen)
+func WebpToJpegBytes(_webp []byte, SaveQuality int) []byte {
 	var b bytes.Buffer
 	b.Write(_webp)
 	defer func() {
@@ -103,7 +98,7 @@ func WebpToJpegBytes(data uintptr, dataLen int, SaveQuality int) uintptr {
 	}()
 	img0, err := webp.Decode(&b)
 	if err != nil {
-		return 0
+		return nil
 	}
 	var bs bytes.Buffer
 	defer func() {
@@ -115,9 +110,7 @@ func WebpToJpegBytes(data uintptr, dataLen int, SaveQuality int) uintptr {
 	}
 	err = jpeg.Encode(&bs, img0, &jpeg.Options{Quality: _SaveQuality})
 	if bs.Len() < 1 || err != nil {
-		return 0
+		return nil
 	}
-	bn := bs.Bytes()
-	bn = public.BytesCombine(public.IntToBytes(len(bn)), bn)
-	return public.PointerPtr(string(bn))
+	return bs.Bytes()
 }
