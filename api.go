@@ -141,7 +141,7 @@ func CompileProxyRegexp(SunnyContext int, Regexp *C.char) bool {
 }
 
 /*
-SetMustTcpRegexp 设置强制走TCP规则,如果 打开了全部强制走TCP状态,本功能则无效
+SetMustTcpRegexp 设置强制走TCP规则,如果 打开了全部强制走TCP状态,本功能则无效 RulesAllow=false 规则之外走TCP  RulesAllow=true 规则之内走TCP
 */
 //export SetMustTcpRegexp
 func SetMustTcpRegexp(SunnyContext int, Regexp *C.char, RulesAllow bool) bool {
@@ -617,11 +617,6 @@ func TcpSendMsgClient(theology int, data uintptr, dataLen int) int {
 	return Api.TcpSendMsgClient(theology, public.CStringToBytes(data, dataLen))
 }
 
-//export HexDump
-func HexDump(data uintptr, dataLen int) uintptr {
-	return Api.HexDump(data, dataLen)
-}
-
 /*
 BytesToInt 将Go int的Bytes 转为int
 */
@@ -766,7 +761,8 @@ func WebpToPng(webpPath, savePath *C.char) bool {
 }
 
 /*
-OpenDrive 开启进程代理/打开驱动
+OpenDrive 开始进程代理/打开驱动 只允许一个 SunnyNet 使用 [会自动安装所需驱动文件]
+IsNfapi 如果为true表示使用NFAPI驱动 如果为false 表示使用Proxifier
 */
 //export OpenDrive
 func OpenDrive(SunnyContext int, isNf bool) bool {
@@ -1168,6 +1164,18 @@ func HTTPGetHeader(Context int, name *C.char) uintptr {
 }
 
 /*
+HTTPGetRequestHeader HTTP 客户端 添加的全部协议头
+*/
+//export HTTPGetRequestHeader
+func HTTPGetRequestHeader(Context int) uintptr {
+	s := Api.HTTPGetRequestHeader(Context)
+	if s == "" {
+		return 0
+	}
+	return public.PointerPtr(s)
+}
+
+/*
 HTTPGetHeads HTTP 客户端 返回响应全部Heads
 */
 //export HTTPGetHeads
@@ -1479,8 +1487,8 @@ func DelHttpCertificate(host *C.char) {
 RedisSubscribe Redis 订阅消息
 */
 //export RedisSubscribe
-func RedisSubscribe(Context int, scribe *C.char, call int, nc bool) {
-	Api.RedisSubscribe(Context, C.GoString(scribe), call, nc)
+func RedisSubscribe(Context int, scribe *C.char, call int, nc bool) bool {
+	return Api.RedisSubscribe(Context, C.GoString(scribe), call, nc)
 }
 
 /*

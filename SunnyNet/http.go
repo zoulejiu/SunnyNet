@@ -43,9 +43,11 @@ func (n *objHook) Read(p []byte) (int, error) {
 	return copyLength, nil
 }
 func (s *proxyRequest) h2Request(aheadData []byte) {
+	s._SocksUser = GetSocket5User(s.Theology)
 	http.H2NewConn(newObjHook(s.RwObj, aheadData), s.httpCall)
 }
 func (s *proxyRequest) h1Request(aheadData []byte) {
+	s._SocksUser = GetSocket5User(s.Theology)
 	http.H1NewConn(newObjHook(s.RwObj, aheadData), s.httpCall)
 }
 func (s *proxyRequest) httpCall(rw http.ResponseWriter, req *http.Request) {

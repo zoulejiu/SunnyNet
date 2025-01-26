@@ -11,6 +11,7 @@ import (
 	"github.com/qtgolang/SunnyNet/src/public"
 	"io"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -102,7 +103,13 @@ func HTTPSetHeader(Context int, name, value string) {
 	}
 	k.lock.Lock()
 	defer k.lock.Unlock()
-	k.req.Header.Add(name, value)
+	arr := strings.Split(strings.ReplaceAll(value, "\r", ""), "\n")
+	for _, v := range arr {
+		if v == "" {
+			continue
+		}
+		k.req.Header.Add(name, v)
+	}
 }
 
 // HTTPSetProxyIP
@@ -225,6 +232,42 @@ func HTTPGetHeads(Context int) string {
 	sort.Strings(key)
 	for _, kv := range key {
 		for _, value := range k.resp.Header[kv] {
+			if Head == "" {
+				Head = kv + ": " + value
+			} else {
+				Head += "\r\n" + kv + ": " + value
+			}
+		}
+	}
+	return Head
+}
+
+// HTTPGetRequestHeader
+// HTTP 客户端 添加的全部协议头
+func HTTPGetRequestHeader(Context int) string {
+	k := LoadHTTPClient(Context)
+	if k == nil {
+		return ""
+	}
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	if k.req == nil {
+		return ""
+	}
+	if k.req.Header == nil {
+		return ""
+	}
+	if len(k.req.Header) < 1 {
+		return ""
+	}
+	Head := ""
+	var key []string
+	for value, _ := range k.req.Header {
+		key = append(key, value)
+	}
+	sort.Strings(key)
+	for _, kv := range key {
+		for _, value := range k.req.Header[kv] {
 			if Head == "" {
 				Head = kv + ": " + value
 			} else {

@@ -21,7 +21,6 @@ const (
 func ClosePidTCP(PID int) {
 	iphlpapi.CloseCurrentSocket(PID, AF_INET)
 	iphlpapi.CloseCurrentSocket(PID, AF_INET6)
-
 }
 
 // CloseNameTCP 关闭指定进程的所有TCP连接

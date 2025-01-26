@@ -63,7 +63,7 @@ func NFapi_MessageBox(caption, text string, style uintptr) (result int) {
 	return NFapi2.MessageBox(caption, text, style)
 }
 func Drive_UnInstall() {
-	tmp := NFapi2.System32Dir + "\\111111.tmp"
+	tmp := NFapi2.System32Dir + "\\tmp.tmp"
 	if err := os.WriteFile(tmp, []byte("check"), 0777); err != nil {
 		return
 	}
@@ -80,9 +80,25 @@ func NFapi_ClosePidTCP(pid int) {
 	Info.ClosePidTCP(pid)
 }
 func NFapi_DelName(u string) {
+	a, e := public.GbkToUtf8(u)
+	if e != nil {
+		Info.AddName(a)
+	}
+	a, e = public.Utf8ToGbk(u)
+	if e != nil {
+		Info.AddName(a)
+	}
 	Info.DelName(u)
 }
 func NFapi_AddName(u string) {
+	a, e := public.GbkToUtf8(u)
+	if e != nil {
+		Info.AddName(a)
+	}
+	a, e = public.Utf8ToGbk(u)
+	if e != nil {
+		Info.AddName(a)
+	}
 	Info.AddName(u)
 }
 func NFapi_DelPid(pid uint32) {
@@ -91,9 +107,7 @@ func NFapi_DelPid(pid uint32) {
 func NFapi_AddPid(pid uint32) {
 	Info.AddPid(pid)
 }
-func NFapi_CloseNameTCP(u string) {
-	Info.CloseNameTCP(u)
-}
+
 func NFapi_CancelAll() {
 	Info.CancelAll()
 }

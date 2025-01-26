@@ -35,24 +35,21 @@ func Test() {
 	//s.MustTcp(true)
 	//s.DisableTCP(true)
 	s.SetGlobalProxy("socket://192.168.31.1:4321", 60000)
-	s.SetMustTcpRegexp("zz.com", true)
+	s.SetMustTcpRegexp("tpstelemetry.tencent.com", true)
 	Port := 2024
 	//s.SetMustTcpRegexp("*.baidu.com")
 	s = s.SetPort(Port).Start()
-	//s.SetIeProxy(true)
+	//s.SetIEProxy()
 	s.SetHTTPRequestMaxUpdateLength(100000000)
-	//fmt.Println(s.OpenDrive(false))
+	fmt.Println(s.OpenDrive(false))
+	//s.ProcessALLName(true, false)
 
-	// 请注意GoLang调试时候，请不要使用此(ProcessALLName)命令，因为不管开启或关闭，都会将当前所有TCP链接断开一次
-	// 因为如果不断开的一次的话,已经建立的TCP链接无法抓包。
-	// Go程序调试，是通过TCP连接的，若使用此命令将无法调试。
-	s.ProcessALLName(true, false)
-
-	//s.ProcessAddName("GoTest.exe")
-	s.ProcessAddName("chrome.exe")
-	s.ProcessAddName("as5.exe")
-
-	//s.ProcessAddName("pop_dd_workbench.exe")
+	//s.ProcessAddName("WeChat.exe")
+	go func() {
+		time.Sleep(10 * time.Second)
+		s.ProcessALLName(false, true)
+		fmt.Println("已设置断开")
+	}()
 	err := s.Error
 	if err != nil {
 		panic(err)
@@ -60,9 +57,8 @@ func Test() {
 	fmt.Println("Run Port=", Port)
 }
 func HttpCallback(Conn SunnyNet.ConnHTTP) {
-
 	if Conn.Type() == public.HttpSendRequest {
-		fmt.Println(Conn.URL())
+		fmt.Println("发起请求", Conn.URL())
 		//发起请求
 
 		//直接响应,不让其发送请求
@@ -70,7 +66,8 @@ func HttpCallback(Conn SunnyNet.ConnHTTP) {
 
 	} else if Conn.Type() == public.HttpResponseOK {
 		//请求完成
-		//log.Println("Call", Conn.URL())
+		bs := Conn.GetResponseBody()
+		log.Println("请求完成", Conn.URL(), len(bs), Conn.GetResponseHeader())
 	} else if Conn.Type() == public.HttpRequestFail {
 		//请求错误
 		fmt.Println(time.Now(), Conn.URL(), Conn.Error())

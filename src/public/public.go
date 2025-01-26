@@ -17,6 +17,8 @@ import (
 	"errors"
 	"github.com/qtgolang/SunnyNet/src/ReadWriteObject"
 	"github.com/qtgolang/SunnyNet/src/http"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
 	"io/ioutil"
 	"math"
 	"math/big"
@@ -498,6 +500,28 @@ func LegitimateRequest(s []byte) (bool, bool, int, int, bool) {
 	}
 	return false, false, 0, 0, isHttpRequest
 
+}
+
+func Utf8ToGbk(input string) (string, error) {
+	// 创建 GBK 编码的转换器
+	encoder := simplifiedchinese.GBK.NewEncoder()
+	// 转换
+	result, _, err := transform.String(encoder, input)
+	if err != nil {
+		return "", err
+	}
+	return result, nil
+}
+
+func GbkToUtf8(input string) (string, error) {
+	// 创建 GBK 解码器
+	decoder := simplifiedchinese.GBK.NewDecoder()
+	// 转换
+	result, err := decoder.String(input)
+	if err != nil {
+		return "", err
+	}
+	return result, nil
 }
 
 // CopyBytes 拷贝 字节数组避免内存泄漏

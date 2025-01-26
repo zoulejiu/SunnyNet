@@ -254,7 +254,7 @@ func Java_com_SunnyNet_api_SunnyNetSetCallback(envObj uintptr, clazz uintptr, Su
 		return
 	}
 
-	FuncSig = fmt.Sprintf("(%s)%s", sig.String, sig.Void)
+	FuncSig = fmt.Sprintf("(%s%s)%s", sig.Long, sig.String, sig.Void)
 	onScriptLogMethodId := env.GetMethodID(cls, "onScriptLogCallback", FuncSig)
 	if onScriptLogMethodId == 0 {
 		env.ThrowNew(env.FindClass("java/lang/RuntimeException"), "Find Class [onScriptLogCallback"+FuncSig+"] failed")
@@ -265,24 +265,24 @@ func Java_com_SunnyNet_api_SunnyNetSetCallback(envObj uintptr, clazz uintptr, Su
 		env.ThrowNew(env.FindClass("java/lang/RuntimeException"), "Find Class [onScriptCodeSaveCallback"+FuncSig+"] failed")
 		panic("Find Class [onScriptCodeSaveCallback" + FuncSig + "] failed")
 	}
-	log := func(info ...any) {
+	log := func(Context int, info ...any) {
 		_env, ret := ___Java_GlobalVM.AttachCurrentThread()
 		if ret != JNI_OK {
 			return
 		}
 		defer ___Java_GlobalVM.DetachCurrentThread()
 		_logInfo := _env.NewString(fmt.Sprintf("%v", info))
-		_env.CallVoidMethodA(obj, onScriptLogMethodId, Jvalue(_logInfo))
+		_env.CallVoidMethodA(obj, onScriptLogMethodId, Jvalue(Context), Jvalue(_logInfo))
 		_env.DeleteLocalRef(_logInfo)
 	}
-	code := func(code []byte) {
+	code := func(Context int, code []byte) {
 		_env, ret := ___Java_GlobalVM.AttachCurrentThread()
 		if ret != JNI_OK {
 			return
 		}
 		defer ___Java_GlobalVM.DetachCurrentThread()
 		_ScriptCode := _env.NewString(string(code))
-		_env.CallVoidMethodA(obj, onScriptCodeSaveMethodId, Jvalue(_ScriptCode))
+		_env.CallVoidMethodA(obj, onScriptCodeSaveMethodId, Jvalue(Context), Jvalue(_ScriptCode))
 		_env.DeleteLocalRef(_ScriptCode)
 	}
 	s.SetScriptCall(log, code)
@@ -1246,6 +1246,15 @@ Java_com_SunnyNet_api_HTTPGetBody HTTP 客户端 返回响应内容
 func Java_com_SunnyNet_api_HTTPGetBody(envObj uintptr, clazz uintptr, Context int64) uintptr {
 	env := Env(envObj)
 	return env.NewByteArray(Api.HTTPGetBody(int(Context)))
+}
+
+/*
+Java_com_SunnyNet_api_HTTPGetRequestHeader HTTP 客户端 添加的全部协议头
+*/
+//export Java_com_SunnyNet_api_HTTPGetRequestHeader
+func Java_com_SunnyNet_api_HTTPGetRequestHeader(envObj uintptr, clazz uintptr, Context int64) uintptr {
+	env := Env(envObj)
+	return env.NewString(Api.HTTPGetRequestHeader(int(Context)))
 }
 
 /*

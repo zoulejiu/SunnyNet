@@ -109,7 +109,7 @@ func (p *ProcessInfo) ID() uint64 {
 func (p *ProcessInfo) Close() {
 	_, _ = Api.NfTcpClose(p.Id)
 }
-
+ 
 /**
 *	UDP options UNALIGNED
 **/

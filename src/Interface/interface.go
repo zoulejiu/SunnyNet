@@ -28,7 +28,26 @@ type ConnHTTPCall interface {
 	connHTTP
 	/*
 		SetHTTP2Config
-		设置HTTP 2.0 请求指纹配置 (若服务器支持则使用,若服务器不支持,设置了也不会使用)
+
+		你可以使用以下常量模板
+
+		public.HTTP2_Fingerprint_Config_Firefox
+
+		public.HTTP2_Fingerprint_Config_Opera
+
+		public.HTTP2_Fingerprint_Config_Safari_IOS_17_0
+
+		public.HTTP2_Fingerprint_Config_Safari_IOS_16_0
+
+		public.HTTP2_Fingerprint_Config_Safari
+
+		public.HTTP2_Fingerprint_Config_Chrome_117_120_124
+
+		public.HTTP2_Fingerprint_Config_Chrome_106_116
+
+		public.HTTP2_Fingerprint_Config_Chrome_103_105
+
+		(你可以将以上任意模板中的数值随机，以达到随机指纹的效果)
 	*/
 	SetHTTP2Config(config string) bool
 }

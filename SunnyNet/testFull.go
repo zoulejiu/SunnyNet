@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/qtgolang/SunnyNet/src/GoScriptCode"
 	"github.com/qtgolang/SunnyNet/src/Interface"
 	"github.com/qtgolang/SunnyNet/src/Resource"
 	"github.com/qtgolang/SunnyNet/src/http"
@@ -27,6 +28,28 @@ func (s *Sunny) SetScriptPage(Page string) string {
 		s.script.AdminPage = Page
 	}
 	return s.script.AdminPage
+}
+
+// SetScriptCode 设置脚本代码
+func (s *Sunny) SetScriptCode(code string) string {
+	Code := []byte(code)
+	if len(strings.TrimSpace(code)) < 1 {
+		Code = GoScriptCode.DefaultCode
+	}
+	err, _ScriptFuncHTTP, _ScriptFuncWS, _ScriptFuncTCP, _ScriptFuncUDP := GoScriptCode.RunCode(s.SunnyContext, Code, s.script.LogCallback)
+	if err == "" {
+		s.lock.Lock()
+		s.userScriptCode = Code
+		s.script.http = _ScriptFuncHTTP
+		s.script.websocket = _ScriptFuncWS
+		s.script.tcp = _ScriptFuncTCP
+		s.script.udp = _ScriptFuncUDP
+		s.lock.Unlock()
+		if s.script.SaveCallback != nil {
+			s.script.SaveCallback(s.SunnyContext, Code)
+		}
+	}
+	return err
 }
 
 // 是否是用户自定义脚本编辑请求

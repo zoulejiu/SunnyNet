@@ -4274,7 +4274,6 @@ func (s *http2Server) ServeConn(c net.Conn, opts *http2ServeConnOpts) {
 }
 
 func H2NewConn(rwc net.Conn, rw func(ResponseWriter, *Request)) {
-
 	h2s.ServeConn(rwc, &http2ServeConnOpts{
 		Context:    nil,
 		hrw:        rw,

@@ -196,6 +196,7 @@ type proxyRequest struct {
 	TlsConfig             *tls.Config
 	_Display              bool //是否允许显示到列表，也就是是否调用Call
 	_isRandomCipherSuites bool
+	_SocksUser            string
 }
 
 var sUser = make(map[int]string)
@@ -216,6 +217,7 @@ func (s *proxyRequest) updateSocket5User() {
 	s.Theology = int(atomic.AddInt64(&public.Theology, 1))
 	if user != "" {
 		sUser[s.Theology] = user
+		s._SocksUser = user
 	}
 	sL.Unlock()
 }
@@ -390,6 +392,7 @@ func (s *proxyRequest) Socks5ProxyVerification() bool {
 	}
 
 	hostname := public.NULL
+	isV6 := false
 	switch {
 	case aTyp == public.Socks5typeIpv4:
 		{
@@ -412,6 +415,7 @@ func (s *proxyRequest) Socks5ProxyVerification() bool {
 
 			ip := net.IP(IPv6Buf)
 			hostname = ip.String()
+			isV6 = true
 		}
 	case aTyp == public.Socks5typeDomainName:
 		{
@@ -437,8 +441,11 @@ func (s *proxyRequest) Socks5ProxyVerification() bool {
 		return false
 	}
 	port := uint16(portNum1)<<8 + uint16(portNum2)
-	hostname = fmt.Sprintf("%s:%d", hostname, port)
-
+	if isV6 {
+		hostname = fmt.Sprintf("[%s]:%d", hostname, port)
+	} else {
+		hostname = fmt.Sprintf("%s:%d", hostname, port)
+	}
 	_ = s.RwObj.WriteByte(public.Socks5Version)
 
 	if command == public.Socks5CmdUDP {
@@ -564,12 +571,12 @@ func (s *proxyRequest) isLoop() bool {
 func dialTCP(proxyTools *SunnyProxy.Proxy, remoteAddr string) (net.Conn, error) {
 	return proxyTools.DialWithTimeout("tcp", remoteAddr, 2*time.Second)
 }
-func connectToTarget(s *proxyRequest, proxyTools *SunnyProxy.Proxy) net.Conn {
+func connectToTarget(s *proxyRequest, proxyTools *SunnyProxy.Proxy) (net.Conn, string) {
 	ip := net.ParseIP(s.Target.Host)
 	if ip != nil {
 		remoteAddr := SunnyProxy.FormatIP(ip, fmt.Sprintf("%d", s.Target.Port))
 		conn, _ := proxyTools.Dial("tcp", remoteAddr)
-		return conn
+		return conn, remoteAddr
 	}
 
 	var ProxyHost string
@@ -584,7 +591,7 @@ func connectToTarget(s *proxyRequest, proxyTools *SunnyProxy.Proxy) net.Conn {
 		remoteAddr := SunnyProxy.FormatIP(ip, fmt.Sprintf("%d", s.Target.Port))
 		conn, _ := dialTCP(proxyTools, remoteAddr)
 		if conn != nil {
-			return conn
+			return conn, remoteAddr
 		}
 	}
 
@@ -597,7 +604,7 @@ func connectToTarget(s *proxyRequest, proxyTools *SunnyProxy.Proxy) net.Conn {
 			conn, _ := dialTCP(proxyTools, remoteAddr)
 			if conn != nil {
 				dns.SetFirstIP(s.Target.Host, ProxyHost, ip2)
-				return conn
+				return conn, remoteAddr
 			}
 		}
 	}
@@ -609,11 +616,11 @@ func connectToTarget(s *proxyRequest, proxyTools *SunnyProxy.Proxy) net.Conn {
 			conn, _ := dialTCP(proxyTools, remoteAddr)
 			if conn != nil {
 				dns.SetFirstIP(s.Target.Host, ProxyHost, ip2)
-				return conn
+				return conn, remoteAddr
 			}
 		}
 	}
-	return nil
+	return nil, ""
 }
 
 // MustTcpProcessing 强制走TCP处理过程
@@ -622,6 +629,7 @@ func (s *proxyRequest) MustTcpProcessing(Tag string) {
 	if s.Target == nil {
 		return
 	}
+
 	if s.isLoop() {
 		return
 	}
@@ -644,12 +652,11 @@ func (s *proxyRequest) MustTcpProcessing(Tag string) {
 			}
 		}
 	}
-	var RemoteTCP net.Conn
-	RemoteTCP = connectToTarget(s, proxyTools)
+	RemoteTCP, RemoteAddr := connectToTarget(s, proxyTools)
 	defer func() {
 		if !isClose {
 			if RemoteTCP != nil {
-				s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil, RemoteTCP.RemoteAddr().String())
+				s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil, RemoteAddr)
 			} else {
 				s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil, s.Target.String())
 			}
@@ -694,9 +701,9 @@ func (s *proxyRequest) MustTcpProcessing(Tag string) {
 		}
 		as.Data.Reset()
 		as.Data.Write([]byte(RemoteTCP.LocalAddr().String()))
-		s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPConnectOK, as, s.Target.String())
+		s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPConnectOK, as, RemoteAddr)
 		as.Data.Reset()
-		isClose = s.TcpCallback(&RemoteTCP, Tag, tw, s.Target.String())
+		isClose = s.TcpCallback(&RemoteTCP, Tag, tw, RemoteAddr)
 	} else {
 		_ = s.Conn.Close()
 	}
@@ -943,6 +950,7 @@ func (s *proxyRequest) Error(error error, _Display bool) {
 	}
 	_ = s.Conn.SetDeadline(time.Now().Add(10 * time.Second))
 	s.Response.rw.Header().Set("Content-Length", fmt.Sprintf("%d", len(er)))
+	s.Response.rw.Header().Set("Content-Type", "text/text; charset=utf-8")
 	s.Response.rw.WriteHeader(http.StatusInternalServerError)
 	_, _ = s.Response.rw.Write(er)
 }
@@ -1732,7 +1740,6 @@ func (s *proxyRequest) copyBuffer(Method string, ExpectLen int) {
 					isForward = true
 					_ = dstConn.SetDeadline(time.Time{})
 					s.Error(public.ProvideForwardingServiceOnly, s._Display)
-					s.Response.DelHeader("content-length")
 					s.Response.WriteHeader(strconv.Itoa(ExpectLen))
 
 				}
@@ -1807,6 +1814,7 @@ func (s *proxyRequest) sendHttp(req *http.Request) {
 			return
 		}
 	}
+
 	s.CompleteRequest(req)
 }
 
@@ -2087,7 +2095,7 @@ func NewSunny() *Sunny {
 	s := &Sunny{SunnyContext: SunnyContext, connList: make(map[int64]net.Conn), socket5VerifyUserList: make(map[string]string), proxyRegexp: a, _http_max_body_len: public.MaxUploadLength, mustTcpRegexp: a, mustTcpRulesAllow: true}
 	s.userScriptCode = GoScriptCode.DefaultCode
 	s.script.AdminPage = "SunnyNetScriptEdit"
-	_, s.script.http, s.script.websocket, s.script.tcp, s.script.udp = GoScriptCode.RunCode(s.userScriptCode, nil)
+	_, s.script.http, s.script.websocket, s.script.tcp, s.script.udp = GoScriptCode.RunCode(SunnyContext, s.userScriptCode, nil)
 	s.SetCert(defaultManager)
 	SunnyStorageLock.Lock()
 	SunnyStorage[s.SunnyContext] = s
@@ -2185,7 +2193,7 @@ func (s *Sunny) ExportCert() []byte {
 	return public.CopyBytes(b.Bytes())
 }
 
-// SetIEProxy 设置IE代理
+// SetIEProxy 设置IE代理 设置后请使用 CancelIEProxy 取消设置的IE代理
 func (s *Sunny) SetIEProxy() bool {
 	return CrossCompiled.SetIeProxy(false, s.Port())
 }
@@ -2253,6 +2261,13 @@ func (s *Sunny) SetPort(Port int) *Sunny {
 	defer s.lock.Unlock()
 	s.port = Port
 	return s
+}
+
+// IsScriptCodeSupported 当前SDK是否支持脚本代码
+func (s *Sunny) IsScriptCodeSupported() bool {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.SetScriptPage("") != "no"
 }
 
 // SetHTTPRequestMaxUpdateLength 设置HTTP请求,提交数据,最大的长度
@@ -2406,28 +2421,6 @@ func (s *Sunny) SetScriptCall(log GoScriptCode.LogFuncInterface, save GoScriptCo
 	s.lock.Unlock()
 }
 
-// SetScriptCode 设置脚本代码
-func (s *Sunny) SetScriptCode(code string) string {
-	Code := []byte(code)
-	if len(strings.TrimSpace(code)) < 1 {
-		Code = GoScriptCode.DefaultCode
-	}
-	err, _ScriptFuncHTTP, _ScriptFuncWS, _ScriptFuncTCP, _ScriptFuncUDP := GoScriptCode.RunCode(Code, s.script.LogCallback)
-	if err == "" {
-		s.lock.Lock()
-		s.userScriptCode = Code
-		s.script.http = _ScriptFuncHTTP
-		s.script.websocket = _ScriptFuncWS
-		s.script.tcp = _ScriptFuncTCP
-		s.script.udp = _ScriptFuncUDP
-		s.lock.Unlock()
-		if s.script.SaveCallback != nil {
-			s.script.SaveCallback(Code)
-		}
-	}
-	return err
-}
-
 // Start 开始启动  调用 Error 获取错误信息 成功=nil
 func (s *Sunny) Start() *Sunny {
 	if s.isRun {
@@ -2541,7 +2534,19 @@ func (s *proxyRequest) clone() *proxyRequest {
 		SendTimeout:   s.SendTimeout,
 	}
 	req.updateSocket5User()
+
 	Theoni := int64(req.Theology)
+
+	{
+		sL.Lock()
+		user := sUser[s.Theology]
+		if user == "" {
+			sUser[req.Theology] = s._SocksUser
+			req._SocksUser = s._SocksUser
+		}
+		sL.Unlock()
+	}
+
 	s.Global.lock.Lock()
 	s.Global.connList[Theoni] = s.Conn
 	delete(s.Global.connList, Theoni)
@@ -2620,6 +2625,7 @@ func (s *Sunny) handleClientConn(conn net.Conn) {
 	req.Response = response{}
 	info, DrivePort := req.isDriveConn()
 	if info != nil {
+		req.setSocket5User("驱动程序")
 		//如果是 通过 NFapi 驱动进来的数据 对连接信息进行赋值
 		req.Pid = info.GetPid()
 		req.Target.Parse(info.GetRemoteAddress(), info.GetRemotePort(), info.IsV6())

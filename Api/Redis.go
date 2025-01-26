@@ -233,12 +233,13 @@ func RedisDelete(Context int, key string) bool {
 }
 
 // RedisSubscribe Redis 订阅消息
-func RedisSubscribe(Context int, scribe string, call int, nc bool) {
+func RedisSubscribe(Context int, scribe string, call int, nc bool) bool {
 	w := LoadRedisContext(Context)
 	if w == nil {
-		return
+		return false
 	}
 	w.Sub(scribe, call, nc, SubCall)
+	return true
 }
 
 // RedisSubscribeGo Redis 订阅消息

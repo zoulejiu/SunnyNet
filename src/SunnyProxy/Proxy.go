@@ -152,6 +152,7 @@ func (p *Proxy) Dial(network, addr string) (net.Conn, error) {
 		return a, e
 	}
 	p.DialAddr = Host
+
 	if p.URL == nil {
 		a, e := directDialer.Dial(network, addr)
 		if a != nil {

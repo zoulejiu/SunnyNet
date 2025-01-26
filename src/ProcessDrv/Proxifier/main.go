@@ -38,11 +38,25 @@ func Write(hPipe C.HANDLE, bs []byte) {
 func Call(hPipe C.HANDLE, raw uintptr) {
 	__pid := int(binary.LittleEndian.Uint16(CStringToBytes(raw+0x4EC, 2)))
 	path := wcharPtrToString(raw + 8)
+
 	Info.Lock.Lock()
 	Handle := HandleClientConn
-	if __pid == myPid || Handle == nil {
+	if __pid == myPid {
 		Info.Lock.Unlock()
 		return
+	}
+	if Handle == nil {
+		Info.Lock.Unlock()
+		return
+	}
+	fileName := filepath.Base(path)
+	if Info.HookProcess == false {
+		if Info.Name[strings.ToLower(fileName)] == false {
+			if Info.Pid[uint32(__pid)] == false {
+				Info.Lock.Unlock()
+				return
+			}
+		}
 	}
 	Info.Lock.Unlock()
 	family := int16(binary.LittleEndian.Uint16(CStringToBytes(raw+0x419, 2)))
@@ -53,6 +67,7 @@ func Call(hPipe C.HANDLE, raw uintptr) {
 		WriteData[4] = 0x1
 		WriteData[0x3f8] = 0x1
 		Write(hPipe, WriteData)
+		//fmt.Println(hex.Dump(CStringToBytes(raw, 0x534)))
 		return
 	}
 	if family != 2 && family != 23 {
@@ -77,17 +92,9 @@ func Call(hPipe C.HANDLE, raw uintptr) {
 	if port < 1 || port > 65535 {
 		return
 	}
-	fileName := filepath.Base(path)
-	Info.Lock.Lock()
-	if Info.HookProcess == false {
-		if Info.Name[strings.ToLower(fileName)] == false {
-			if Info.Pid[uint32(__pid)] == false {
-				Info.Lock.Unlock()
-				return
-			}
-		}
+	if Info.IsFilterRequests(fileName, domain) {
+		return
 	}
-	Info.Lock.Unlock()
 	var listener net.Listener
 	var err error
 	WriteData := make([]byte, 1020)
@@ -132,6 +139,7 @@ func Call(hPipe C.HANDLE, raw uintptr) {
 					_ISV6 = true
 				}
 				var obj = &proxyProcessInfo{listener: listener, RemoteAddress: domain, RemotePort: uint16(port), V6: _ISV6, Pid: fmt.Sprintf("%d", __pid)}
+
 				connLocalAddr := conn.RemoteAddr().(*net.TCPAddr)
 				connPort := uint16(connLocalAddr.Port)
 				Info.Lock.Lock()

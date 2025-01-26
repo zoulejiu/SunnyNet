@@ -179,7 +179,7 @@ void closeTcpConnectionByPid( DWORD pid, DWORD ulAf )
 					tcpRow2.dwLocalPort	= tcpRow->dwLocalPort;
 					tcpRow2.dwRemoteAddr	= tcpRow->dwRemoteAddr;
 					tcpRow2.dwRemotePort	= tcpRow->dwRemotePort;
-					/* pSetTcpEntry(&tcpRow2); */
+					pSetTcpEntry(&tcpRow2);
 				}
 			}
 		}

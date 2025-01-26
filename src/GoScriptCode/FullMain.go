@@ -170,10 +170,10 @@ func init() {
 	check.Check(Symbols)
 }
 
-type LogFuncInterface func(info ...any)
-type SaveFuncInterface func(code []byte)
+type LogFuncInterface func(SunnyNetContext int, info ...any)
+type SaveFuncInterface func(SunnyNetContext int, code []byte)
 
-func RunCode(UserScriptCode []byte, log LogFuncInterface) (resError string, h GoScriptTypeHTTP, w GoScriptTypeWS, t GoScriptTypeTCP, u GoScriptTypeUDP) {
+func RunCode(SunnyNetContext int, UserScriptCode []byte, log LogFuncInterface) (resError string, h GoScriptTypeHTTP, w GoScriptTypeWS, t GoScriptTypeTCP, u GoScriptTypeUDP) {
 	defer func() {
 		if p := recover(); p != nil {
 			errorSrc := fmt.Sprintf("%v", p)
@@ -221,7 +221,6 @@ func RunCode(UserScriptCode []byte, log LogFuncInterface) (resError string, h Go
 			_, _ = iEval.Eval("import " + k)
 		}
 	}
-
 	CodeBody := extractCodeBody(src)
 	S := ca + CodeBody
 
@@ -392,6 +391,10 @@ func RunCode(UserScriptCode []byte, log LogFuncInterface) (resError string, h Go
 	if SetLogFunc == nil {
 		return "SetLogFunc", nil, nil, nil, nil
 	}
-	SetLogFunc(log)
+	SetLogFunc(func(info ...any) {
+		if log != nil {
+			log(SunnyNetContext, info...)
+		}
+	})
 	return "", _httpFunc, _wsFunc, _tcpFunc, _udpFunc
 }

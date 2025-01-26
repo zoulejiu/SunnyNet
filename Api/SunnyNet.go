@@ -1422,11 +1422,11 @@ func SetScriptCall(SunnyContext int, log, save uintptr) {
 	w := SunnyNet.SunnyStorage[SunnyContext]
 	SunnyNet.SunnyStorageLock.Unlock()
 	if w != nil {
-		l := func(info ...any) {
-			Call.Call(int(log), fmt.Sprintf("%v", info))
+		l := func(Context int, info ...any) {
+			Call.Call(int(log), Context, fmt.Sprintf("%v", info))
 		}
-		s := func(code []byte) {
-			Call.Call(int(save), code, int32(len(code)))
+		s := func(Context int, code []byte) {
+			Call.Call(int(save), Context, code, int32(len(code)))
 		}
 		w.SetScriptCall(l, s)
 	}

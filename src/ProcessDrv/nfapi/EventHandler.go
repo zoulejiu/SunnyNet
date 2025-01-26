@@ -79,12 +79,15 @@ func tcpConnectRequest(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 		}
 	}
 	Lock.Unlock()
-
+	if IsFilterRequests(ProcessName, pConnInfo.RemoteAddress.String()) {
+		return
+	}
 	// 如果连接是 IPv6 的，则将连接的远程地址改为本地 IPv6 地址，并保存到代理列表中
 	if pConnInfo.RemoteAddress.IsIpv6() {
 		_, IP := pConnInfo.RemoteAddress.GetIP()
 		p4 := IP.To4()
 		if len(p4) != net.IPv4len {
+
 			//这里是IPV6
 			Process := &ProcessInfo{Pid: strconv.Itoa(int(pConnInfo.ProcessId.Get())), RemoteAddress: IP.String(), RemotePort: pConnInfo.RemoteAddress.GetPort(), Id: id, V6: true}
 			Lock.Lock()
