@@ -75,12 +75,9 @@ func HttpCallback(Conn SunnyNet.ConnHTTP) {
 	}
 }
 func WSCallback(Conn SunnyNet.ConnWebSocket) {
-
-	Conn.Context()
-	//fmt.Println(Conn.Url)
+	fmt.Println("WebSocket", Conn.URL())
 }
 func TcpCallback(Conn SunnyNet.ConnTCP) {
-	return
 	if Conn.Type() == public.SunnyNetMsgTypeTCPAboutToConnect {
 		//即将连接
 		mode := string(Conn.Body())
