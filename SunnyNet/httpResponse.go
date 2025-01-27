@@ -23,13 +23,25 @@ func isHeader(key string) bool {
 	return false
 }
 func (r *response) Done() {
-	for k, v := range r.Header {
-		if isHeader(k) {
-			continue
-		}
-		r.rw.Header()[k] = v
+	r.StatusCode = r.Response.StatusCode
+	if r.StatusCode < 1 {
+		r.StatusCode = 200
 	}
-	r.rw.WriteHeader(r.Response.StatusCode)
+	if len(r.Header) < 1 {
+		if r.ProtoMajor == 2 {
+			r.rw.Header().Set("connection", "Close")
+		} else {
+			r.rw.Header().Set("Connection", "Close")
+		}
+	} else {
+		for k, v := range r.Header {
+			if isHeader(k) {
+				continue
+			}
+			r.rw.Header()[k] = v
+		}
+	}
+	r.rw.WriteHeader(r.StatusCode)
 	if r.Body != nil {
 		bodyBytes, _ := io.ReadAll(r.Body)
 		_, _ = r.rw.Write(bodyBytes)

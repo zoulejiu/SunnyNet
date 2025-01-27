@@ -365,6 +365,9 @@ func loadRootKey(Key []byte) (*rsa.PrivateKey, error) {
 
 func (c *CertManager) GetCommonName() string {
 	certDERBlock, _ := pem.Decode([]byte(c.Certificates))
+	if certDERBlock == nil {
+		return "Cert == null "
+	}
 	x509Cert, _ := x509.ParseCertificate(certDERBlock.Bytes)
 	if x509Cert != nil && x509Cert.Subject.CommonName != "" {
 		return x509Cert.Subject.CommonName

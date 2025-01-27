@@ -1622,8 +1622,8 @@ func (s *proxyRequest) CompleteRequest(req *http.Request) {
 	//回调中设置 不发送 直接响应指定数据 或终止发送
 	if s.Response.Response != nil {
 		s.Response.ServerIP = fmt.Sprintf("%s:%d", "127.0.0.1", s.Global.port)
-		s.Response.Response.ProtoMajor, s.Response.Response.ProtoMinor = 1, 1
-		s.Response.Response.Proto = "HTTP/1.1"
+		s.Response.Response.ProtoMajor, s.Response.Response.ProtoMinor = s.Request.ProtoMajor, s.Request.ProtoMinor
+		s.Response.Response.Proto = s.Request.Proto
 		s.CallbackBeforeResponse()
 		s.Response.Done()
 		return

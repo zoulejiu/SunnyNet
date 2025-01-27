@@ -4,7 +4,6 @@ import "C"
 import (
 	"fmt"
 	"github.com/qtgolang/SunnyNet/SunnyNet"
-	"github.com/qtgolang/SunnyNet/src/Certificate"
 	"github.com/qtgolang/SunnyNet/src/GoScriptCode"
 	"github.com/qtgolang/SunnyNet/src/public"
 	"log"
@@ -14,14 +13,12 @@ import (
 
 func Test() {
 	s := SunnyNet.NewSunny()
-
-	i := CreateCertificate()
-	ok := LoadP12Certificate(i, C.CString("C:\\Users\\Qin\\Desktop\\Cert\\ca6afc5aa40fcbd3.p12"), C.CString("GXjc75IRAO0T"))
-	//ok := AddCertPoolPath(i, C.CString("C:\\Users\\qinka\\Desktop\\P12\\certificate.pem"))
+	cert := SunnyNet.NewCertManager()
+	ok := cert.LoadP12Certificate("C:\\Users\\Qin\\Desktop\\Cert\\ca6afc5aa40fcbd3.p12", "GXjc75IRAO0T")
 	fmt.Println("载入P12:", ok)
-	c := Certificate.LoadCertificateContext(i)
-	fmt.Println("证书名称：", c.GetCommonName())
-	AddHttpCertificate(C.CString("api.vlightv.com"), i, 2)
+	fmt.Println("证书名称：", cert.GetCommonName())
+	s.AddHttpCertificate("api.vlightv.com", cert, SunnyNet.HTTPCertRules_Request)
+
 	//如果在Go中使用 设置Go的回调地址
 	//s.SetGlobalProxy("socket://192.168.31.1:4321", 30000)
 	//s.SetScriptCall(func(info ...any) {
@@ -34,9 +31,9 @@ func Test() {
 
 	//s.MustTcp(true)
 	//s.DisableTCP(true)
-	s.SetGlobalProxy("socket://192.168.31.1:4321", 60000)
+	//s.SetGlobalProxy("socket://192.168.31.1:4321", 60000)
 	s.SetMustTcpRegexp("tpstelemetry.tencent.com", true)
-	Port := 2024
+	Port := 2025
 	//s.SetMustTcpRegexp("*.baidu.com")
 	s = s.SetPort(Port).Start()
 	//s.SetIEProxy()
@@ -45,22 +42,19 @@ func Test() {
 	//s.ProcessALLName(true, false)
 
 	//s.ProcessAddName("WeChat.exe")
-	go func() {
-		time.Sleep(10 * time.Second)
-		s.ProcessALLName(false, true)
-		fmt.Println("已设置断开")
-	}()
 	err := s.Error
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("Run Port=", Port)
+	//阻止程序退出
+	select {}
 }
 func HttpCallback(Conn SunnyNet.ConnHTTP) {
 	if Conn.Type() == public.HttpSendRequest {
 		fmt.Println("发起请求", Conn.URL())
 		//发起请求
-
+		Conn.SetResponseBody([]byte("123456"))
 		//直接响应,不让其发送请求
 		//Conn.StopRequest(200, "Hello Word")
 

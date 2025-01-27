@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const SunnyVersion = "2025-01-26"
+const SunnyVersion = "2025-01-27"
 
 // TCP请求相关
 const (

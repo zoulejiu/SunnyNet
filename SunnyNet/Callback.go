@@ -113,10 +113,12 @@ func (s *proxyRequest) CallbackBeforeRequest() {
 	defer func() {
 		if s.Response.Response != nil {
 			if s.Response.Response.StatusCode == 0 && len(s.Response.Header) == 0 {
-				if s.Response.Body != nil {
-					_ = s.Response.Body.Close()
+				if s.Response.ContentLength < 1 {
+					if s.Response.Body != nil {
+						_ = s.Response.Body.Close()
+					}
+					s.Response.Response = nil
 				}
-				s.Response.Response = nil
 			}
 		}
 	}()

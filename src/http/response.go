@@ -130,6 +130,7 @@ func (r *Response) SetData(data []byte) {
 	} else {
 		r.Body = io.NopCloser(bytes.NewBuffer(data))
 	}
+	r.ContentLength = int64(len(data))
 }
 
 func (r *Response) GetData() []byte {
