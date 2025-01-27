@@ -203,7 +203,7 @@ func (s *Sunny) udpNFSendReceive(Type int, Theoni int64, pid uint32, LocalAddres
 			s.goUdpCallback(n)
 			return n.Body()
 		}
-		return data
+		return n.Body()
 	}
 	// 生成消息 ID 并将数据写入 buffer 中
 	MessageId := NewMessageId()

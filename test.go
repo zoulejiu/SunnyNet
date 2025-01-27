@@ -51,6 +51,7 @@ func Test() {
 	select {}
 }
 func HttpCallback(Conn SunnyNet.ConnHTTP) {
+	return
 	if Conn.Type() == public.HttpSendRequest {
 		fmt.Println("发起请求", Conn.URL())
 		//发起请求

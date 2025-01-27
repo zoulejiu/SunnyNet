@@ -39,7 +39,7 @@ func GetSceneWebSocketClient(Theology int) (*public.WebsocketMsg, bool) {
 }
 
 // CallbackTCPRequest TCP请求处理回调
-func (s *proxyRequest) CallbackTCPRequest(callType int, msg *public.TcpMsg, RemoteAddr string) {
+func (s *proxyRequest) CallbackTCPRequest(callType int, _msg *public.TcpMsg, RemoteAddr string) {
 	if s.Global.disableTCP {
 		//由于用户可能在软件中途禁用TCP,所有这里允许触发关闭的回调
 		if callType != public.SunnyNetMsgTypeTCPClose {
@@ -72,9 +72,9 @@ func (s *proxyRequest) CallbackTCPRequest(callType int, msg *public.TcpMsg, Remo
 		delete(httpStorage, MessageId)
 		messageIdLock.Unlock()
 	}()
-
-	Ams := &tcpConn{c: msg, messageId: MessageId, _type: callType, theology: s.Theology, localAddr: LocalAddr, remoteAddr: hostname, pid: pid, sunnyContext: s.Global.SunnyContext}
+	Ams := &tcpConn{c: _msg, messageId: MessageId, _type: callType, theology: s.Theology, localAddr: LocalAddr, remoteAddr: hostname, pid: pid, sunnyContext: s.Global.SunnyContext}
 	s.Global.scriptTCPCall(Ams)
+	msg := Ams.c
 	if s.TcpCall < 10 {
 		if s.TcpGoCall != nil {
 			s.TcpGoCall(Ams)
@@ -151,6 +151,7 @@ func (s *proxyRequest) CallbackBeforeRequest() {
 		_serverIP:   s.Response.ServerIP,
 	}
 	s.Global.scriptHTTPCall(m)
+	s.Response.Response = m._response
 	s._Display = m._Display
 	s._isRandomCipherSuites = m._isRandomCipherSuites
 	if s._Display == false {
@@ -164,7 +165,6 @@ func (s *proxyRequest) CallbackBeforeRequest() {
 	if s.HttpCall < 10 {
 		if s.HttpGoCall != nil {
 			s.HttpGoCall(m)
-			s.Response.Response = m._response
 		}
 		return
 	}
@@ -209,6 +209,7 @@ func (s *proxyRequest) CallbackBeforeResponse() {
 		_serverIP:   s.Response.ServerIP,
 	}
 	s.Global.scriptHTTPCall(m)
+	s.Response.Response = m._response
 	if s._Display == false {
 		return
 	}
@@ -224,7 +225,7 @@ func (s *proxyRequest) CallbackBeforeResponse() {
 	}
 	Method := s.Request.Method
 	Url := s.Request.URL.String()
-	Call.Call(s.HttpCall, s.Global.SunnyContext, s.Theology, MessageId, int(public.HttpResponseOK), Method, Url, err, pid)
+	Call.Call(s.HttpCall, s.Global.SunnyContext, s.Theology, MessageId, public.HttpResponseOK, Method, Url, err, pid)
 }
 
 // 不要进入回调的一些请求
