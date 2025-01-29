@@ -139,7 +139,6 @@ func SetIeProxy(Off bool, Port int) bool {
 
 // InstallCert 安装证书 将证书安装到Windows系统内
 func InstallCert(certificates []byte) (res string) {
-
 	defer func() {
 		CertificateName := public.GetCertificateName(certificates)
 		if CertificateName != "" && isInstallSunnyNetCertificates(CertificateName) {

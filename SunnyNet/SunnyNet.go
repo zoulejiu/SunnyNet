@@ -1039,10 +1039,15 @@ func (s *proxyRequest) https() {
 			if res == whoisUndefined {
 				res = ClientRequestIsHttps(s.Global, s.Target.String(), hook.Bytes())
 			}
-			if res != whoisHTTPS && res != whoisUndefined {
+			if res == whoisNoHTTPS {
 				_, _ = s.RwObj.WriteString(public.NoHTTPSVerb)
 				_ = s.RwObj.Close()
 				return
+			}
+			if res == whoisHTTPS1 {
+				tlsConfig.NextProtos = []string{http.H11Proto}
+			} else { //res == whoisHTTPS2
+				tlsConfig.NextProtos = []string{http.H2Proto, http.H11Proto}
 			}
 			name := ""
 			if serverName != "" {

@@ -847,6 +847,139 @@ func (m *serverHelloMsg) marshal() ([]byte, error) {
 	m.raw, err = b.Bytes()
 	return m.raw, err
 }
+func UnMarshal(data []byte) *ServerHelloMsg {
+	m := &serverHelloMsg{raw: data}
+	s := cryptobyte.String(data)
+
+	if !s.Skip(4) || // message type and uint24 length field
+		!s.ReadUint16(&m.vers) || !s.ReadBytes(&m.random, 32) ||
+		!readUint8LengthPrefixed(&s, &m.sessionId) ||
+		!s.ReadUint16(&m.cipherSuite) ||
+		!s.ReadUint8(&m.compressionMethod) {
+		return nil
+	}
+
+	if s.Empty() {
+		return m.toServerHelloMsg()
+	}
+
+	var extensions cryptobyte.String
+	if !s.ReadUint16LengthPrefixed(&extensions) || !s.Empty() {
+		return nil
+	}
+
+	seenExts := make(map[uint16]bool)
+	for !extensions.Empty() {
+		var extension uint16
+		var extData cryptobyte.String
+		if !extensions.ReadUint16(&extension) ||
+			!extensions.ReadUint16LengthPrefixed(&extData) {
+			return nil
+		}
+
+		if seenExts[extension] {
+			return nil
+		}
+		seenExts[extension] = true
+
+		switch extension {
+		case ExtensionNextProtoNeg:
+			m.nextProtoNeg = true
+			for !extData.Empty() {
+				var proto cryptobyte.String
+				if !extData.ReadUint8LengthPrefixed(&proto) ||
+					proto.Empty() {
+					return nil
+				}
+				m.nextProtos = append(m.nextProtos, string(proto))
+			}
+		case ExtensionStatusRequest:
+			m.ocspStapling = true
+		case ExtensionSessionTicket:
+			m.ticketSupported = true
+		// [UTLS] crypto/tls finally supports EMS! Now we don't do anything special here.
+		// case ExtensionExtendedMasterSecret:
+		// 	// No sanity check for this extension: pretending not to know it.
+		// 	// if length > 0 {
+		// 	// 	return false
+		// 	// }
+		// 	m.ems = true
+		case ExtensionRenegotiationInfo:
+			if !readUint8LengthPrefixed(&extData, &m.secureRenegotiation) {
+				return nil
+			}
+			m.secureRenegotiationSupported = true
+		case ExtensionExtendedMasterSecret:
+			m.extendedMasterSecret = true
+		case ExtensionALPN:
+			var protoList cryptobyte.String
+			if !extData.ReadUint16LengthPrefixed(&protoList) || protoList.Empty() {
+				return nil
+			}
+			var proto cryptobyte.String
+			if !protoList.ReadUint8LengthPrefixed(&proto) ||
+				proto.Empty() || !protoList.Empty() {
+				return nil
+			}
+			m.alpnProtocol = string(proto)
+		case ExtensionSCT:
+			var sctList cryptobyte.String
+			if !extData.ReadUint16LengthPrefixed(&sctList) || sctList.Empty() {
+				return nil
+			}
+			for !sctList.Empty() {
+				var sct []byte
+				if !readUint16LengthPrefixed(&sctList, &sct) ||
+					len(sct) == 0 {
+					return nil
+				}
+				m.scts = append(m.scts, sct)
+			}
+		case ExtensionSupportedVersions:
+			if !extData.ReadUint16(&m.supportedVersion) {
+				return nil
+			}
+		case ExtensionCookie:
+			if !readUint16LengthPrefixed(&extData, &m.cookie) ||
+				len(m.cookie) == 0 {
+				return nil
+			}
+		case ExtensionKeyShare:
+			// This extension has different formats in SH and HRR, accept either
+			// and let the handshake logic decide. See RFC 8446, Section 4.2.8.
+			if len(extData) == 2 {
+				if !extData.ReadUint16((*uint16)(&m.selectedGroup)) {
+					return nil
+				}
+			} else {
+				if !extData.ReadUint16((*uint16)(&m.serverShare.group)) ||
+					!readUint16LengthPrefixed(&extData, &m.serverShare.data) {
+					return nil
+				}
+			}
+		case ExtensionPreSharedKey:
+			m.selectedIdentityPresent = true
+			if !extData.ReadUint16(&m.selectedIdentity) {
+				return nil
+			}
+		case ExtensionSupportedPoints:
+			// RFC 4492, Section 5.1.2
+			if !readUint8LengthPrefixed(&extData, &m.supportedPoints) ||
+				len(m.supportedPoints) == 0 {
+				return nil
+			}
+		default:
+			// Ignore unknown extensions.
+			continue
+		}
+
+		if !extData.Empty() {
+			return nil
+		}
+	}
+
+	return m.toServerHelloMsg()
+}
 
 func (m *serverHelloMsg) unmarshal(data []byte) bool {
 	*m = serverHelloMsg{raw: data}

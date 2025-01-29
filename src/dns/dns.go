@@ -141,6 +141,9 @@ func LookupIP(host string, proxy string, Dial func(network, address string) (net
 	if len(ips) > 0 {
 		return ips, err
 	}
+	if proxy == "" {
+		return ips, err
+	}
 	//如果远程没有解析成功,则使用本地DNS解析一次
 	return localLookupIP(host, proxy)
 }

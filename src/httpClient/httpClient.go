@@ -276,17 +276,17 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 			ip := extractAndRemoveIP(&ips)
 			if ip != nil {
 				if ip.To4() != nil {
-					conn, er := res.RequestProxy.Dial(network, fmt.Sprintf("%s:%s", ip.String(), port))
+					conn, er := res.RequestProxy.DialWithTimeout(network, fmt.Sprintf("%s:%s", ip.String(), port), 2*time.Second)
 					if conn != nil {
 						dns.SetFirstIP(address, ProxyHost, ip)
+						return conn, er
 					}
-					return conn, er
 				}
-				conn, er := res.RequestProxy.Dial(network, fmt.Sprintf("[%s]:%s", ip.String(), port))
+				conn, er := res.RequestProxy.DialWithTimeout(network, fmt.Sprintf("[%s]:%s", ip.String(), port), 2*time.Second)
 				if conn != nil {
 					dns.SetFirstIP(address, ProxyHost, ip)
+					return conn, er
 				}
-				return conn, er
 			}
 		}
 	}

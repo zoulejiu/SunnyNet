@@ -1,6 +1,7 @@
 package SunnyNet
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -80,7 +81,8 @@ var httpTypeMap = make(map[string]*httpTypeInfo)
 
 const whoisUndefined = 0
 const whoisNoHTTPS = 1
-const whoisHTTPS = 2
+const whoisHTTPS1 = 2
+const whoisHTTPS2 = 3
 
 type httpTypeInfo struct {
 	_type byte
@@ -121,7 +123,7 @@ func ClientIsHttps(server string) byte {
 	res._time = time.Now()
 	return res._type
 }
-func ClientRequestIsHttps(Sunny *Sunny, server string, bytes []byte) (res byte) {
+func ClientRequestIsHttps(Sunny *Sunny, server string, bytesData []byte) (res byte) {
 	var obj *httpTypeInfo
 	whoisLock.Lock()
 	if httpTypeMap[server] == nil {
@@ -185,19 +187,45 @@ func ClientRequestIsHttps(Sunny *Sunny, server string, bytes []byte) (res byte) 
 	defer func() {
 		_ = conn.Close()
 	}()
-	_ = conn.SetDeadline(time.Now().Add(time.Second * 3))
-	_, _ = conn.Write(bytes)
-	m := make([]byte, 16)
-	n, _ := conn.Read(m)
-	if m[0] == 0 {
+	_ = conn.SetDeadline(time.Now().Add(time.Second * 311))
+	_, _ = conn.Write(bytesData)
+	hdr := make([]byte, 5)
+	n, _ := conn.Read(hdr)
+	if hdr[0] == 0 {
 		return whoisUndefined
 	}
-	if n < 16 {
+	if n < 5 {
 		return whoisNoHTTPS
 	}
-	if m[0] == 21 || m[0] == 22 || m[0] == 23 {
-		return whoisHTTPS
+	var bs bytes.Buffer
+	if hdr[0] == 21 || hdr[0] == 22 || hdr[0] == 23 {
+		n = int(hdr[3])<<8 | int(hdr[4])
+		if n < 40960 {
+			data := make([]byte, 128)
+			for {
+				if bs.Len() >= n {
+					break
+				}
+				nx, err := conn.Read(data)
+				bs.Write(data[:nx])
+				if err != nil {
+					break
+				}
+			}
+			if bs.Len() >= n {
+				data = bs.Bytes()[:n]
+				mmm := tls.UnMarshal(data)
+				bs.Reset()
+				if mmm != nil {
+					if mmm.SupportedVersion == 772 {
+						return whoisHTTPS2
+					}
+				}
+			}
+			return whoisHTTPS1
+		}
 	}
+
 	return whoisNoHTTPS
 }
 
