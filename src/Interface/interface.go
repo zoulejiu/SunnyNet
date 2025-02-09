@@ -5,12 +5,12 @@ import (
 	"io"
 )
 
-// ConnHTTPScriptCall 脚本中使用
+/* =============================== 脚本 中 使用的接口 ================================================ */
 type ConnHTTPScriptCall interface {
 	connHTTP
 	/*
 		SetDisplay
-		设置是否显示当前请求(默认为true)
+		设置是否通知回调显示当前请求(默认为true)
 		如果设置为false 将不会通知回调进行处理消息
 		仅在发起请求时有效
 	*/
@@ -22,8 +22,203 @@ type ConnHTTPScriptCall interface {
 	*/
 	SetBreak(Break bool)
 }
+type ConnWebSocketScriptCall interface {
+	ConnWebSocketCall
+	/*
+		SetDisplay
+		设置是否通知回调显示当前请求(默认为true)
+		如果设置为false 将不会通知回调进行处理消息
+	*/
+	SetDisplay(Display bool)
+}
+type ConnTCPScriptCall interface {
+	ConnTCPCall
+	/*
+		SetDisplay
+		设置是否通知回调显示当前请求(默认为true)
+		如果设置为false 将不会通知回调进行处理消息
+	*/
+	SetDisplay(Display bool)
+}
+type ConnUDPScriptCall interface {
+	ConnUDPCall
+	/*
+		SetDisplay
+		设置是否通知回调显示当前请求(默认为true)
+		如果设置为false 将不会通知回调进行处理消息
+	*/
+	SetDisplay(Display bool)
+}
 
-// ConnHTTPCall go中使用
+/* ==============================  Go 中 使用的接口 ================================================= */
+type ConnUDPCall interface {
+	general
+	address
+	/*
+		Body
+		获取消息内容
+	*/
+	Body() []byte
+
+	/*
+		Body
+		获取消息比如长度
+	*/
+	BodyLen() int
+
+	/*
+		Type
+
+		返回当前消息事件类型
+
+		请使用 public.SunnyNetUDPType...
+
+		1=关闭 2=发送数据 3=收到数据
+
+	*/
+	Type() int
+
+	/*
+		SetBody
+
+		修改消息内容
+	*/
+	SetBody(data []byte) bool
+}
+type ConnTCPCall interface {
+	general
+	proxy
+	address
+	/*
+		Body
+
+		获取消息内容
+
+		如果事件类型为连接成功时,这里返回SunnyNet发送出去的本地地址
+	*/
+	Body() []byte
+
+	/*
+		Body
+
+		获取消息内容长度
+	*/
+	BodyLen() int
+
+	/*
+		Type
+
+		返回当前消息事件类型
+
+		请使用public.SunnyNetMsgTypeTCP...
+
+		0=连接成功 1=客户端发送数据 2=客户端收到数据 3=连接关闭或连接失败 4=即将开始连接
+	*/
+	Type() int
+
+	/*
+		SetBody
+
+		修改消息内容
+	*/
+	SetBody(data []byte) bool
+
+	/*
+		Close
+
+		关闭、断开当前TCP会话
+	*/
+	Close() bool
+
+	/*
+		SetNewAddress
+		设置目标连接地址 目标地址必须带端口号 例如 baidu.com:443 [仅限即将连接时使用]
+	*/
+	SetNewAddress(ip string) bool
+}
+type ConnWebSocketCall interface {
+	general
+	/*
+		Body
+
+		获取消息内容
+	*/
+	Body() []byte
+
+	/*
+		Body
+
+		获取消息内容长度
+	*/
+	BodyLen() int
+
+	/*
+		Type
+		返回当前消息事件类型
+
+		请使用public.Websocket...
+
+		1=连接成功 2=客户端发送数据 3=客户端收到数据 4=连接关闭
+	*/
+	Type() int
+	/*
+		ClientIP
+		返回请求的客户端IP地址
+	*/
+	ClientIP() string
+	/*
+		GetMessageType
+
+		获取消息事件类型
+
+		Text=1 Binary=2 Close=8 Ping=9 Pong=10 Invalid=-1/255
+	*/
+	MessageType() int
+
+	/*
+		SetBody
+
+		修改当前消息内容
+	*/
+	SetBody(data []byte) bool
+
+	/*
+		SendToServer
+
+		发送消息到服务器
+
+		MessageType：1文本，2二进制，8关闭，9心跳
+	*/
+	SendToServer(MessageType int, data []byte) bool
+
+	/*
+		SendToClient
+
+		发送消息到客户端
+
+		MessageType：1文本，2二进制，8关闭，9心跳
+	*/
+	SendToClient(MessageType int, data []byte) bool
+
+	/*
+		Close
+
+		关闭、断开当前Websocket会话
+	*/
+	Close() bool
+
+	/*
+		URL
+		当前请求的URL
+	*/
+	URL() string
+
+	/*
+		Method
+		返回请求的方法 例如 GET POST
+	*/
+	Method() string
+}
 type ConnHTTPCall interface {
 	connHTTP
 	/*
@@ -52,7 +247,8 @@ type ConnHTTPCall interface {
 	SetHTTP2Config(config string) bool
 }
 
-// go和脚本都使用
+/* =============================================================================== */
+
 type connHTTP interface {
 	general
 	proxy
@@ -196,177 +392,6 @@ type connHTTP interface {
 		(这个大小由自己设置默认:10240000 字节)
 	*/
 	IsRawRequestBody() bool
-}
-
-type ConnWebSocketScriptCall interface {
-	general
-
-	/*
-		Body
-
-		获取消息内容
-	*/
-	Body() []byte
-
-	/*
-		Body
-
-		获取消息内容长度
-	*/
-	BodyLen() int
-
-	/*
-		Type
-		返回当前消息事件类型
-
-		请使用public.Websocket...
-
-		1=连接成功 2=客户端发送数据 3=客户端收到数据 4=连接关闭
-	*/
-	Type() int
-	/*
-		ClientIP
-		返回请求的客户端IP地址
-	*/
-	ClientIP() string
-	/*
-		GetMessageType
-
-		获取消息事件类型
-
-		Text=1 Binary=2 Close=8 Ping=9 Pong=10 Invalid=-1/255
-	*/
-	MessageType() int
-
-	/*
-		SetBody
-
-		修改当前消息内容
-	*/
-	SetBody(data []byte) bool
-
-	/*
-		SendToServer
-
-		发送消息到服务器
-
-		MessageType：1文本，2二进制，8关闭，9心跳
-	*/
-	SendToServer(MessageType int, data []byte) bool
-
-	/*
-		SendToClient
-
-		发送消息到客户端
-
-		MessageType：1文本，2二进制，8关闭，9心跳
-	*/
-	SendToClient(MessageType int, data []byte) bool
-
-	/*
-		Close
-
-		关闭、断开当前Websocket会话
-	*/
-	Close() bool
-
-	/*
-		URL
-		当前请求的URL
-	*/
-	URL() string
-
-	/*
-		Method
-		返回请求的方法 例如 GET POST
-	*/
-	Method() string
-}
-type ConnTCPScriptCall interface {
-	general
-	proxy
-	address
-	/*
-		Body
-
-		获取消息内容
-
-		如果事件类型为连接成功时,这里返回SunnyNet发送出去的本地地址
-	*/
-	Body() []byte
-
-	/*
-		Body
-
-		获取消息内容长度
-	*/
-	BodyLen() int
-
-	/*
-		Type
-
-		返回当前消息事件类型
-
-		请使用public.SunnyNetMsgTypeTCP...
-
-		0=连接成功 1=客户端发送数据 2=客户端收到数据 3=连接关闭或连接失败 4=即将开始连接
-	*/
-	Type() int
-
-	/*
-		SetBody
-
-		修改消息内容
-	*/
-	SetBody(data []byte) bool
-
-	/*
-		Close
-
-		关闭、断开当前TCP会话
-	*/
-	Close() bool
-
-	/*
-		SetNewAddress
-		设置目标连接地址 目标地址必须带端口号 例如 baidu.com:443 [仅限即将连接时使用]
-	*/
-	SetNewAddress(ip string) bool
-}
-type ConnUDPScriptCall interface {
-	general
-	address
-
-	/*
-		Body
-		获取消息内容
-	*/
-	Body() []byte
-
-	/*
-		Body
-		获取消息比如长度
-	*/
-	BodyLen() int
-
-	/*
-		Type
-
-		返回当前消息事件类型
-
-		请使用 public.SunnyNetUDPType...
-
-		1=关闭 2=发送数据 3=收到数据
-
-	*/
-	Type() int
-
-	/*
-		SetBody
-
-		修改消息内容
-	*/
-	SetBody(data []byte) bool
 }
 type proxy interface {
 	/*

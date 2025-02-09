@@ -72,8 +72,11 @@ func (s *proxyRequest) CallbackTCPRequest(callType int, _msg *public.TcpMsg, Rem
 		delete(httpStorage, MessageId)
 		messageIdLock.Unlock()
 	}()
-	Ams := &tcpConn{c: _msg, messageId: MessageId, _type: callType, theology: s.Theology, localAddr: LocalAddr, remoteAddr: hostname, pid: pid, sunnyContext: s.Global.SunnyContext}
+	Ams := &tcpConn{c: _msg, messageId: MessageId, _type: callType, theology: s.Theology, localAddr: LocalAddr, remoteAddr: hostname, pid: pid, sunnyContext: s.Global.SunnyContext, _Display: true}
 	s.Global.scriptTCPCall(Ams)
+	if !Ams._Display {
+		return
+	}
 	msg := Ams.c
 	if s.TcpCall < 10 {
 		if s.TcpGoCall != nil {
@@ -326,8 +329,11 @@ func (s *proxyRequest) CallbackWssRequest(State int, Method, Url string, msg *pu
 		return
 	}
 	pid, _ := strconv.Atoi(s.Pid)
-	m := &wsConn{_Method: Method, Pid: pid, _Type: State, SunnyContext: s.Global.SunnyContext, Url: Url, c: msg, _MessageId: MessageId, _Theology: s.Theology, Request: s.Request, _ClientIP: s.Conn.RemoteAddr().String()}
+	m := &wsConn{_Method: Method, Pid: pid, _Type: State, SunnyContext: s.Global.SunnyContext, Url: Url, c: msg, _MessageId: MessageId, _Theology: s.Theology, Request: s.Request, _ClientIP: s.Conn.RemoteAddr().String(), _Display: true}
 	s.Global.scriptWebsocketCall(m)
+	if !s._Display {
+		return
+	}
 	if s.wsCall < 10 {
 		if s.wsGoCall != nil {
 			s.wsGoCall(m)

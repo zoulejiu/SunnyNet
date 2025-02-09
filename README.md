@@ -43,7 +43,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/qtgolang/SunnyNet/SunnyNet"
 	"github.com/qtgolang/SunnyNet/public"
 	"time"
@@ -56,8 +55,11 @@ func main() {
 	Sunny.SetGoCallback(HttpCallback, TcpCallback, WSCallback, UdpCallback)
 
 	//绑定端口号并启动
-	Sunny.SetPort(2023).Start()
-
+	Sunny.SetPort(2025).Start() 
+	
+	if Sunny.Error != nil {
+		panic(Sunny.Error)
+	}
 	//避免程序退出
 	time.Sleep(24 * time.Hour)
 }
@@ -81,34 +83,34 @@ func HttpCallback(Conn SunnyNet.ConnHTTP) {
 	}
 }
 func WSCallback(Conn SunnyNet.ConnWebSocket) {
-	fmt.Println("WebSocket", Conn.URL())
+	log.Println("WebSocket", Conn.URL())
 }
 func TcpCallback(Conn SunnyNet.ConnTCP) {
 
 	if Conn.Type() == public.SunnyNetMsgTypeTCPAboutToConnect {
 		//即将连接
 		mode := string(Conn.Body())
-		info.Println("PID", Conn.PID(), "TCP 即将连接到:", mode, Conn.LocalAddress(), "->", Conn.RemoteAddress())
+		log.Println("PID", Conn.PID(), "TCP 即将连接到:", mode, Conn.LocalAddress(), "->", Conn.RemoteAddress())
 		//修改目标连接地址
 		//Conn.SetNewAddress("8.8.8.8:8080")
 		return
 	}
 
 	if Conn.Type() == public.SunnyNetMsgTypeTCPConnectOK {
-		info.Println("PID", Conn.PID(), "TCP 连接到:", Conn.LocalAddress(), "->", Conn.RemoteAddress(), "成功")
+		log.Println("PID", Conn.PID(), "TCP 连接到:", Conn.LocalAddress(), "->", Conn.RemoteAddress(), "成功")
 		return
 	}
 
 	if Conn.Type() == public.SunnyNetMsgTypeTCPClose {
-		info.Println("PID", Conn.PID(), "TCP 断开连接:", Conn.LocalAddress(), "->", Conn.RemoteAddress())
+		log.Println("PID", Conn.PID(), "TCP 断开连接:", Conn.LocalAddress(), "->", Conn.RemoteAddress())
 		return
 	}
 	if Conn.Type() == public.SunnyNetMsgTypeTCPClientSend {
-		info.Println("PID", Conn.PID(), "发送数据", Conn.LocalAddress(), Conn.RemoteAddress(), Conn.Type(), Conn.BodyLen(), Conn.Body())
+		log.Println("PID", Conn.PID(), "发送数据", Conn.LocalAddress(), Conn.RemoteAddress(), Conn.Type(), Conn.BodyLen(), Conn.Body())
 		return
 	}
 	if Conn.Type() == public.SunnyNetMsgTypeTCPClientReceive {
-		info.Println("PID", Conn.PID(), "收到数据", Conn.LocalAddress(), Conn.RemoteAddress(), Conn.Type(), Conn.BodyLen(), Conn.Body())
+		log.Println("PID", Conn.PID(), "收到数据", Conn.LocalAddress(), Conn.RemoteAddress(), Conn.Type(), Conn.BodyLen(), Conn.Body())
 		return
 	}
 }
@@ -116,7 +118,7 @@ func UdpCallback(Conn SunnyNet.ConnUDP) {
 
 	if Conn.Type() == public.SunnyNetUDPTypeSend {
 		//客户端向服务器端发送数据
-		info.Println("PID", Conn.PID(), "发送UDP", Conn.LocalAddress(), Conn.RemoteAddress(), Conn.BodyLen())
+		log.Println("PID", Conn.PID(), "发送UDP", Conn.LocalAddress(), Conn.RemoteAddress(), Conn.BodyLen())
 		//修改发送的数据
 		//Conn.SetBody([]byte("Hello Word"))
 
@@ -124,14 +126,14 @@ func UdpCallback(Conn SunnyNet.ConnUDP) {
 	}
 	if Conn.Type() == public.SunnyNetUDPTypeReceive {
 		//服务器端向客户端发送数据
-		info.Println("PID", Conn.PID(), "接收UDP", Conn.LocalAddress(), Conn.RemoteAddress(), Conn.BodyLen())
+		log.Println("PID", Conn.PID(), "接收UDP", Conn.LocalAddress(), Conn.RemoteAddress(), Conn.BodyLen())
 		//修改响应的数据
 		//Conn.SetBody([]byte("Hello Word"))
 		return
 	}
 	if Conn.Type() == public.SunnyNetUDPTypeClosed {
 
-		info.Println("PID", Conn.PID(), "关闭UDP", Conn.LocalAddress(), Conn.RemoteAddress())
+		log.Println("PID", Conn.PID(), "关闭UDP", Conn.LocalAddress(), Conn.RemoteAddress())
 		return
 	}
 

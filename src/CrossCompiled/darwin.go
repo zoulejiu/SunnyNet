@@ -118,8 +118,7 @@ func NFapi_DelTcpConnectInfo(U uint16) {
 func NFapi_GetTcpConnectInfo(U uint16) *NFapi.ProcessInfo {
 	return nil
 }
-
-func NFapi_UdpSendReceiveFunc(udp func(Type public.SunnyCallBackUDP, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte) func(Type public.SunnyCallBackUDP, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte {
+func NFapi_UdpSendReceiveFunc(udp func(Type int, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte) func(Type int, Theoni int64, pid uint32, LocalAddress, RemoteAddress string, data []byte) []byte {
 	return nil
 }
 func Pr_Install() bool {

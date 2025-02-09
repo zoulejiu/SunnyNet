@@ -1,4 +1,4 @@
-window.builtCmdWords = [
+window.builtCmdWords =  [
     {
         name: ['Log', 'log', 'print', "Println", "日志输出", "打印日志"],
         insertText: 'Log(${1:str}$0)',
@@ -22,14 +22,14 @@ window.builtCmdWords = [
         ]
     },
     {
-        name: ['GetProcessName', '取进程名', '获取进程名'],
-        insertText: 'Conn.GetProcessName()$0',
+        name: ['GetPidName', 'PID获取进程名', 'pid获取进程名'],
+        insertText: 'GetPidName(Conn.PID())$0',
         detail: "获取指定PID对应的进程名称",
         contents: [
-            {value: '**获取Conn.PID()对应的进程名称 (返回值:字符串)**'},
+            {value: '**获取指定PID对应的进程名称 (返回值:字符串)**'},
             {value: '返回值:字符串'},
             {value: '**示例代码**'},
-            {value: '```go\nConn.GetProcessName()\n```'}
+            {value: '```go\nGetPidName(Conn.PID())\n```'}
         ]
     },
     {
@@ -43,16 +43,6 @@ window.builtCmdWords = [
         ]
     },
     {
-        name: ['跳出循环', 'break'],
-        insertText: 'break$0',
-        detail: "跳出循环",
-        contents: [
-            {value: '**跳出当前循环**'},
-            {value: '**示例代码**'},
-            {value: '```go\nfor i := 0; i < 10; i++ {\n\tLog(i)\n\tbreak\n}\n```'}
-        ]
-    },
-    {
         name: ['到循环尾', 'continue'],
         insertText: 'continue$0',
         detail: "到循环尾",
@@ -60,6 +50,19 @@ window.builtCmdWords = [
             {value: '**跳处当前循环**'},
             {value: '**示例代码**'},
             {value: '```go\nfor i := 0; i < 10; i++ {\n\tLog(i)\n\tcontinue\n\tLog("--",i)\n}\n```'}
+        ]
+    },
+    {
+        name: ['跳出', 'break'],
+        insertText: 'break$0',
+        detail: "跳出",
+        contents: [
+            {value: '**跳出**'},
+            {value: '跳出当前循环/多项选择(switch)'},
+            {value: '**示例代码 1**'},
+            {value: '```go\nfor i := 0; i < 10; i++ {\n\tLog(i)\n\tbreak\n}\n```'},
+            {value: '**示例代码 2**'},
+            {value: '```go\n	i := 2\n	switch i {\n	case 0:\n		log("switch -> zero...")\n		break\n	case 1:\n		log("switch -> one...")\n		break\n	case 2:\n		log("switch -> two...")\n		break\n	default:\n		log("switch -> no match...")\n		break\n	}\n	log("switch -> ok")\n```'}
         ]
     },
     {
@@ -90,6 +93,49 @@ window.builtCmdWords = [
             {value: '**否则**'},
             {value: '**示例代码**'},
             {value: '```go\nif 1 < 2 {\n\tlog("1<2")\n}else{\n\tLog(1>2)\n}\n```'}
+        ]
+    },
+    {
+        name: ["多项选择","选择",'switch', 'Switch'],
+        insertText: 'switch ${1:obj}$0 {\n' +
+            '\tcase 0:\n' +
+            '\t\tlog("switch -> zero...")\n' +
+            '\t\tbreak\n' +
+            '\tcase 1:\n' +
+            '\t\tlog("switch -> one...")\n' +
+            '\t\tbreak\n' +
+            '\tdefault:\n' +
+            '\t\tlog("switch -> no match...")\n' +
+            '\t\tbreak\n' +
+            '\t}\n',
+        detail: "多项选择",
+        contents: [
+            {value: '**多项选择**'},
+            {value: '**示例代码**'},
+            {value: '```go\n	i := 2\n	switch i {\n	case 0:\n		log("switch -> zero...")\n		break\n	case 1:\n		log("switch -> one...")\n		break\n	case 2:\n		log("switch -> two...")\n		break\n	default:\n		log("switch -> no match...")\n		break\n	}\n	log("switch -> ok")\n```'}
+        ]
+    },
+    {
+        name: ["如果匹配项",'case'],
+        insertText: 'case ${1:"obj"}$0:\r\tbreak\n',
+        detail: "如果匹配项",
+        contents: [
+            {value: '**如果匹配项**'},
+            {value: '配合 switch 命令使用'},
+            {value: '**示例代码**'},
+            {value: '```go\n	i := 2\n	switch i {\n	case 0:\n		log("switch -> zero...")\n		break\n	case 1:\n		log("switch -> one...")\n		break\n	case 2:\n		log("switch -> two...")\n		break\n	default:\n		log("switch -> no match...")\n		break\n	}\n	log("switch -> ok")\n```'}
+        ]
+    },
+    {
+        name: ["穿透到下个匹配",'fallthrough'],
+        insertText: 'fallthrough\n',
+        detail: "穿透到下个匹配",
+        contents: [
+            {value: '**如果匹配项**'},
+            {value: '配合 switch 命令使用'},
+            {value: '注意：使用此命令时,应当在 case 中的最后一行!!!'},
+            {value: '**示例代码**'},
+            {value: '```go\n	i := 1\n	switch i {\n	case 0:\n		log("switch -> zero...")\n		fallthrough\n	case 1:\n		log("switch -> one...")\n		fallthrough\n	case 2:\n		log("switch -> two...")\n		fallthrough\n	default:\n		log("switch -> no match...")\n	}\n	log("switch -> ok")\n```'}
         ]
     },
     {
@@ -814,6 +860,47 @@ window.builtCmdWords = [
             {value: '返回值:字节集'},
             {value: '**示例代码**'},
             {value: '```go\n\tbs := ReadFile("c:\\1.txt")\n\tLog("读取本地文件->长度:",len(bs))\n```'},
+        ]
+    },
+    {
+        name: ['OpenFile', '打开文件', "openFile"],
+        insertText: 'OpenFile(${1:filePath}$0)',
+        detail: "打开文件",
+        contents: [
+            {value: '**打开文件**'},
+            {value: '**参数说明**'},
+            {value: '参数1:filePath     字符串类型  [要读取本地文件的全路径]'},
+            {value: '返回值:os.File 类型,该类型实现了 io.ReadCloser 接口'},
+            {value: '**示例代码**'},
+            {value: '```go\n	//可以在 Event_HTTP 事件中使用\n	//如果文件不存在或其他原因失败返回空的文件对象\n	Conn.SetRequestBodyIO(OpenFile("example.txt"))\n	//或者使用\n	Conn.SetResponseBodyIO(OpenFile("example.txt")) \n```'},
+        ]
+    },
+    {
+        name: ['是否为指定字符串开始', 'HasPrefix', "hasPrefix"],
+        insertText: 'strings.HasPrefix(${1:src}$0,${2:str})',
+        detail: "是否为指定字符串开始",
+        contents: [
+            {value: '**是否为指定字符串开始**'},
+            {value: '**参数说明**'},
+            {value: '参数1:src     字符串类型  [要检查的字符串]'},
+            {value: '参数2:str     字符串类型  [目标字符串]'},
+            {value: '返回值:逻辑型(bool)'},
+            {value: '**示例代码**'},
+            {value: '```go\n\tsucceed := strings.HasPrefix("123321x","123")\n\tLog("是以字符串123开始的:",succeed)\u3000\u3000\u3000\u3000\n```'},
+        ]
+    },
+    {
+        name: ['是否为指定字符串结束', 'HasSuffix', "hasSuffix"],
+        insertText: 'strings.HasSuffix(${1:src}$0,${2:str})',
+        detail: "是否为指定字符串结束",
+        contents: [
+            {value: '**是否为指定字符串结束**'},
+            {value: '**参数说明**'},
+            {value: '参数1:src     字符串类型  [要检查的字符串]'},
+            {value: '参数2:str     字符串类型  [目标字符串]'},
+            {value: '返回值:逻辑型(bool)'},
+            {value: '**示例代码**'},
+            {value: '```go\n\tsucceed := strings.HasPrefix("123321x","321x")\n\tLog("是以字符串321x结束的:",succeed)\u3000\u3000\u3000\u3000\n```'},
         ]
     },
     {

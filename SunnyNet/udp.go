@@ -194,8 +194,11 @@ func (s *Sunny) udpNFSendReceive(Type int, Theoni int64, pid uint32, LocalAddres
 	if s.disableUDP {
 		return nil
 	}
-	n := &udpConn{theology: Theoni, messageId: NewMessageId(), _type: Type, sunnyContext: s.SunnyContext, pid: int(pid), localAddress: LocalAddress, remoteAddress: RemoteAddress, data: data}
+	n := &udpConn{theology: Theoni, messageId: NewMessageId(), _type: Type, sunnyContext: s.SunnyContext, pid: int(pid), localAddress: LocalAddress, remoteAddress: RemoteAddress, data: data, _Display: true}
 	s.scriptUDPCall(n)
+	if !n._Display {
+		return n.Body()
+	}
 	//GoScriptCode.RunUdpScriptCode(_call, n)
 	// 如果回调函数小于 10，则尝试调用Go回调函数
 	if s.udpCallback < 10 {

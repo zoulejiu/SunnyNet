@@ -6,7 +6,7 @@ import (
 	"github.com/qtgolang/SunnyNet/src/ProcessDrv/nfapi"
 )
 
-type ConnUDP Interface.ConnUDPScriptCall
+type ConnUDP Interface.ConnUDPCall
 
 type udpConn struct {
 	sunnyContext  int
@@ -17,6 +17,11 @@ type udpConn struct {
 	localAddress  string
 	remoteAddress string
 	data          []byte
+	_Display      bool
+}
+
+func (U udpConn) SetDisplay(Display bool) {
+	U._Display = Display
 }
 
 func (U udpConn) GetSocket5User() string {

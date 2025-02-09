@@ -35,7 +35,7 @@ func Test() {
 	s.SetMustTcpRegexp("tpstelemetry.tencent.com", true)
 	Port := 2025
 	//s.SetMustTcpRegexp("*.baidu.com")
-	s = s.SetPort(Port).Start()
+	s.SetPort(Port).Start()
 	//s.SetIEProxy()
 	s.SetHTTPRequestMaxUpdateLength(100000000)
 	fmt.Println(s.OpenDrive(false))
@@ -51,7 +51,6 @@ func Test() {
 	select {}
 }
 func HttpCallback(Conn SunnyNet.ConnHTTP) {
-	return
 	if Conn.Type() == public.HttpSendRequest {
 		fmt.Println("发起请求", Conn.URL())
 		//发起请求
@@ -66,7 +65,6 @@ func HttpCallback(Conn SunnyNet.ConnHTTP) {
 	} else if Conn.Type() == public.HttpRequestFail {
 		//请求错误
 		fmt.Println(time.Now(), Conn.URL(), Conn.Error())
-
 	}
 }
 func WSCallback(Conn SunnyNet.ConnWebSocket) {

@@ -1283,6 +1283,10 @@ func HexToBase64(a string) string {
 	aa := GoHexDecode(a)
 	return GoBase64Encode(aa)
 }
+func OpenFile(filePath string) *os.File {
+	file, _ := os.Open(filePath)
+	return file
+}
 var delSpace=DelSpace
 var trimSpace=TrimSpace
 var subString=SubString

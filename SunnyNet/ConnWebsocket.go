@@ -7,7 +7,7 @@ import (
 	"github.com/qtgolang/SunnyNet/src/public"
 )
 
-type ConnWebSocket Interface.ConnWebSocketScriptCall
+type ConnWebSocket Interface.ConnWebSocketCall
 type wsConn struct {
 	c            *public.WebsocketMsg
 	SunnyContext int
@@ -19,6 +19,11 @@ type wsConn struct {
 	_Theology    int           //请求唯一ID
 	_ClientIP    string        //来源IP地址,请求从哪里来
 	Request      *http.Request //请求体
+	_Display     bool
+}
+
+func (k *wsConn) SetDisplay(Display bool) {
+	k._Display = Display
 }
 
 func (k *wsConn) Method() string {

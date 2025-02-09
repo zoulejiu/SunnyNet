@@ -7,7 +7,7 @@ import (
 	"github.com/qtgolang/SunnyNet/src/public"
 )
 
-type ConnTCP Interface.ConnTCPScriptCall
+type ConnTCP Interface.ConnTCPCall
 
 type tcpConn struct {
 	sunnyContext int
@@ -18,6 +18,11 @@ type tcpConn struct {
 	localAddr    string         //本地地址
 	remoteAddr   string         //远程地址
 	pid          int            //Pid
+	_Display     bool
+}
+
+func (k *tcpConn) SetDisplay(Display bool) {
+	k._Display = Display
 }
 
 func (k *tcpConn) GetSocket5User() string {
