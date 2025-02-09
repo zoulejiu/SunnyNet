@@ -28,17 +28,17 @@ func Test() {
 	//s.SetMustTcpRegexp("*.baidu.com")
 	s.CompileProxyRegexp("127.0.0.1;[::1];192.168.*")
 
-	s.MustTcp(true)
+	//s.MustTcp(true)
 	//s.DisableTCP(true)
 	//s.SetGlobalProxy("socket://192.168.31.1:4321", 60000)
 	s.SetMustTcpRegexp("tpstelemetry.tencent.com", true)
-	Port := 2026
+	Port := 2025
 	//s.SetMustTcpRegexp("*.baidu.com")
 	s.SetPort(Port).Start()
 	//s.SetIEProxy()
 	s.SetHTTPRequestMaxUpdateLength(100000000)
 	fmt.Println(s.OpenDrive(false))
-	s.ProcessALLName(true, false)
+	//s.ProcessALLName(true, false)
 
 	//s.ProcessAddName("WeChat.exe")
 	err := s.Error
