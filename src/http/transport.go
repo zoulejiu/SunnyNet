@@ -599,24 +599,8 @@ func (t *Transport) roundTrip(req *Request) (*Response, error) {
 			// HTTP/2 path.
 			t.setReqCanceler(cancelKey, nil) // not cancelable with CancelRequest
 			resp, err = pconn.alt.RoundTrip(req)
-			if resp != nil {
-				if resp.Request != nil {
-					rConn := resp.Request.Context().Value("rConn")
-					if rConn != nil {
-						origReq.SetContext("rConn", rConn)
-					}
-				}
-			}
 		} else {
 			resp, err = pconn.roundTrip(treq)
-			if resp != nil {
-				if resp.Request != nil {
-					rConn := pconn.conn
-					if rConn != nil {
-						origReq.SetContext("rConn", rConn)
-					}
-				}
-			}
 		}
 
 		if err == nil {

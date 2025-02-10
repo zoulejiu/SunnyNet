@@ -92,7 +92,7 @@ func newTransferWriter(r any) (t *transferWriter, err error) {
 		t.BodyCloser = rr.Body
 		t.ContentLength = rr.outgoingLength()
 		if t.ContentLength < 0 && len(t.TransferEncoding) == 0 && t.shouldSendChunkedRequestBody() {
-			t.TransferEncoding = []string{"chunked"}
+			//t.TransferEncoding = []string{"chunked"}
 		}
 		// If there's a body, conservatively flush the headers
 		// to any bufio.Writer we're writing to, just in case

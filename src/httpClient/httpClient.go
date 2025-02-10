@@ -49,10 +49,10 @@ func (w *Client) Do(req *http.Request) (Response *http.Response, Conn net.Conn, 
 	if w.tlsConfig == nil {
 		w.tlsConfig = &tls.Config{}
 	}
-	Response, Conn, err, Close = Do(req, w.proxy, w.redirect, w.tlsConfig, w.outTime, w.RandomTLSFingerprint)
+	Response, Conn, err, Close = Do(req, w.proxy, w.redirect, w.tlsConfig, w.outTime, w.RandomTLSFingerprint, nil)
 	return Response, Conn, err, Close
 }
-func Do(req *http.Request, RequestProxy *SunnyProxy.Proxy, CheckRedirect bool, config *tls.Config, outTime time.Duration, GetTLSValues func() []uint16) (Response *http.Response, Conn net.Conn, err error, Close func()) {
+func Do(req *http.Request, RequestProxy *SunnyProxy.Proxy, CheckRedirect bool, config *tls.Config, outTime time.Duration, GetTLSValues func() []uint16, MConn net.Conn) (Response *http.Response, Conn net.Conn, err error, Close func()) {
 	if req.ProtoMajor == 2 {
 		Method := req.Method
 		switch Method {
@@ -87,7 +87,7 @@ func Do(req *http.Request, RequestProxy *SunnyProxy.Proxy, CheckRedirect bool, c
 				cfg.CipherSuites = tv
 			}
 		}
-		Response, Conn, err, Close = do(req, RequestProxy, CheckRedirect, cfg, outTime)
+		Response, Conn, err, Close = do(req, RequestProxy, CheckRedirect, cfg, outTime, MConn)
 		if cfg == nil {
 			return
 		}
@@ -108,22 +108,51 @@ func Do(req *http.Request, RequestProxy *SunnyProxy.Proxy, CheckRedirect bool, c
 		return
 	}
 }
-func do(req *http.Request, RequestProxy *SunnyProxy.Proxy, CheckRedirect bool, config *tls.Config, outTime time.Duration) (*http.Response, net.Conn, error, func()) {
+func do(req *http.Request, RequestProxy *SunnyProxy.Proxy, CheckRedirect bool, config *tls.Config, outTime time.Duration, MConn net.Conn) (*http.Response, net.Conn, error, func()) {
 	client := httpClientGet(req, RequestProxy, config, outTime)
 	if CheckRedirect {
 		client.Client.CheckRedirect = public.HTTPAllowRedirect
 	} else {
 		client.Client.CheckRedirect = public.HTTPBanRedirect
 	}
+	if MConn != nil {
+		//防止客户端与 SunnyNet 断开连接，但是 SunnyNet 与 目标服务器 一直交互
+		ticker := time.NewTicker(3 * time.Second)
+		stop := make(chan struct{}) // 退出信号
+		var mu sync.WaitGroup
+		mu.Add(1) // 提前加 1，确保 Done() 被执行
+		go func() {
+			defer mu.Done()
+			ms := make([]byte, 1)
+			for {
+				select {
+				case <-ticker.C:
+					_ = MConn.SetReadDeadline(time.Now().Add(1 * time.Millisecond))
+					_, er := MConn.Read(ms)
+					if er != nil {
+						if strings.Contains(er.Error(), "close") {
+							if client.Conn != nil {
+								Conn := *client.Conn
+								_ = Conn.Close()
+							}
+						}
+					}
+				case <-stop: // 监听退出信号
+					return
+				}
+			}
+		}()
+		defer func() {
+			ticker.Stop()
+			close(stop)
+			mu.Wait()
+			_ = MConn.SetDeadline(time.Time{})
+		}()
+	}
 	reqs, err := client.Client.Do(req)
 	var rConn net.Conn
-	if reqs != nil {
-		if reqs.Request != nil {
-			rConn, _ = reqs.Request.Context().Value("rConn").(net.Conn)
-		}
-		if reqs.Header != nil {
-			reqs.Header.Del("Transfer-Encoding")
-		}
+	if client.Conn != nil {
+		rConn = *client.Conn
 	}
 	address, proxy, _ := net.SplitHostPort(client.RequestProxy.DialAddr)
 	ip := net.ParseIP(address)
@@ -165,6 +194,18 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 					nproxy.DialAddr = client.RequestProxy.DialAddr
 				}
 				client.RequestProxy = nproxy
+				if timeout == 0 {
+					if client.Conn != nil {
+						Conn := *client.Conn
+						_ = Conn.SetDeadline(time.Time{})
+						_ = Conn.SetWriteDeadline(time.Time{})
+						_ = Conn.SetDeadline(time.Time{})
+						client.Client.Timeout = 24 * time.Hour
+						client.Transport.ResponseHeaderTimeout = 24 * time.Hour // 读取响应头超时
+						client.Transport.IdleConnTimeout = 24 * time.Hour       // 空闲连接超时
+						client.Transport.TLSHandshakeTimeout = 24 * time.Hour   // TLS 握手超时
+					}
+				}
 				return client
 			}
 		}
@@ -193,9 +234,16 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 		}
 	}
 	Tr := &http.Transport{TLSClientConfig: cfg}
-	Tr.ResponseHeaderTimeout = timeout // 读取响应头超时
-	Tr.IdleConnTimeout = timeout       // 空闲连接超时
-	Tr.TLSHandshakeTimeout = timeout   // TLS 握手超时
+	if timeout == 0 {
+		Tr.ResponseHeaderTimeout = 60 * time.Second // 读取响应头超时
+		Tr.IdleConnTimeout = 60 * time.Second       // 空闲连接超时
+		Tr.TLSHandshakeTimeout = 60 * time.Second   // TLS 握手超时
+	} else {
+		Tr.ResponseHeaderTimeout = timeout // 读取响应头超时
+		Tr.IdleConnTimeout = timeout       // 空闲连接超时
+		Tr.TLSHandshakeTimeout = timeout   // TLS 握手超时
+	}
+
 	/*
 		Dial := func(network, addr string) (net.Conn, error) {
 			if RequestProxy != nil {
@@ -224,18 +272,33 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 	var ips []net.IP
 	var isLookupIP bool
 	var ProxyHost string
-	var dial func(network string, addr string) (net.Conn, error)
+	var LookupIPdial func(network string, addr string) (net.Conn, error)
 	var nproxy *SunnyProxy.Proxy
+	var LookupIPproxy *SunnyProxy.Proxy
 	if Proxy != nil {
 		nproxy = Proxy.Clone()
-		dial = nproxy.Dial
+		LookupIPproxy = Proxy.Clone()
+		LookupIPdial = LookupIPproxy.Dial
+		ProxyHost = Proxy.Host
 	} else {
 		nproxy = new(SunnyProxy.Proxy)
-		dial = nproxy.Dial
+		LookupIPdial = LookupIPproxy.Dial
 	}
 	cc := http.Client{Transport: Tr, Timeout: timeout}
-	res := &clientPart{Client: cc, s: s, RequestProxy: nproxy}
-	Tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+	res := &clientPart{Client: cc, s: s, RequestProxy: nproxy, Transport: Tr}
+	Tr.DialContext = func(ctx context.Context, network, addr string) (cnn net.Conn, _ error) {
+		defer func() {
+			if cnn != nil && timeout == 0 {
+				res.Conn = &cnn
+				_ = cnn.SetDeadline(time.Time{})
+				_ = cnn.SetWriteDeadline(time.Time{})
+				_ = cnn.SetDeadline(time.Time{})
+				Tr.ResponseHeaderTimeout = 24 * time.Hour // 读取响应头超时
+				Tr.IdleConnTimeout = 24 * time.Hour       // 空闲连接超时
+				Tr.TLSHandshakeTimeout = 24 * time.Hour   // TLS 握手超时
+				cc.Timeout = 24 * time.Hour
+			}
+		}()
 		address, port, err := net.SplitHostPort(addr)
 		if err != nil {
 			return nil, err
@@ -255,7 +318,7 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 			if !isLookupIP {
 				isLookupIP = true
 				first := dns.GetFirstIP(address, ProxyHost)
-				ips, _ = dns.LookupIP(address, ProxyHost, dial)
+				ips, _ = dns.LookupIP(address, ProxyHost, LookupIPdial)
 				if first != nil {
 					if first.To4() != nil {
 						return res.RequestProxy.Dial(network, fmt.Sprintf("%s:%s", first.String(), port))
@@ -281,6 +344,7 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 						dns.SetFirstIP(address, ProxyHost, ip)
 						return conn, er
 					}
+					continue
 				}
 				conn, er := res.RequestProxy.DialWithTimeout(network, fmt.Sprintf("[%s]:%s", ip.String(), port), 2*time.Second)
 				if conn != nil {
@@ -334,6 +398,8 @@ type clientPart struct {
 	Client       http.Client
 	time         time.Time
 	s            string
+	Conn         *net.Conn
+	Transport    *http.Transport
 	RequestProxy *SunnyProxy.Proxy
 }
 

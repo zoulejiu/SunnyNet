@@ -8,7 +8,6 @@
 */
 package public
 
-import "C"
 import (
 	"fmt"
 	"github.com/qtgolang/SunnyNet/src/http"
@@ -17,7 +16,7 @@ import (
 	"time"
 )
 
-const SunnyVersion = "2025-02-10"
+const SunnyVersion = "2025-02-11"
 const Information = `
 ------------------------------------------------------
        欢迎使用 SunnyNet 网络中间件 - V` + SunnyVersion + `   

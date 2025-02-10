@@ -27,7 +27,6 @@ type httpConn struct {
 	_err                  string            //错误信息
 	_proxy                *SunnyProxy.Proxy //代理信息
 	_getRawBody           func(path string) bool
-	_isRawBody            func() bool
 	_Display              bool
 	_Break                bool
 	_tls                  *tls.Config
@@ -300,8 +299,8 @@ func (h *httpConn) IsRawRequestBody() bool {
 	if h == nil {
 		return false
 	}
-	if h._isRawBody != nil {
-		return h._isRawBody()
+	if h._request != nil {
+		return h._request.IsRawBody
 	}
 	return false
 }

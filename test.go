@@ -19,10 +19,10 @@ func Test() {
 	s.AddHttpCertificate("api.vlightv.com", cert, SunnyNet.HTTPCertRules_Request)
 
 	//如果在Go中使用 设置Go的回调地址
-	//s.SetGlobalProxy("socket://192.168.31.1:4321", 30000)
-	//s.SetScriptCall(func(info ...any) {
-	//	fmt.Println("x脚本日志", fmt.Sprintf("%v", info))
-	//}, func(code []byte) {})
+	s.SetGlobalProxy("socket://192.168.31.1:4321", 30000)
+	s.SetScriptCall(func(Context int, info ...any) {
+		fmt.Println("x脚本日志", fmt.Sprintf("%v", info))
+	}, func(Context int, code []byte) {})
 	s.SetScriptCode(string(GoScriptCode.DefaultCode))
 	s.SetGoCallback(HttpCallback, TcpCallback, WSCallback, UdpCallback)
 	//s.SetMustTcpRegexp("*.baidu.com")
@@ -36,8 +36,8 @@ func Test() {
 	//s.SetMustTcpRegexp("*.baidu.com")
 	s.SetPort(Port).Start()
 	//s.SetIEProxy()
-	s.SetHTTPRequestMaxUpdateLength(100000000)
-	fmt.Println(s.OpenDrive(false))
+	s.SetHTTPRequestMaxUpdateLength(10086)
+	//fmt.Println(s.OpenDrive(false))
 	//s.ProcessALLName(true, false)
 
 	//s.ProcessAddName("WeChat.exe")

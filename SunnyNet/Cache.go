@@ -187,7 +187,7 @@ func ClientRequestIsHttps(Sunny *Sunny, server string, bytesData []byte) (res by
 	defer func() {
 		_ = conn.Close()
 	}()
-	_ = conn.SetDeadline(time.Now().Add(time.Second * 311))
+	_ = conn.SetDeadline(time.Now().Add(time.Second * 3))
 	_, _ = conn.Write(bytesData)
 	hdr := make([]byte, 5)
 	n, _ := conn.Read(hdr)

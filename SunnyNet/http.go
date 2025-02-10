@@ -165,7 +165,6 @@ func (h *httpBody) Read(p []byte) (n int, err error) {
 		h.lock.Lock()
 		defer h.lock.Unlock()
 	}
-
 	_ = h.c.SetReadDeadline(time.Now().Add(10 * time.Second))
 	n, e := h.Body.Read(p)
 	if h.file != nil && n > 0 {
@@ -177,7 +176,6 @@ func (h *httpBody) Read(p []byte) (n int, err error) {
 	}
 	return n, e
 }
-
 func (h *httpBody) Close() error {
 	if h.lock != nil {
 		h.lock.Lock()

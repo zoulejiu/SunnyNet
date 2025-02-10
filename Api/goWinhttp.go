@@ -160,6 +160,9 @@ func HTTPSendBin(Context int, data []byte) {
 	}
 	k.req.Body = io.NopCloser(bytes.NewReader(data))
 	k.req.ContentLength = int64(len(data))
+	if k.req.ContentLength < 1 {
+		k.req.Body = nil
+	}
 	if k.req.ContentLength > 0 {
 		k.req.Header["Content-Length"] = []string{fmt.Sprintf("%d", len(data))}
 	} else {
@@ -170,7 +173,7 @@ func HTTPSendBin(Context int, data []byte) {
 		random = public.GetTLSValues
 	}
 	k.respBody = nil
-	resp, _, _, f := httpClient.Do(k.req, k.proxy, k.redirect, k.tlsConfig, time.Duration(k.outTime)*time.Millisecond, random)
+	resp, _, _, f := httpClient.Do(k.req, k.proxy, k.redirect, k.tlsConfig, time.Duration(k.outTime)*time.Millisecond, random, nil)
 
 	defer func() {
 		if f != nil {

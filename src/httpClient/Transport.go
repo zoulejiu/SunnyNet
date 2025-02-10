@@ -50,14 +50,6 @@ func (rt *Transport) RoundTripDo(req *http.Request) (*http.Response, error) {
 	}
 	t := rt.cachedTransports
 	res, err := t.RoundTrip(req)
-	if res != nil {
-		if res.Request != nil {
-			if res.Request.Context().Value("rConn") == nil {
-				res.Request.SetContext("rConn", rt.conn)
-			}
-		}
-
-	}
 	ok := false
 	if err != nil {
 		if strings.Contains(err.Error(), "use of closed network connection") {

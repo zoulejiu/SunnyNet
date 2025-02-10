@@ -966,7 +966,8 @@ func (s *proxyRequest) doRequest() error {
 	var n net.Conn
 	var err error
 	var Close func()
-	do, n, err, Close = httpClient.Do(s.Request, s.Proxy, false, s.TlsConfig, s.SendTimeout, s.getTLSValues)
+
+	do, n, err, Close = httpClient.Do(s.Request, s.Proxy, false, s.TlsConfig, s.SendTimeout, s.getTLSValues, s.Conn)
 	s.Response.Conn = n
 	ip, _ := s.Request.Context().Value(public.SunnyNetServerIpTags).(string)
 	if ip != "" {
@@ -1457,7 +1458,11 @@ func (s *proxyRequest) handleWss() bool {
 			}
 			s.CallbackWssRequest(public.WebsocketUserSend, Method, Url, as, MessageId)
 			sc.Lock()
-			err = Server.WriteMessage(as.Mt, as.Data.Bytes())
+			if as.Mt != websocket.BinaryMessage {
+				err = Server.WriteMessage(as.Mt, as.Data.Bytes())
+			} else {
+				err = Server.WriteFullMessage(as.Mt, as.Data.Bytes())
+			}
 			sc.Unlock()
 			if err != nil {
 				_ = Client.Close()
@@ -2611,7 +2616,7 @@ func (s *Sunny) handleClientConn(conn net.Conn) {
 	s.connList[Theoni] = conn
 	s.lock.Unlock()
 	//构造一个请求中间件
-	req := &proxyRequest{Global: s, TcpCall: s.tcpCallback, HttpCall: s.httpCallback, wsCall: s.websocketCallback, TcpGoCall: s.goTcpCallback, HttpGoCall: s.goHttpCallback, wsGoCall: s.goWebsocketCallback, SendTimeout: 30 * time.Second} //原始请求对象
+	req := &proxyRequest{Global: s, TcpCall: s.tcpCallback, HttpCall: s.httpCallback, wsCall: s.websocketCallback, TcpGoCall: s.goTcpCallback, HttpGoCall: s.goHttpCallback, wsGoCall: s.goWebsocketCallback, SendTimeout: 0} //原始请求对象
 
 	defer func() {
 		//当 handleClientConn 函数 即将退出时 从会话列表中删除当前会话

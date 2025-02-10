@@ -227,6 +227,7 @@ func RunCode(SunnyNetContext int, UserScriptCode []byte, log LogFuncInterface) (
 	_, err := iEval.Eval(S)
 	if err != nil {
 		errorSrc := strings.ReplaceAll(err.Error(), "_.go:", "")
+		errorSrc = strings.ReplaceAll(errorSrc, "[]uint8", "[]byte")
 		errorLine := ""
 		_tmp := strings.Split(errorSrc, ":")
 		if len(_tmp) >= 1 {

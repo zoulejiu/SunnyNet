@@ -141,6 +141,11 @@ func (p *Proxy) DialWithTimeout(network, addr string, Timeout time.Duration) (ne
 	if pp == nil {
 		pp = &Proxy{}
 	}
+	defer func() {
+		if p != nil {
+			p.DialAddr = addr
+		}
+	}()
 	pp.timeout = Timeout
 	return pp.Dial(network, addr)
 }

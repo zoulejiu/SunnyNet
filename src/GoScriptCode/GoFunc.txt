@@ -65,6 +65,12 @@ type UDPEvent struct {
 type WebSocketEvent struct {
      Call.ConnWebSocket
 }
+func (conn *WebSocketEvent) SendToClient(MessageType int, data []byte) bool {
+    return conn.ConnWebSocket.SendToClient(MessageType, data)
+}
+func (conn *WebSocketEvent) SendToServer(MessageType int, data []byte) bool {
+    return conn.ConnWebSocket.SendToServer(MessageType, data)
+}
 //--------------------------------------------------------------------------------------------------------------------
 
 var __lock sync.Mutex
