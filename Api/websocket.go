@@ -19,13 +19,18 @@ var WebSocketMap = make(map[int]interface{})
 var WebSocketMapLock sync.Mutex
 
 type WebsocketClient struct {
-	err         error
-	wb          *websocket.Conn
-	call        int
-	goCall      func(int, int, []byte, int)
-	Context     int
-	synchronous bool
-	l           sync.Mutex
+	err             error
+	wb              *websocket.Conn
+	call            int
+	goCall          func(int, int, []byte, int)
+	Context         int
+	synchronous     bool
+	l               sync.Mutex
+	heartbeatTime   int
+	heartbeatCall   int
+	goHeartbeatCall func(int)
+	gw              sync.WaitGroup
+	out             bool
 }
 
 func LoadWebSocketContext(Context int) *WebsocketClient {
@@ -51,6 +56,18 @@ func CreateWebsocket() int {
 }
 func DelWebSocketContext(Context int) {
 	WebSocketMapLock.Lock()
+	aw := WebSocketMap[Context]
+	if aw != nil {
+		w := aw.(*WebsocketClient)
+		if w != nil {
+			go func() {
+				w.l.Lock()
+				w.out = true
+				w.l.Unlock()
+				w.gw.Wait()
+			}()
+		}
+	}
 	delete(WebSocketMap, Context)
 	WebSocketMapLock.Unlock()
 }
@@ -90,6 +107,11 @@ func WebsocketDial(Context int, URL, Heads string, call int, goCall func(int, in
 	if w == nil {
 		return false
 	}
+
+	w.out = true
+	w.gw.Wait()
+	w.out = false
+
 	w.l.Lock()
 	defer w.l.Unlock()
 	w.call = call
@@ -158,7 +180,35 @@ func WebsocketDial(Context int, URL, Heads string, call int, goCall func(int, in
 	if w.synchronous == false {
 		go w.WebsocketRead()
 	}
+	go heartbeat(Context)
 	return true
+}
+func heartbeat(Context int) {
+	w := LoadWebSocketContext(Context)
+	if w == nil {
+		return
+	}
+	w.gw.Add(1)
+	for {
+		w.l.Lock()
+		if w.out {
+			w.l.Unlock()
+			break
+		}
+		if w.heartbeatTime == 0 {
+			w.l.Unlock()
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		w.l.Unlock()
+		time.Sleep(time.Duration(w.heartbeatTime) * time.Millisecond)
+		if w.goHeartbeatCall != nil {
+			w.goHeartbeatCall(Context)
+		} else {
+			Call.Call(w.heartbeatCall, Context)
+		}
+	}
+	w.gw.Done()
 }
 
 // WebsocketClose
@@ -170,9 +220,24 @@ func WebsocketClose(Context int) {
 	}
 	w.l.Lock()
 	defer w.l.Unlock()
+	w.out = true
 	if w.wb != nil {
 		_ = w.wb.Close()
 	}
+}
+
+// WebsocketHeartbeat
+// Websocket客户端 心跳设置
+func WebsocketHeartbeat(Context, HeartbeatTime, call int, goCall func(int)) {
+	w := LoadWebSocketContext(Context)
+	if w == nil {
+		return
+	}
+	w.l.Lock()
+	defer w.l.Unlock()
+	w.heartbeatTime = HeartbeatTime
+	w.heartbeatCall = call
+	w.goHeartbeatCall = goCall
 }
 
 // WebsocketReadWrite

@@ -318,7 +318,6 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 			if !isLookupIP {
 				isLookupIP = true
 				first := dns.GetFirstIP(address, ProxyHost)
-				ips, _ = dns.LookupIP(address, ProxyHost, LookupIPdial)
 				if first != nil {
 					if first.To4() != nil {
 						return res.RequestProxy.Dial(network, fmt.Sprintf("%s:%s", first.String(), port))
@@ -326,6 +325,7 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 						return res.RequestProxy.Dial(network, fmt.Sprintf("[%s]:%s", first.String(), port))
 					}
 				}
+				ips, _ = dns.LookupIP(address, ProxyHost, LookupIPdial)
 			}
 			if len(ips) < 1 {
 				dns.SetFirstIP(address, ProxyHost, nil)

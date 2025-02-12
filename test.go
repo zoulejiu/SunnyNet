@@ -19,7 +19,7 @@ func Test() {
 	s.AddHttpCertificate("api.vlightv.com", cert, SunnyNet.HTTPCertRules_Request)
 
 	//如果在Go中使用 设置Go的回调地址
-	s.SetGlobalProxy("socket://192.168.31.1:4321", 30000)
+	//s.SetGlobalProxy("socket://192.168.31.1:4321", 30000)
 	s.SetScriptCall(func(Context int, info ...any) {
 		fmt.Println("x脚本日志", fmt.Sprintf("%v", info))
 	}, func(Context int, code []byte) {})
@@ -32,7 +32,7 @@ func Test() {
 	//s.DisableTCP(true)
 	//s.SetGlobalProxy("socket://192.168.31.1:4321", 60000)
 	s.SetMustTcpRegexp("tpstelemetry.tencent.com", true)
-	Port := 2025
+	Port := 2028
 	//s.SetMustTcpRegexp("*.baidu.com")
 	s.SetPort(Port).Start()
 	//s.SetIEProxy()

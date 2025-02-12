@@ -1572,6 +1572,37 @@ func Java_com_SunnyNet_api_WebsocketClose(envObj uintptr, clazz uintptr, Context
 }
 
 /*
+Java_com_SunnyNet_api_WebsocketHeartbeat Websocket客户端 心跳设置
+*/
+//export Java_com_SunnyNet_api_WebsocketHeartbeat
+func Java_com_SunnyNet_api_WebsocketHeartbeat(envObj uintptr, clazz uintptr, Context int64, HeartbeatTime int64, call uintptr) {
+	env := Env(envObj)
+	if call != 0 {
+		obj := env.NewGlobalRef(call)
+		if obj != 0 {
+			cls := env.GetObjectClass(obj)
+			if cls != 0 {
+				methodId := env.GetMethodID(cls, "onHeartbeatCallback", "(J)V")
+				if methodId != 0 {
+					Api.WebsocketHeartbeat(int(Context), int(HeartbeatTime), 0, func(_Context int) {
+						_env, ret := ___Java_GlobalVM.AttachCurrentThread()
+						if ret != JNI_OK {
+							return
+						}
+						defer ___Java_GlobalVM.DetachCurrentThread()
+						_env.CallVoidMethodA(obj, methodId, Jvalue(_Context))
+						return
+					})
+					return
+				}
+
+			}
+		}
+	}
+	Api.WebsocketHeartbeat(int(Context), 0, 0, nil)
+}
+
+/*
 Java_com_SunnyNet_api_WebsocketDial Websocket客户端 连接
 */
 //export Java_com_SunnyNet_api_WebsocketDial

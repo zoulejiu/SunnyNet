@@ -1432,6 +1432,14 @@ func WebsocketClose(Context int) {
 }
 
 /*
+WebsocketHeartbeat Websocket客户端 心跳设置
+*/
+//export WebsocketHeartbeat
+func WebsocketHeartbeat(Context, HeartbeatTime, call int) {
+	Api.WebsocketHeartbeat(Context, HeartbeatTime, call, nil)
+}
+
+/*
 WebsocketDial Websocket客户端 连接
 */
 //export WebsocketDial

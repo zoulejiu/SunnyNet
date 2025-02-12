@@ -786,6 +786,11 @@ Java_com_SunnyNet_api_WebsocketClose Websocket客户端 断开
 extern void Java_com_SunnyNet_api_WebsocketClose(GoUintptr envObj, GoUintptr clazz, GoInt64 Context);
 
 /*
+Java_com_SunnyNet_api_WebsocketHeartbeat Websocket客户端 心跳设置
+*/
+extern void Java_com_SunnyNet_api_WebsocketHeartbeat(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoInt64 HeartbeatTime, GoUintptr call);
+
+/*
 Java_com_SunnyNet_api_WebsocketDial Websocket客户端 连接
 */
 extern GoUint8 Java_com_SunnyNet_api_WebsocketDial(GoUintptr envObj, GoUintptr clazz, GoInt64 Context, GoUintptr URL, GoUintptr Heads, GoUintptr call, GoUint8 synchronous, GoUintptr ProxyUrl, GoInt64 CertificateConText, GoInt64 outTime);
@@ -1764,6 +1769,11 @@ extern GoUint8 WebsocketReadWrite(GoInt Context, GoUintptr val, GoInt valLen, Go
 WebsocketClose Websocket客户端 断开
 */
 extern void WebsocketClose(GoInt Context);
+
+/*
+WebsocketHeartbeat Websocket客户端 心跳设置
+*/
+extern void WebsocketHeartbeat(GoInt Context, GoInt HeartbeatTime, GoInt call);
 
 /*
 WebsocketDial Websocket客户端 连接

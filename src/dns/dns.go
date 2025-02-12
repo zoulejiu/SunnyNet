@@ -108,10 +108,14 @@ func SetFirstIP(host string, proxyHost string, ip net.IP) {
 		key = proxyHost + "|" + host
 	}
 	dnsLock.Lock()
-	ips := dnsList[key]
-	if ips != nil {
-		ips.first = ip
-		ips.time = time.Now()
+	if ip == nil {
+		delete(dnsList, key)
+	} else {
+		ips := dnsList[key]
+		if ips != nil {
+			ips.first = ip
+			ips.time = time.Now()
+		}
 	}
 	dnsLock.Unlock()
 }
@@ -132,17 +136,29 @@ func GetFirstIP(host string, proxyHost string) net.IP {
 	dnsLock.Unlock()
 	return ip
 }
+
+// deepCopyIPs 进行深拷贝
+func deepCopyIPs(src []net.IP) []net.IP {
+	dst := make([]net.IP, len(src)) // 创建与源数组相同大小的目标切片
+	for i, ip := range src {
+		if ip != nil { // 避免空值
+			dst[i] = make(net.IP, len(ip)) // 为每个 IP 重新分配内存
+			copy(dst[i], ip)               // 复制数据
+		}
+	}
+	return dst
+}
 func LookupIP(host string, proxy string, Dial func(network, address string) (net.Conn, error)) ([]net.IP, error) {
 	ips, err := lookupIP(host, proxy, Dial, "ip4")
 	if len(ips) > 0 {
-		return ips, err
+		return deepCopyIPs(ips), err
 	}
 	ips, err = lookupIP(host, proxy, Dial, "ip")
 	if len(ips) > 0 {
-		return ips, err
+		return deepCopyIPs(ips), err
 	}
 	if proxy == "" {
-		return ips, err
+		return deepCopyIPs(ips), err
 	}
 	//如果远程没有解析成功,则使用本地DNS解析一次
 	return localLookupIP(host, proxy)
@@ -167,7 +183,8 @@ func lookupIP(host string, proxy string, Dial func(network, address string) (net
 	resolver = dnsTools[proxy]
 	resolver.time = time.Now()
 	dnsLock.Unlock()
-	_ips, _err := resolver.rs.LookupIP(context.Background(), Net, host)
+	_ips_, _err := resolver.rs.LookupIP(context.Background(), Net, host)
+	_ips := deepCopyIPs(_ips_)
 	if len(_ips) > 0 {
 		t := &rsIps{ips: _ips, time: time.Now()}
 		dnsLock.Lock()
@@ -192,11 +209,12 @@ func localLookupIP(host, proxyHost string) ([]net.IP, error) {
 	}
 	dnsLock.Unlock()
 	_ips, _err := net.LookupIP(host)
-	if len(_ips) > 0 {
-		t := &rsIps{ips: _ips, time: time.Now()}
+	_ips_ := deepCopyIPs(_ips)
+	if len(_ips_) > 0 {
+		t := &rsIps{ips: _ips_, time: time.Now()}
 		dnsLock.Lock()
 		dnsList[key] = t
 		dnsLock.Unlock()
 	}
-	return _ips, _err
+	return _ips_, _err
 }
