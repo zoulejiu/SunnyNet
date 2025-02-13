@@ -19,7 +19,7 @@ func Test() {
 	s.AddHttpCertificate("api.vlightv.com", cert, SunnyNet.HTTPCertRules_Request)
 
 	//如果在Go中使用 设置Go的回调地址
-	//s.SetGlobalProxy("socket://192.168.31.1:4321", 30000)
+	//s.SetGlobalProxy("http://71048:08525@4.242.67.197:1645", 30000)
 	s.SetScriptCall(func(Context int, info ...any) {
 		fmt.Println("x脚本日志", fmt.Sprintf("%v", info))
 	}, func(Context int, code []byte) {})

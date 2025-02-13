@@ -241,7 +241,12 @@ func (p *Proxy) Dial(network, addr string) (net.Conn, error) {
 	}
 	us := ""
 	if p.User() != "" {
-		us = "Authorization: Basic " + base64.StdEncoding.EncodeToString([]byte(p.User()+":"+p.Pass())) + "\r\n"
+		ns := base64.StdEncoding.EncodeToString([]byte(p.User() + ":" + p.Pass()))
+		us = "Authorization: Basic " + ns + "\r\n"
+		//部分HTTP代理 需要 Proxy-Authorization
+		us += "Proxy-Authorization: Basic " + ns + "\r\n"
+		//部分HTTP代理 需要 Proxy-Connection
+		us += "Proxy-Connection: Keep-Alive\r\n"
 	}
 	_, e = conn.Write([]byte("CONNECT " + addr + " HTTP/1.1\r\nHost: " + addr + "\r\n" + us + "\r\n"))
 	if e != nil {
@@ -253,7 +258,8 @@ func (p *Proxy) Dial(network, addr string) (net.Conn, error) {
 		_ = conn.Close()
 		return nil, er
 	}
-	if string(b[:12]) != "HTTP/1.1 200" {
+	s := string(b[:12])
+	if s != "HTTP/1.1 200" && s != "HTTP/1.0 200" {
 		return nil, fmt.Errorf(string(b))
 	}
 	return conn, er
