@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/qtgolang/SunnyNet/src/crypto/tls"
-	"github.com/qtgolang/SunnyNet/src/dns"
 	"golang.org/x/net/proxy"
 	"net"
 	"net/url"
@@ -151,12 +150,12 @@ func (p *Proxy) DialWithTimeout(network, addr string, Timeout time.Duration) (ne
 }
 func (p *Proxy) Dial(network, addr string) (net.Conn, error) {
 	var directDialer = direct{timeout: p.getTimeout()}
-	Host, _, _ := net.SplitHostPort(addr)
+	addrHost, _, _ := net.SplitHostPort(addr)
 	if p == nil {
 		a, e := directDialer.Dial(network, addr)
 		return a, e
 	}
-	p.DialAddr = Host
+	p.DialAddr = addrHost
 
 	if p.URL == nil {
 		a, e := directDialer.Dial(network, addr)
@@ -166,7 +165,7 @@ func (p *Proxy) Dial(network, addr string) (net.Conn, error) {
 		return a, e
 	}
 	if p.Regexp != nil {
-		if Host != "" && p.Regexp(Host) {
+		if addrHost != "" && p.Regexp(addrHost) {
 			a, e := directDialer.Dial(network, addr)
 			if a != nil {
 				p.DialAddr = a.RemoteAddr().String()
@@ -174,40 +173,12 @@ func (p *Proxy) Dial(network, addr string) (net.Conn, error) {
 			return a, e
 		}
 	}
-
-	proxyAddr := p.Host
-	proxyHost, proxyPort, e := net.SplitHostPort(p.Host)
-
-	var ips []net.IP
-	var first net.IP
-	if e == nil {
-		if net.ParseIP(proxyHost) == nil {
-			ips, _ = dns.LookupIP(proxyHost, "", nil)
-			first = dns.GetFirstIP(proxyHost, "")
-		}
-	}
+	var e error
 	var conn net.Conn
 	if p.IsSocksType() {
-		d, err1 := proxy.SOCKS5("tcp", proxyAddr, p.getSocksAuth(), directDialer)
+		d, err1 := proxy.SOCKS5("tcp", p.Host, p.getSocksAuth(), directDialer)
 		if err1 != nil {
 			return nil, err1
-		}
-		if first != nil {
-			conn, e = d.Dial(network, FormatIP(first, proxyPort))
-			if conn != nil {
-				p.DialAddr = FormatIP(first, proxyPort)
-				return conn, e
-			}
-		}
-		for _, ip := range ips {
-			if ip != nil {
-				conn, e = d.Dial(network, FormatIP(ip, proxyPort))
-				if conn != nil {
-					p.DialAddr = FormatIP(ip, proxyPort)
-					dns.SetFirstIP(proxyHost, "", ip)
-					return conn, e
-				}
-			}
 		}
 		conn, e = d.Dial(network, addr)
 		if conn != nil {
@@ -215,27 +186,8 @@ func (p *Proxy) Dial(network, addr string) (net.Conn, error) {
 		}
 		return conn, e
 	}
-
-	if first != nil {
-		p.DialAddr = FormatIP(first, proxyPort)
-		conn, e = directDialer.Dial(network, p.DialAddr)
-	}
-	if conn == nil {
-		for _, ip := range ips {
-			if ip != nil {
-				p.DialAddr = FormatIP(ip, proxyPort)
-				conn, e = directDialer.Dial(network, p.DialAddr)
-				if conn != nil {
-					dns.SetFirstIP(proxyHost, "", ip)
-					break
-				}
-			}
-		}
-		if conn == nil {
-			p.DialAddr = proxyAddr
-			conn, e = directDialer.Dial(network, proxyAddr)
-		}
-	}
+	p.DialAddr = p.Host
+	conn, e = directDialer.Dial(network, p.DialAddr)
 	if e != nil {
 		return nil, e
 	}

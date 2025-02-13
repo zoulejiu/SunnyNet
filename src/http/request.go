@@ -419,6 +419,18 @@ func (r *Request) SetContext(key string, value any) {
 	}
 	r.ctx = context.WithValue(r.ctx, key, value)
 }
+
+func (r *Request) WithCancel() context.CancelFunc {
+	if r.ctx == nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		r.ctx = ctx
+		return cancel
+	} else {
+		ctx, cancel := context.WithCancel(r.ctx)
+		r.ctx = ctx
+		return cancel
+	}
+}
 func (r *Request) SetHTTP2Config(config *H2Config) {
 	r.SetContext(h2ConfigKey, config)
 }

@@ -100,6 +100,9 @@ func SetDnsServer(server string) {
 	dnsTools = make(map[string]*tools)
 	dnsLock.Unlock()
 }
+func GetDnsServer() string {
+	return dnsServer
+}
 func SetFirstIP(host string, proxyHost string, ip net.IP) {
 	key := ""
 	if proxyHost == "" {

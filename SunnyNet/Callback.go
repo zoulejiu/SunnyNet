@@ -3,6 +3,7 @@ package SunnyNet
 import "C"
 import (
 	"github.com/qtgolang/SunnyNet/src/Call"
+	"github.com/qtgolang/SunnyNet/src/dns"
 	"github.com/qtgolang/SunnyNet/src/public"
 	"strconv"
 	"strings"
@@ -40,6 +41,9 @@ func GetSceneWebSocketClient(Theology int) (*public.WebsocketMsg, bool) {
 
 // CallbackTCPRequest TCP请求处理回调
 func (s *proxyRequest) CallbackTCPRequest(callType int, _msg *public.TcpMsg, RemoteAddr string) {
+	if RemoteAddr == dns.GetDnsServer() {
+		return
+	}
 	if s.Global.disableTCP {
 		//由于用户可能在软件中途禁用TCP,所有这里允许触发关闭的回调
 		if callType != public.SunnyNetMsgTypeTCPClose {

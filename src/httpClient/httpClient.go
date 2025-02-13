@@ -121,6 +121,7 @@ func do(req *http.Request, RequestProxy *SunnyProxy.Proxy, CheckRedirect bool, c
 		stop := make(chan struct{}) // 退出信号
 		var mu sync.WaitGroup
 		mu.Add(1) // 提前加 1，确保 Done() 被执行
+		Cancel := req.WithCancel()
 		go func() {
 			defer mu.Done()
 			ms := make([]byte, 1)
@@ -134,6 +135,8 @@ func do(req *http.Request, RequestProxy *SunnyProxy.Proxy, CheckRedirect bool, c
 							if client.Conn != nil {
 								Conn := *client.Conn
 								_ = Conn.Close()
+							} else {
+								Cancel()
 							}
 						}
 					}
@@ -150,6 +153,9 @@ func do(req *http.Request, RequestProxy *SunnyProxy.Proxy, CheckRedirect bool, c
 		}()
 	}
 	reqs, err := client.Client.Do(req)
+	if errors.Is(err, context.Canceled) {
+		err = httpCancel
+	}
 	var rConn net.Conn
 	if client.Conn != nil {
 		rConn = *client.Conn
@@ -164,6 +170,7 @@ func do(req *http.Request, RequestProxy *SunnyProxy.Proxy, CheckRedirect bool, c
 	return reqs, rConn, err, func() { httpClientPop(client) }
 }
 
+var httpCancel = errors.New("客户端取消请求")
 var httpLock sync.Mutex
 var httpClientMap map[string]clientList
 
