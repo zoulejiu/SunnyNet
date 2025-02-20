@@ -55,7 +55,7 @@ func collectMethods(Methods map[string][]*ast.Field, name string) []EventFunc {
 				comment = strings.TrimSpace(field.Doc.Text())
 			}
 
-			methodNames := []string{}
+			var methodNames []string
 			for _, ident := range field.Names {
 				methodNames = append(methodNames, ident.Name)
 			}
@@ -64,7 +64,17 @@ func collectMethods(Methods map[string][]*ast.Field, name string) []EventFunc {
 				if ident, ok := field.Type.(*ast.Ident); ok {
 					array := collectMethods(Methods, ident.Name)
 					for _, v := range array {
-						eventFuncs = append(eventFuncs, v)
+						ok = false
+						for n, vv := range eventFuncs {
+							if vv.Name == ident.Name {
+								ok = true
+								eventFuncs[n] = v
+								break
+							}
+						}
+						if !ok {
+							eventFuncs = append(eventFuncs, v)
+						}
 					}
 				}
 			} else {
@@ -110,7 +120,17 @@ func collectMethods(Methods map[string][]*ast.Field, name string) []EventFunc {
 					Returns: results,
 					Comment: comment,
 				}
-				eventFuncs = append(eventFuncs, eventFunc)
+				ok := false
+				for n, vv := range eventFuncs {
+					if vv.Name == eventFunc.Name {
+						ok = true
+						eventFuncs[n] = eventFunc
+						break
+					}
+				}
+				if !ok {
+					eventFuncs = append(eventFuncs, eventFunc)
+				}
 			}
 		}
 	}

@@ -653,6 +653,9 @@ func (s *proxyRequest) MustTcpProcessing(Tag string) {
 		}
 	}
 	RemoteTCP, RemoteAddr := connectToTarget(s, proxyTools)
+	if RemoteAddr != s.Target.String() {
+		RemoteAddr = s.Target.String() + " -> " + RemoteAddr
+	}
 	defer func() {
 		if !isClose {
 			if RemoteTCP != nil {
@@ -1735,6 +1738,7 @@ func (s *proxyRequest) copyBuffer(Method string, ExpectLen int) {
 	var ToIsForward = public.IsForward(ContentType) && (ExpectLen < 1 || ExpectLen > 5*1024*1024) //5M
 
 	if Method == public.HttpMethodHEAD {
+		s.CallbackBeforeResponse()
 		s.Response.WriteHeader(strconv.Itoa(ExpectLen))
 		_ = dstConn.SetDeadline(time.Now().Add(5 * time.Second))
 		return

@@ -70,6 +70,7 @@ func WSCallback(Conn SunnyNet.ConnWebSocket) {
 	fmt.Println("WebSocket", Conn.URL())
 }
 func TcpCallback(Conn SunnyNet.ConnTCP) {
+
 	switch Conn.Type() {
 	case public.SunnyNetMsgTypeTCPAboutToConnect: //即将连接
 		mode := string(Conn.Body())
@@ -95,6 +96,7 @@ func TcpCallback(Conn SunnyNet.ConnTCP) {
 	}
 }
 func UdpCallback(Conn SunnyNet.ConnUDP) {
+
 	switch Conn.Type() {
 	case public.SunnyNetUDPTypeSend: //客户端向服务器端发送数据
 

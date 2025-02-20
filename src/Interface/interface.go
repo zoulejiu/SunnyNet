@@ -135,6 +135,19 @@ type ConnTCPCall interface {
 		设置目标连接地址 目标地址必须带端口号 例如 baidu.com:443 [仅限即将连接时使用]
 	*/
 	SetNewAddress(ip string) bool
+	/*
+		RemoteAddress
+		获取远程地址
+
+		可能出现以下格式的地址
+
+		c.msn.cn:443 [没有获取到实际连接的IP地址]
+
+		52.231.230.148:443 [没有获取到域名信息]
+
+		c.msn.cn:443 -> 52.231.230.148:443 [连接的域名及实际连接的IP信息]
+	*/
+	RemoteAddress() string
 }
 type ConnWebSocketCall interface {
 	general

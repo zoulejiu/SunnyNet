@@ -1223,6 +1223,14 @@ func StringToInt(a string) int {
     }
     return i
 }
+func Sleep(a any) {
+	s := fmt.Sprintf("%v", a)
+	arr := strings.Split(s, ".")
+	if len(arr) > 0 {
+		vv := StringToInt(arr[0])
+		time.Sleep(time.Duration(vv) * time.Millisecond)
+	}
+}
 func IntToString(a any)string {
     return fmt.Sprintf("%d",a)
 }
