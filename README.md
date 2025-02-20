@@ -44,7 +44,7 @@ package main
 
 import (
 	"github.com/qtgolang/SunnyNet/SunnyNet"
-	"github.com/qtgolang/SunnyNet/public"
+	"github.com/qtgolang/SunnyNet/src/public"
 	"time"
 )
 
