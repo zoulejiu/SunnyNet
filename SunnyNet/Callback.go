@@ -82,6 +82,11 @@ func (s *proxyRequest) CallbackTCPRequest(callType int, _msg *public.TcpMsg, Rem
 		return
 	}
 	msg := Ams.c
+	if callType == public.SunnyNetMsgTypeTCPAboutToConnect {
+		if msg.Proxy != nil {
+			_msg.Proxy = msg.Proxy
+		}
+	}
 	if s.TcpCall < 10 {
 		if s.TcpGoCall != nil {
 			s.TcpGoCall(Ams)
@@ -160,6 +165,9 @@ func (s *proxyRequest) CallbackBeforeRequest() {
 	s.Global.scriptHTTPCall(m)
 	s.Response.Response = m._response
 	s._Display = m._Display
+	if m._proxy != nil {
+		s.Proxy = m._proxy
+	}
 	s._isRandomCipherSuites = m._isRandomCipherSuites
 	if s._Display == false {
 		return

@@ -31,7 +31,7 @@ type HTTPEvent struct {
 }
 
 func (conn *HTTPEvent) SetAgent(ProxyUrl string, timeout ...int) bool {
-    conn.ConnHTTP.SetAgent(ProxyUrl, timeout...)
+    return conn.ConnHTTP.SetAgent(ProxyUrl, timeout...)
 }
 func (conn *HTTPEvent) StopRequest(StatusCode int, Data any, header ...any) {
 	if len(header) > 0 {
@@ -54,7 +54,7 @@ type TCPEvent struct {
     Call.ConnTCP
 }
 func (conn *TCPEvent) SetAgent(ProxyUrl string, timeout ...int) bool {
-    conn.ConnTCP.SetAgent(ProxyUrl, timeout...)
+    return conn.ConnTCP.SetAgent(ProxyUrl, timeout...)
 }
 
 //--------------------------------------------------------------------------------------------------------------------

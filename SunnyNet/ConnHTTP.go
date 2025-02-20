@@ -53,6 +53,9 @@ func (h *httpConn) UpdateURL(NewUrl string) bool {
 	if h == nil {
 		return false
 	}
+	if h._Type != public.HttpSendRequest {
+		return false
+	}
 	if h._request == nil {
 		return false
 	}
@@ -70,6 +73,12 @@ func (h *httpConn) UpdateURL(NewUrl string) bool {
 }
 
 func (h *httpConn) SetHTTP2Config(h2Config string) bool {
+	if h == nil {
+		return false
+	}
+	if h._Type != public.HttpSendRequest {
+		return false
+	}
 	if h._request == nil {
 		return false
 	}
@@ -155,9 +164,6 @@ func (h *httpConn) ClientIP() string {
 // Data=要响应的数据 可以是string 也可以是[]byte
 // Header=要响应的Header 可以忽略
 func (h *httpConn) StopRequest(StatusCode int, Data any, Header ...http.Header) {
-	if h.Type() != public.HttpSendRequest {
-		return
-	}
 	var ResponseData []byte
 	switch v := Data.(type) {
 	case string:
@@ -257,6 +263,9 @@ func (h *httpConn) SetRequestBody(data []byte) bool {
 	if h == nil {
 		return false
 	}
+	if h._Type != public.HttpSendRequest {
+		return false
+	}
 	if h._request == nil {
 		return false
 	}
@@ -267,6 +276,9 @@ func (h *httpConn) SetRequestBody(data []byte) bool {
 // SetRequestBodyIO 修改请求提交内容
 func (h *httpConn) SetRequestBodyIO(data io.ReadCloser) bool {
 	if h == nil {
+		return false
+	}
+	if h._Type != public.HttpSendRequest {
 		return false
 	}
 	if h._request == nil {
@@ -307,8 +319,15 @@ func (h *httpConn) IsRawRequestBody() bool {
 
 // SetAgent 设置HTTP/S请求代理，仅支持Socket5和http 例如 socket5://admin:123456@127.0.0.1:8888 或 http://admin:123456@127.0.0.1:8888
 func (h *httpConn) SetAgent(ProxyUrl string, timeout ...int) bool {
+	if h == nil {
+		return false
+	}
+	if h._Type != public.HttpSendRequest {
+		return false
+	}
 	h._proxy, _ = SunnyProxy.ParseProxy(ProxyUrl, timeout...)
-	return h._proxy != nil
+	ok := h._proxy != nil
+	return ok
 }
 
 // GetResponseHeader 获取响应协议头
