@@ -178,7 +178,7 @@ func (u *Upgrader) Upgrade(w http.ResponseWriter, r *http.Request, responseHeade
 	// Negotiate PMCE
 	var compress bool
 	if u.EnableCompression {
-		for _, ext := range parseExtensions(r.Header) {
+		for _, ext := range ParseExtensions(r.Header) {
 			if ext[""] != "permessage-deflate" {
 				continue
 			}
@@ -212,7 +212,7 @@ func (u *Upgrader) Upgrade(w http.ResponseWriter, r *http.Request, responseHeade
 
 	if compress {
 		c.newCompressionWriter = compressNoContextTakeover
-		c.newDecompressionReader = decompressNoContextTakeover
+		c.newDecompressionReader = decompressNoContextTakeover2
 	}
 
 	// Use larger of hijacked buffer and connection write buffer for header.
@@ -337,7 +337,7 @@ func (u *Upgrader) UpgradeSunnyNetWebsocket(w *ReadWriteObject.ReadWriteObject, 
 	// Negotiate PMCE
 	var compress bool
 	if u.EnableCompression {
-		for _, ext := range parseExtensions(r.Header) {
+		for _, ext := range ParseExtensions(r.Header) {
 			if ext[""] != "permessage-deflate" {
 				continue
 			}
@@ -371,7 +371,7 @@ func (u *Upgrader) UpgradeSunnyNetWebsocket(w *ReadWriteObject.ReadWriteObject, 
 
 	if compress {
 		c.newCompressionWriter = compressNoContextTakeover
-		c.newDecompressionReader = decompressNoContextTakeover
+		c.newDecompressionReader = decompressNoContextTakeover2
 	}
 
 	// Use larger of hijacked buffer and connection write buffer for header.
@@ -434,7 +434,20 @@ func (u *Upgrader) UpgradeClient(r *http.Request, Response *http.Response, netCo
 	protocol := u.selectSubprotocol(r, Response.Header)
 	c := newConn(netConn, true, u.ReadBufferSize, u.WriteBufferSize, u.WriteBufferPool, nil, nil)
 	c.subprotocol = protocol
-
+	for _, ext := range ParseExtensions(Response.Header) {
+		if ext[""] != "permessage-deflate" {
+			continue
+		}
+		_, snct := ext["server_no_context_takeover"]
+		_, cnct := ext["client_no_context_takeover"]
+		if snct || cnct {
+			c.window_bytes.Reset()
+			c.window = true
+			c.newCompressionWriter = compressNoContextTakeover
+			c.newDecompressionReader = decompressNoContextTakeover2
+		}
+		break
+	}
 	var bs bytes.Buffer
 	bs.WriteString("HTTP/1.1 101 Switching Protocols\r\n")
 	for k, vs := range Response.Header {

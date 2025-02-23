@@ -16,7 +16,8 @@ var dnsConfig = &tls.Config{
 var dnsList = make(map[string]*rsIps)
 var dnsLock sync.Mutex
 var dnsTools = make(map[string]*tools)
-var dnsServer = "223.5.5.5:853" //阿里云公共DNS解析服务器
+var dnsServer = "localhost" //223.5.5.5:853  阿里云公共DNS解析服务器
+const dnsServerLocal = "localhost"
 
 func init() {
 	go clean()
@@ -152,6 +153,12 @@ func deepCopyIPs(src []net.IP) []net.IP {
 	return dst
 }
 func LookupIP(host string, proxy string, Dial func(network, address string) (net.Conn, error)) ([]net.IP, error) {
+	dnsLock.Lock()
+	if dnsServer == dnsServerLocal {
+		dnsLock.Unlock()
+		return localLookupIP(host, proxy)
+	}
+	dnsLock.Unlock()
 	ips, err := lookupIP(host, proxy, Dial, "ip4")
 	if len(ips) > 0 {
 		return deepCopyIPs(ips), err

@@ -134,22 +134,9 @@ func SocketClientDial(Context int, addr string, call int, goCall func(Context, t
 		if c == nil {
 			return false
 		}
-		/*
-			//注释
-				a, b := net.DialTimeout("tcp", Pu.Host, out)
-				if b != nil {
-					w.err = b
-				} else {
-					_ = a.SetDeadline(time.Now().Add(out))
-					if GoWinHttp.ConnectS5(&a, c, uAddr.Host, uAddr.Port) == false {
-						w.err = errors.New("Socket5 Proxy Connect Fail ")
-					} else {
-						_ = a.SetDeadline(time.Time{})
-					}
-				}
-		*/
-		//w.wb = a
-		//w.err = b
+		a, b := c.Dial("tcp", addr)
+		w.wb = a
+		w.err = b
 	} else {
 		a, b := net.DialTimeout("tcp", uAddr.String(), time.Millisecond*time.Duration(out))
 		w.wb = a

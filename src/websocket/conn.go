@@ -6,6 +6,7 @@ package websocket
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -278,7 +279,9 @@ type Conn struct {
 	messageReader *messageReader // the current low-level reader
 
 	readDecompress         bool // whether last read frame had RSV1 set
-	newDecompressionReader func(io.Reader) io.ReadCloser
+	newDecompressionReader func(io.Reader, []byte) io.ReadCloser
+	window                 bool
+	window_bytes           bytes.Buffer
 }
 
 func newConn(conn net.Conn, isServer bool, readBufferSize, writeBufferSize int, writeBufferPool BufferPool, br *bufio.Reader, writeBuf []byte) *Conn {
@@ -331,6 +334,12 @@ func (c *Conn) setReadRemaining(n int64) error {
 
 	c.readRemaining = n
 	return nil
+}
+func (c *Conn) SetWindow(n bool) {
+	c.window = n
+	c.window_bytes.Reset()
+	c.newCompressionWriter = compressNoContextTakeover
+	c.newDecompressionReader = decompressNoContextTakeover2
 }
 
 // Subprotocol returns the negotiated protocol for the connection.
@@ -1007,9 +1016,6 @@ func (c *Conn) NextReader() (messageType int, r io.Reader, err error) {
 		if frameType == TextMessage || frameType == BinaryMessage {
 			c.messageReader = &messageReader{c}
 			c.reader = c.messageReader
-			if c.readDecompress {
-				c.reader = c.newDecompressionReader(c.reader)
-			}
 			return frameType, c.reader, nil
 		}
 	}
@@ -1069,6 +1075,8 @@ func (r *messageReader) Close() error {
 	return nil
 }
 
+const window_size_max = 1 << 15
+
 // ReadMessage is a helper method for getting a reader using NextReader and
 // reading from that reader to a buffer.
 func (c *Conn) ReadMessage() (messageType int, p []byte, err error) {
@@ -1084,8 +1092,23 @@ func (c *Conn) ReadMessage() (messageType int, p []byte, err error) {
 	if err != nil {
 		return messageType, nil, err
 	}
-	p, err = ioutil.ReadAll(r)
 
+	if c.readDecompress {
+		i, _ := io.ReadAll(c.newDecompressionReader(c.reader, c.window_bytes.Bytes()))
+		if c.window && c.window_bytes.Len() < window_size_max {
+			// 计算窗口剩余空间
+			availableSpace := window_size_max - c.window_bytes.Len()
+			// 如果当前数据（i）可以完全写入窗口，直接写入
+			if len(i) <= availableSpace {
+				c.window_bytes.Write(i)
+			} else {
+				// 如果当前数据（i）超过了窗口剩余空间，只写入剩余空间的部分
+				c.window_bytes.Write(i[:availableSpace])
+			}
+		}
+		return messageType, i, nil
+	}
+	p, err = io.ReadAll(r)
 	return messageType, p, err
 }
 

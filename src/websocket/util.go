@@ -224,8 +224,8 @@ headers:
 	return false
 }
 
-// parseExtensions parses WebSocket extensions from a header.
-func parseExtensions(header http.Header) []map[string]string {
+// ParseExtensions parses WebSocket extensions from a header.
+func ParseExtensions(header http.Header) []map[string]string {
 	// From RFC 6455:
 	//
 	//  Sec-WebSocket-Extensions = extension-list
@@ -240,7 +240,7 @@ func parseExtensions(header http.Header) []map[string]string {
 
 	var result []map[string]string
 headers:
-	for _, s := range header["Sec-Websocket-Extensions"] {
+	for _, s := range header.GetArray("Sec-Websocket-Extensions") {
 		for {
 			var t string
 			t, s = nextToken(skipSpace(s))

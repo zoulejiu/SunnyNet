@@ -16,42 +16,6 @@ import (
 	"unsafe"
 )
 
-type Client struct {
-	proxy    *SunnyProxy.Proxy
-	redirect bool
-	//RandomTLSFingerprint 随机TLS指纹
-	RandomTLSFingerprint func() []uint16
-	tlsConfig            *tls.Config
-	outTime              time.Duration
-}
-
-// SetProxy 设置代理
-func (w *Client) SetProxy(RequestProxy *SunnyProxy.Proxy) {
-	w.proxy = RequestProxy
-}
-
-// Redirect 设置是否重定向
-func (w *Client) Redirect(allow bool) {
-	w.redirect = allow
-}
-
-// SetOutTime 设置超时时间 单位毫秒 小于 1 则默认30秒
-func (w *Client) SetOutTime(outTime int) {
-	if outTime < 1 {
-		w.outTime = 0
-		return
-	}
-	w.outTime = time.Duration(outTime) * time.Millisecond
-}
-
-// Do 发送请求
-func (w *Client) Do(req *http.Request) (Response *http.Response, Conn net.Conn, err error, Close func()) {
-	if w.tlsConfig == nil {
-		w.tlsConfig = &tls.Config{}
-	}
-	Response, Conn, err, Close = Do(req, w.proxy, w.redirect, w.tlsConfig, w.outTime, w.RandomTLSFingerprint, nil)
-	return Response, Conn, err, Close
-}
 func Do(req *http.Request, RequestProxy *SunnyProxy.Proxy, CheckRedirect bool, config *tls.Config, outTime time.Duration, GetTLSValues func() []uint16, MConn net.Conn) (Response *http.Response, Conn net.Conn, err error, Close func()) {
 	if req.ProtoMajor == 2 {
 		Method := req.Method
@@ -152,6 +116,10 @@ func do(req *http.Request, RequestProxy *SunnyProxy.Proxy, CheckRedirect bool, c
 			_ = MConn.SetDeadline(time.Time{})
 		}()
 	}
+	if client.h2 && req != nil {
+		//部分HTTP2服务器不支持此协议头,导致出现协议错误
+		req.Header.Del("TE")
+	}
 	reqs, err := client.Client.Do(req)
 	if errors.Is(err, context.Canceled) {
 		err = httpCancel
@@ -250,27 +218,16 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 		Tr.IdleConnTimeout = timeout       // 空闲连接超时
 		Tr.TLSHandshakeTimeout = timeout   // TLS 握手超时
 	}
-
-	/*
-		Dial := func(network, addr string) (net.Conn, error) {
-			if RequestProxy != nil {
-				return RequestProxy.Dial(network, addr)
-			}
-			var d net.Dialer
-			return d.Dial(network, addr)
-		}
-		Tr.Dial = Dial
-		Tr.DialTLS = func(network, addr string) (net.Conn, error) {
-			return nil, nil
-		}
-	*/
+	h2 := false
 	if cfg != nil {
 		if len(cfg.NextProtos) < 1 {
 			configureHTTP2Transport(Tr, cfg)
+			h2 = true
 		} else {
 			for _, proto := range cfg.NextProtos {
 				if proto == http.H2Proto {
 					configureHTTP2Transport(Tr, cfg)
+					h2 = true
 					break
 				}
 			}
@@ -292,7 +249,7 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 		LookupIPdial = LookupIPproxy.Dial
 	}
 	cc := http.Client{Transport: Tr, Timeout: timeout}
-	res := &clientPart{Client: cc, s: s, RequestProxy: nproxy, Transport: Tr}
+	res := &clientPart{Client: cc, s: s, RequestProxy: nproxy, Transport: Tr, h2: h2}
 	Tr.DialContext = func(ctx context.Context, network, addr string) (cnn net.Conn, _ error) {
 		defer func() {
 			if cnn != nil && timeout == 0 {
@@ -408,6 +365,7 @@ type clientPart struct {
 	Conn         *net.Conn
 	Transport    *http.Transport
 	RequestProxy *SunnyProxy.Proxy
+	h2           bool
 }
 
 func httpClientPop(client *clientPart) {

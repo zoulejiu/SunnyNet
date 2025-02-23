@@ -333,7 +333,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 		return nil, resp, "", ErrBadHandshake
 	}
 
-	for _, ext := range parseExtensions(resp.Header) {
+	for _, ext := range ParseExtensions(resp.Header) {
 		if ext[""] != "permessage-deflate" {
 			continue
 		}
@@ -343,7 +343,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 			return nil, resp, "", errInvalidCompression
 		}
 		conn.newCompressionWriter = compressNoContextTakeover
-		conn.newDecompressionReader = decompressNoContextTakeover
+		conn.newDecompressionReader = decompressNoContextTakeover2
 		break
 	}
 
@@ -391,8 +391,6 @@ func (d *Dialer) ConnDialContext(request *http.Request, ProxyUrl *SunnyProxy.Pro
 				req.Host = vs[0]
 			}
 			continue
-		case strings.EqualFold(k, "Sec-WebSocket-Extensions"):
-			continue
 		case strings.EqualFold(k, "Sec-Websocket-Key"):
 			req.Header[k] = vs
 			challengeKey = vs[0]
@@ -402,9 +400,6 @@ func (d *Dialer) ConnDialContext(request *http.Request, ProxyUrl *SunnyProxy.Pro
 			kk = strings.ReplaceAll(kk, "-Websocket-", "-WebSocket-")
 			req.Header[kk] = vs
 		}
-	}
-	if d.EnableCompression {
-		req.Header["Sec-WebSocket-Extensions"] = []string{"permessage-deflate; server_no_context_takeover; client_no_context_takeover"}
 	}
 	if d.HandshakeTimeout != 0 {
 		var cancel func()
@@ -539,17 +534,18 @@ func (d *Dialer) ConnDialContext(request *http.Request, ProxyUrl *SunnyProxy.Pro
 		return nil, resp, ErrBadHandshake
 	}
 
-	for _, ext := range parseExtensions(resp.Header) {
+	for _, ext := range ParseExtensions(resp.Header) {
 		if ext[""] != "permessage-deflate" {
 			continue
 		}
 		_, snct := ext["server_no_context_takeover"]
 		_, cnct := ext["client_no_context_takeover"]
-		if !snct || !cnct {
-			return nil, resp, errInvalidCompression
+		if snct || cnct {
+			conn.newCompressionWriter = compressNoContextTakeover
+			conn.newDecompressionReader = decompressNoContextTakeover2
+			conn.window = true
+			conn.window_bytes.Reset()
 		}
-		conn.newCompressionWriter = compressNoContextTakeover
-		conn.newDecompressionReader = decompressNoContextTakeover
 		break
 	}
 

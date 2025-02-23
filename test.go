@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/qtgolang/SunnyNet/SunnyNet"
 	"github.com/qtgolang/SunnyNet/src/GoScriptCode"
+	"github.com/qtgolang/SunnyNet/src/encoding/hex"
 	"github.com/qtgolang/SunnyNet/src/public"
 	"log"
 	"time"
@@ -24,7 +25,8 @@ func Test() {
 		fmt.Println("x脚本日志", fmt.Sprintf("%v", info))
 	}, func(Context int, code []byte) {})
 	s.SetScriptCode(string(GoScriptCode.DefaultCode))
-	s.SetGoCallback(HttpCallback, TcpCallback, WSCallback, UdpCallback)
+	//s.SetGoCallback(HttpCallback, TcpCallback, WSCallback, UdpCallback)
+	s.SetGoCallback(nil, nil, WSCallback, nil)
 	//s.SetMustTcpRegexp("*.baidu.com")
 	s.CompileProxyRegexp("127.0.0.1;[::1];192.168.*")
 
@@ -67,7 +69,26 @@ func HttpCallback(Conn SunnyNet.ConnHTTP) {
 	}
 }
 func WSCallback(Conn SunnyNet.ConnWebSocket) {
-	fmt.Println("WebSocket", Conn.URL())
+	switch Conn.Type() {
+	case public.WebsocketConnectionOK: //连接成功
+		log.Println("PID", Conn.PID(), "Websocket 连接成功:", Conn.URL())
+		return
+	case public.WebsocketUserSend: //发送数据
+		if Conn.MessageType() < 5 {
+			log.Println("PID", Conn.PID(), "Websocket 发送数据:", Conn.MessageType(), "->", hex.EncodeToString(Conn.Body()))
+		}
+		return
+	case public.WebsocketServerSend: //收到数据
+		if Conn.MessageType() < 5 {
+			log.Println("PID", Conn.PID(), "Websocket 收到数据:", Conn.MessageType(), "->", hex.EncodeToString(Conn.Body()))
+		}
+		return
+	case public.WebsocketDisconnect: //连接关闭
+		log.Println("PID", Conn.PID(), "Websocket 连接关闭", Conn.URL())
+		return
+	default:
+		return
+	}
 }
 func TcpCallback(Conn SunnyNet.ConnTCP) {
 

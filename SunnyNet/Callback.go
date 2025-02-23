@@ -44,6 +44,9 @@ func (s *proxyRequest) CallbackTCPRequest(callType int, _msg *public.TcpMsg, Rem
 	if RemoteAddr == dns.GetDnsServer() {
 		return
 	}
+	if s.noCallback(RemoteAddr) {
+		return
+	}
 	if s.Global.disableTCP {
 		//由于用户可能在软件中途禁用TCP,所有这里允许触发关闭的回调
 		if callType != public.SunnyNetMsgTypeTCPClose {
@@ -244,9 +247,16 @@ func (s *proxyRequest) CallbackBeforeResponse() {
 }
 
 // 不要进入回调的一些请求
-func (s *proxyRequest) noCallback() bool {
+func (s *proxyRequest) noCallback(n ...string) bool {
 	if s == nil {
 		return false
+	}
+	if len(n) > 0 {
+		if n[0] == "127.0.0.1:9229" || n[0] == "[::1]:9229" {
+			//疑似Chrome 开发人员工具正在使用专用的DevTools 即使所有选项卡都关闭，除了空白的新选项卡，它仍可能继续发送
+			//https://superuser.com/questions/1419223/google-chrome-developer-tools-start-knocking-to-127-0-0-1-and-1-ip-on-9229-por
+			return true
+		}
 	}
 	request := s.Request
 	Port := int(s.Target.Port)

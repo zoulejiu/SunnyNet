@@ -157,9 +157,22 @@ func WebsocketDial(Context int, URL, Heads string, call int, goCall func(int, in
 	Proxy_, _ := SunnyProxy.ParseProxy(ProxyUrl, outTime)
 	//w.wb, _, w.err = dialer.Dial(Request.URL.String(), Request.Header, Proxy_)
 	//w.wb, _, w.err = dialer.ConnDialContext(Request, Proxy_)
-	w.wb, _, _, w.err = dialer.Dial(URL, Header, Proxy_)
-	if w.err != nil {
+	var resq *http.Response
+	w.wb, resq, _, w.err = dialer.Dial(URL, Header, Proxy_)
+	if w.err != nil || resq == nil {
 		return false
+	}
+
+	for _, ext := range websocket.ParseExtensions(resq.Header) {
+		if ext[""] != "permessage-deflate" {
+			continue
+		}
+		_, snct := ext["server_no_context_takeover"]
+		_, cnct := ext["client_no_context_takeover"]
+		if snct || cnct {
+			w.wb.SetWindow(true)
+		}
+		break
 	}
 	go func() {
 		w.wb.SetCloseHandler(func(code int, text string) error {

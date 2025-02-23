@@ -1216,6 +1216,7 @@ func (s *proxyRequest) handleWss() bool {
 		//将当前客户端的连接升级为Websocket会话
 		upgrade := &websocket.Upgrader{}
 		Client, er := upgrade.UpgradeClient(s.Request, r, s.RwObj)
+
 		if er != nil {
 			return true
 		}
@@ -1322,6 +1323,10 @@ func (s *proxyRequest) handleWss() bool {
 				}
 				as.Data.Reset()
 				mt, message, err := Server.ReadMessage()
+				if message == nil && err == nil {
+					as.Data.Reset()
+					continue
+				}
 				if err != nil {
 					as.Data.Reset()
 					break
@@ -1330,6 +1335,7 @@ func (s *proxyRequest) handleWss() bool {
 				as.Mt = mt
 				s.CallbackWssRequest(public.WebsocketServerSend, Method, Url, as, MessageId)
 				sc.Lock()
+				//发到客户端
 				err = Client.WriteMessage(as.Mt, as.Data.Bytes())
 				sc.Unlock()
 				if err != nil {
@@ -1450,6 +1456,10 @@ func (s *proxyRequest) handleWss() bool {
 			}
 			as.Data.Reset()
 			mt, message1, err := Client.ReadMessage()
+			if message1 == nil && err == nil {
+				as.Data.Reset()
+				continue
+			}
 			as.Data.Write(message1)
 			as.Mt = mt
 			if err != nil {
@@ -1462,6 +1472,7 @@ func (s *proxyRequest) handleWss() bool {
 			s.CallbackWssRequest(public.WebsocketUserSend, Method, Url, as, MessageId)
 			sc.Lock()
 			if as.Mt != websocket.BinaryMessage {
+				//发到服务器
 				err = Server.WriteMessage(as.Mt, as.Data.Bytes())
 			} else {
 				err = Server.WriteFullMessage(as.Mt, as.Data.Bytes())
