@@ -636,9 +636,11 @@ func (s *proxyRequest) MustTcpProcessing(Tag string) {
 	var err error
 	var isClose = false
 	as := &public.TcpMsg{}
+	lod := s.Target.String()
 	as.Data.WriteString(Tag)
 	s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPAboutToConnect, as, s.Target.String())
 	if Tag != as.Data.String() {
+		fmt.Println("NewAddr:", as.Data.String())
 		s.Target.Parse(as.Data.String(), 0)
 	}
 	var proxyTools *SunnyProxy.Proxy
@@ -659,8 +661,10 @@ func (s *proxyRequest) MustTcpProcessing(Tag string) {
 	defer func() {
 		if !isClose {
 			if RemoteTCP != nil {
+				fmt.Println("连接关闭，0x0000001:", "RemoteTCP != nil")
 				s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil, RemoteAddr)
 			} else {
+				fmt.Println("连接关闭，0x0000002:", "RemoteTCP == nil")
 				s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil, s.Target.String())
 			}
 		}
@@ -677,6 +681,8 @@ func (s *proxyRequest) MustTcpProcessing(Tag string) {
 	}()
 
 	if RemoteTCP != nil {
+
+		fmt.Println("连接信息:lod="+lod, "|", proxyTools.String(), "|", RemoteAddr)
 		linkAdd(s.Conn.RemoteAddr().String(), RemoteTCP.LocalAddr().String())
 	}
 	if RemoteTCP != nil && Tag == public.TagTcpSSLAgreement {
@@ -685,7 +691,9 @@ func (s *proxyRequest) MustTcpProcessing(Tag string) {
 		RemoteTCP = tlsConn
 	}
 	if err == nil && RemoteTCP != nil {
+		fmt.Println("err:", err, "RemoteTCP:", RemoteTCP)
 		tw := ReadWriteObject.NewReadWriteObject(RemoteTCP)
+		fmt.Println("err:", err, "RemoteTCP:", RemoteTCP, "tw:", tw)
 		{
 			//构造结构体数据,主动发送，关闭等操作时需要用
 			if s.TCP.Send == nil {
@@ -704,10 +712,13 @@ func (s *proxyRequest) MustTcpProcessing(Tag string) {
 		}
 		as.Data.Reset()
 		as.Data.Write([]byte(RemoteTCP.LocalAddr().String()))
+		fmt.Println("<UNK>:Call")
 		s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPConnectOK, as, RemoteAddr)
 		as.Data.Reset()
 		isClose = s.TcpCallback(&RemoteTCP, Tag, tw, RemoteAddr)
 	} else {
+
+		fmt.Println("连接关闭，0x0000001-1:", "err != ", err)
 		_ = s.Conn.Close()
 	}
 	return
@@ -759,6 +770,7 @@ func (s *proxyRequest) TcpCallback(RemoteTCP *net.Conn, Tag string, tw *ReadWrit
 	wg.Wait()
 	s.releaseTcp()
 	if isHttpReq {
+		fmt.Println("连接关闭，0x0000003:", "isHttpReq == true")
 		//可能由于某些原因 客户端发送数据不及时判断为了TCP请求,此时纠正为HTTP请求
 		s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil, RemoteAddr)
 		s.updateSocket5User()
@@ -997,8 +1009,16 @@ func (s *proxyRequest) https() {
 	if s.Target.Host == public.NULL || s.Target.Port < 1 {
 		return
 	}
-	//是否开启了强制走TCP
-	if s.Global.isMustTcp {
+	if s.Target.Port == 853 {
+		sx := dns.GetDnsServer()
+		if dns.GetDnsServer() != "localhost" {
+			s.Target.Host = sx
+		} else {
+			s.Target.Host = "223.5.5.5"
+		}
+	}
+	//是否开启了强制走TCP  And 如果是DNS请求则不用判断了，直接强制走TCP
+	if s.Global.isMustTcp || s.Target.Port == 853 {
 		if s.Global.disableTCP {
 			return
 		}
@@ -1039,9 +1059,13 @@ func (s *proxyRequest) https() {
 		//得到握手信息后 恢复30秒的读写超时
 		_ = tlsConn.SetDeadline(time.Now().Add(30 * time.Second))
 		if err == nil {
+			t1 := time.Now()
 			res := ClientIsHttps(s.Target.String())
+			fmt.Println("t1", time.Now().Sub(t1), s.Target.String())
 			if res == whoisUndefined {
+				t1 = time.Now()
 				res = ClientRequestIsHttps(s.Global, s.Target.String(), hook.Bytes())
+				fmt.Println("t2", time.Now().Sub(t1), s.Target.String())
 			}
 			if res == whoisNoHTTPS {
 				_, _ = s.RwObj.WriteString(public.NoHTTPSVerb)
@@ -1970,6 +1994,7 @@ func (s *proxyRequest) SocketForward(dst bufio.Writer, src *ReadWriteObject.Read
 			}
 		}
 		if er != nil {
+			fmt.Println("SocketForward <Error>:", er)
 			return
 		}
 	}
