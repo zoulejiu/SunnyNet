@@ -263,6 +263,20 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 				cc.Timeout = 24 * time.Hour
 			}
 		}()
+		_serverIP_, ok := req.Context().Value(public.Connect_Raw_Address).(string)
+		if ok && _serverIP_ != "" {
+			address2, _, err2 := net.SplitHostPort(_serverIP_)
+			if err2 == nil {
+				ip := net.ParseIP(address2)
+				if ip != nil {
+					conn, er := res.RequestProxy.DialWithTimeout(network, _serverIP_, 3*time.Second)
+					if conn != nil {
+						return conn, er
+					}
+				}
+			}
+		}
+
 		address, port, err := net.SplitHostPort(addr)
 		if err != nil {
 			return nil, err
@@ -277,6 +291,7 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 		if strings.ToLower(address) == "localhost" {
 			return res.RequestProxy.Dial(network, "127.0.0.1:"+port)
 		}
+
 		var retries bool
 		for {
 			if !isLookupIP {
@@ -290,18 +305,31 @@ func httpClientGet(req *http.Request, Proxy *SunnyProxy.Proxy, cfg *tls.Config, 
 					}
 				}
 				ips, _ = dns.LookupIP(address, ProxyHost, LookupIPdial)
+				if len(ips) < 1 {
+					return nil, noIP
+				}
 			}
 			if len(ips) < 1 {
 				dns.SetFirstIP(address, ProxyHost, nil)
 				if retries {
-					return nil, noIP
+					return nil, connectionFailed
 				}
 				isLookupIP = false
 				retries = true
 				continue
 			}
+			var AllLocalIP = true
+			for _, ip := range ips {
+				if ip.String() != "127.0.0.1" {
+					AllLocalIP = false
+					break
+				}
+			}
+			if AllLocalIP && len(ips) != 0 {
+				return nil, errors.New(fmt.Sprintf("Address [%s] points to 127.0.0.1", address))
+			}
 			ip := extractAndRemoveIP(&ips)
-			if ip != nil {
+			if ip != nil && ip.String() != "127.0.0.1" {
 				if ip.To4() != nil {
 					conn, er := res.RequestProxy.DialWithTimeout(network, fmt.Sprintf("%s:%s", ip.String(), port), 2*time.Second)
 					if conn != nil {
@@ -341,6 +369,7 @@ func extractAndRemoveIP(ips *[]net.IP) net.IP {
 }
 
 var noIP = errors.New("DNS解析失败,无可用IP地址")
+var connectionFailed = errors.New("连接 DNS解析的所有IP地址 都失败了")
 
 func configureHTTP2Transport(Tr *http.Transport, cfg *tls.Config) {
 	// 检查是否配置了 HTTP/2.0 协议

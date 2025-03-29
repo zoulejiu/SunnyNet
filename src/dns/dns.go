@@ -315,14 +315,12 @@ func GetLocalEntry(host string) ([]net.IP, error) {
 		for _, v := range entry.Hostnames {
 			if v == host && host != "" {
 				ips = append(ips, net.ParseIP(entry.IP))
-				fmt.Println("匹配到本地DNS", v, entry.IP)
 			}
 		}
 	}
 	if len(ips) > 0 {
 		return ips, nil
 	}
-	fmt.Println("未匹配到本地DNS", host)
 	return nil, NoLocalDnsEntry
 
 }

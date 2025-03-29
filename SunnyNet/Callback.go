@@ -188,9 +188,9 @@ func (s *proxyRequest) CallbackBeforeRequest() {
 	if s.HttpCall < 10 {
 		if s.HttpGoCall != nil {
 			s.HttpGoCall(m)
-		}
-		if m._proxy != nil {
-			s.Proxy = m._proxy
+			if m._proxy != nil {
+				s.Proxy = m._proxy
+			}
 		}
 		return
 	}

@@ -60,6 +60,18 @@ func (s *TargetInfo) Clone() *TargetInfo {
 		IPV6: s.IPV6,
 	}
 }
+func (s *TargetInfo) IsDomain() bool {
+	if s == nil {
+		return false
+	}
+	if s.IPV6 {
+		return false
+	}
+	if ip := net.ParseIP(s.Host); ip != nil && (ip.To4() != nil || ip.To16() != nil) {
+		return false
+	}
+	return true
+}
 
 // Remove 清除信息
 func (s *TargetInfo) Remove() {
@@ -442,9 +454,7 @@ func (s *proxyRequest) Socks5ProxyVerification() bool {
 	}
 	port := uint16(portNum1)<<8 + uint16(portNum2)
 	if isV6 {
-		hostname = fmt.Sprintf("[%s]:%d", hostname, port)
-	} else {
-		hostname = fmt.Sprintf("%s:%d", hostname, port)
+		hostname = fmt.Sprintf("[%s]", hostname)
 	}
 	_ = s.RwObj.WriteByte(public.Socks5Version)
 
@@ -500,30 +510,12 @@ func (s *proxyRequest) Socks5ProxyVerification() bool {
 	}
 	_ = s.RwObj.WriteByte(0)
 
-	if err == nil {
-		host := IpDns(hostname)
-		if host == "" {
-			host = hostname
-		}
-		u, _ := url.Parse(public.HttpsRequestPrefix + host)
-		host = u.Hostname()
-		if public.IsIPv4(host) {
-			_ = s.RwObj.WriteByte(public.Socks5typeIpv4)
-			_, _ = s.RwObj.Write(net.ParseIP(host).To4())
-		} else {
-			_ = s.RwObj.WriteByte(public.Socks5typeDomainName)
-			_ = s.RwObj.WriteByte(byte(len(hostname)))
-			_, _ = s.RwObj.WriteString(hostname)
-		}
-	} else {
-		_ = s.RwObj.WriteByte(public.Socks5typeDomainName)
-		_ = s.RwObj.WriteByte(byte(len(hostname)))
-		_, _ = s.RwObj.WriteString(hostname)
-	}
+	_ = s.RwObj.WriteByte(public.Socks5typeDomainName)
+	_ = s.RwObj.WriteByte(byte(len(hostname)))
+	_, _ = s.RwObj.WriteString(hostname)
 
 	_ = s.RwObj.WriteByte(portNum1)
 	_ = s.RwObj.WriteByte(portNum2)
-
 	_ = s.RwObj.Flush()
 	if err != nil {
 		return false
@@ -636,11 +628,9 @@ func (s *proxyRequest) MustTcpProcessing(Tag string) {
 	var err error
 	var isClose = false
 	as := &public.TcpMsg{}
-	lod := s.Target.String()
 	as.Data.WriteString(Tag)
 	s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPAboutToConnect, as, s.Target.String())
 	if Tag != as.Data.String() {
-		fmt.Println("NewAddr:", as.Data.String())
 		s.Target.Parse(as.Data.String(), 0)
 	}
 	var proxyTools *SunnyProxy.Proxy
@@ -661,10 +651,8 @@ func (s *proxyRequest) MustTcpProcessing(Tag string) {
 	defer func() {
 		if !isClose {
 			if RemoteTCP != nil {
-				fmt.Println("连接关闭，0x0000001:", "RemoteTCP != nil")
 				s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil, RemoteAddr)
 			} else {
-				fmt.Println("连接关闭，0x0000002:", "RemoteTCP == nil")
 				s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil, s.Target.String())
 			}
 		}
@@ -681,8 +669,6 @@ func (s *proxyRequest) MustTcpProcessing(Tag string) {
 	}()
 
 	if RemoteTCP != nil {
-
-		fmt.Println("连接信息:lod="+lod, "|", proxyTools.String(), "|", RemoteAddr)
 		linkAdd(s.Conn.RemoteAddr().String(), RemoteTCP.LocalAddr().String())
 	}
 	if RemoteTCP != nil && Tag == public.TagTcpSSLAgreement {
@@ -691,9 +677,7 @@ func (s *proxyRequest) MustTcpProcessing(Tag string) {
 		RemoteTCP = tlsConn
 	}
 	if err == nil && RemoteTCP != nil {
-		fmt.Println("err:", err, "RemoteTCP:", RemoteTCP)
 		tw := ReadWriteObject.NewReadWriteObject(RemoteTCP)
-		fmt.Println("err:", err, "RemoteTCP:", RemoteTCP, "tw:", tw)
 		{
 			//构造结构体数据,主动发送，关闭等操作时需要用
 			if s.TCP.Send == nil {
@@ -712,13 +696,10 @@ func (s *proxyRequest) MustTcpProcessing(Tag string) {
 		}
 		as.Data.Reset()
 		as.Data.Write([]byte(RemoteTCP.LocalAddr().String()))
-		fmt.Println("<UNK>:Call")
 		s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPConnectOK, as, RemoteAddr)
 		as.Data.Reset()
 		isClose = s.TcpCallback(&RemoteTCP, Tag, tw, RemoteAddr)
 	} else {
-
-		fmt.Println("连接关闭，0x0000001-1:", "err != ", err)
 		_ = s.Conn.Close()
 	}
 	return
@@ -770,7 +751,6 @@ func (s *proxyRequest) TcpCallback(RemoteTCP *net.Conn, Tag string, tw *ReadWrit
 	wg.Wait()
 	s.releaseTcp()
 	if isHttpReq {
-		fmt.Println("连接关闭，0x0000003:", "isHttpReq == true")
 		//可能由于某些原因 客户端发送数据不及时判断为了TCP请求,此时纠正为HTTP请求
 		s.CallbackTCPRequest(public.SunnyNetMsgTypeTCPClose, nil, RemoteAddr)
 		s.updateSocket5User()
@@ -848,12 +828,39 @@ func (s *proxyRequest) httpProcessing(aheadData []byte, Tag string) {
 		return
 	}
 	if public.IsHttpMethod(public.GetMethod(hh)) {
+		var buff bytes.Buffer
+		buff.Write(aheadData)
+		var isRules bool
+		for {
+			//找到HOST 进行匹配是否强制走 TCP
+			bs, e := s.RwObj.ReadSlice('\n')
+			buff.Write(bs)
+			if e != nil || len(bs) < 3 {
+				break
+			}
+			ms := string(bs)
+			arr := strings.SplitN(ms, ":", 2)
+			if len(arr) > 1 && strings.ToLower(strings.TrimSpace(arr[0])) == "host" {
+				host := strings.TrimSpace(arr[1])
+				isRules = s.Global.tcpRules(host, s.Target.Host)
+				break
+			}
+		}
+		if isRules {
+			if s.Global.disableTCP {
+				return
+			}
+			s.NoRepairHttp = true
+			s.RwObj = ReadWriteObject.NewReadWriteObject(newObjHook(s.RwObj, buff.Bytes()))
+			s.MustTcpProcessing(public.TagMustTCP)
+			return
+		}
 		if Tag == public.TagTcpSSLAgreement {
 			s.defaultScheme = "https"
 		} else {
 			s.defaultScheme = "http"
 		}
-		s.h1Request(aheadData)
+		s.h1Request(buff.Bytes())
 		return
 	}
 	s.NoRepairHttp = true
@@ -981,7 +988,6 @@ func (s *proxyRequest) doRequest() error {
 	var n net.Conn
 	var err error
 	var Close func()
-
 	do, n, err, Close = httpClient.Do(s.Request, s.Proxy, false, s.TlsConfig, s.SendTimeout, s.getTLSValues, s.Conn)
 	s.Response.Conn = n
 	ip, _ := s.Request.Context().Value(public.SunnyNetServerIpTags).(string)
@@ -1030,11 +1036,7 @@ func (s *proxyRequest) https() {
 	var serverName string
 	var tlsConn *tls.Conn
 	var HelloMsg *tls.ClientHelloMsg
-	//普通会话升级到TLS会话，并且设置生成的握手证书,限制tls最大版本为1.2,因为1.3可能存在算法不支持
-	//如果某些服务器只支持tls1.3,将会在 tlsConn.ClientHello() 函数中自动纠正为 tls1.3
-	//tlsConfig := &tls.Config{MaxVersion: tls.VersionTLS13, NextProtos: []string{http.H11Proto}, InsecureSkipVerify: true}
 	tlsConfig := &tls.Config{MaxVersion: tls.VersionTLS13, NextProtos: []string{http.H2Proto, http.H11Proto}, InsecureSkipVerify: true}
-	//tlsConfig := &tls.Config{MaxVersion: tls.VersionTLS13, NextProtos: []string{http.H11Proto}, InsecureSkipVerify: true}
 	var hook bytes.Buffer
 	s.RwObj.Hook = &hook
 	tlsConn = tls.Server(s.RwObj, tlsConfig)
@@ -1059,13 +1061,9 @@ func (s *proxyRequest) https() {
 		//得到握手信息后 恢复30秒的读写超时
 		_ = tlsConn.SetDeadline(time.Now().Add(30 * time.Second))
 		if err == nil {
-			t1 := time.Now()
 			res := ClientIsHttps(s.Target.String())
-			fmt.Println("t1", time.Now().Sub(t1), s.Target.String())
 			if res == whoisUndefined {
-				t1 = time.Now()
 				res = ClientRequestIsHttps(s.Global, s.Target.String(), hook.Bytes())
-				fmt.Println("t2", time.Now().Sub(t1), s.Target.String())
 			}
 			if res == whoisNoHTTPS {
 				_, _ = s.RwObj.WriteString(public.NoHTTPSVerb)
@@ -1113,6 +1111,7 @@ func (s *proxyRequest) https() {
 				tlsConfig.Certificates = []tls.Certificate{*certificate}
 				tlsConfig.ServerName = ServerName
 				tlsConfig.InsecureSkipVerify = true
+				//tlsConfig.CipherSuites=
 				//继续握手
 				err = tlsConn.ServerHandshake(HelloMsg)
 				if err != nil {
@@ -1128,13 +1127,23 @@ func (s *proxyRequest) https() {
 						s.Error(err, true)
 						return
 					}
-					s.Error(clientHandshakeFail, true)
+					s.Error(errors.New(fmt.Sprintf("%s [ %s ]", clientHandshakeFail, err.Error())), true)
 					return
 				}
 				_ = tlsConn.SetDeadline(time.Now().Add(30 * time.Second))
 			}
 		}
 	} else {
+		isRules := s.Global.tcpRules(serverName, s.Target.Host)
+		if isRules {
+			if s.Global.disableTCP {
+				return
+			}
+			s.NoRepairHttp = true
+			s.RwObj = ReadWriteObject.NewReadWriteObject(newObjHook(s.RwObj, hook.Bytes()))
+			s.MustTcpProcessing(public.TagMustTCP)
+			return
+		}
 		err = noHttps
 	}
 	s.RwObj.Hook = nil
@@ -1182,7 +1191,7 @@ func (s *proxyRequest) https() {
 	s.httpProcessing(nil, public.TagTcpSSLAgreement)
 }
 
-var clientHandshakeFail = errors.New("与客户端握手失败")
+var clientHandshakeFail = `与客户端握手失败`
 var noHttps = errors.New("No HTTPS ")
 
 func (s *proxyRequest) handleWss() bool {
@@ -1544,6 +1553,10 @@ func (s *Sunny) tcpRules(server, Host string, dns ...string) bool {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if s.isMustTcp {
+		return true
+	}
+	//如果是DNS请求则不用判断了，直接强制走TCP
+	if strings.HasSuffix(server, ":853") {
 		return true
 	}
 	if s.mustTcpRulesAllow {
@@ -1994,7 +2007,6 @@ func (s *proxyRequest) SocketForward(dst bufio.Writer, src *ReadWriteObject.Read
 			}
 		}
 		if er != nil {
-			fmt.Println("SocketForward <Error>:", er)
 			return
 		}
 	}

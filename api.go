@@ -581,8 +581,8 @@ SetTcpAgent 给当前TCP连接设置代理 仅限 TCP回调 即将连接时使�
 */
 //
 //export SetTcpAgent
-func SetTcpAgent(MessageId int, ProxyUrl *C.char) bool {
-	return Api.SetTcpAgent(MessageId, C.GoString(ProxyUrl))
+func SetTcpAgent(MessageId int, ProxyUrl *C.char, outTime int) bool {
+	return Api.SetTcpAgent(MessageId, C.GoString(ProxyUrl), outTime)
 }
 
 /*
@@ -1209,6 +1209,14 @@ HTTPSetTimeouts HTTP 客户端 设置超时 毫秒
 //export HTTPSetTimeouts
 func HTTPSetTimeouts(Context int, t1 int) {
 	Api.HTTPSetTimeouts(Context, t1)
+}
+
+// HTTPSetServerIP
+// HTTP 客户端 设置真实连接IP地址，
+//
+//export HTTPSetServerIP
+func HTTPSetServerIP(Context int, ServerIP *C.char) {
+	Api.HTTPSetServerIP(Context, C.GoString(ServerIP))
 }
 
 /*

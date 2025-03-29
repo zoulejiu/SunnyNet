@@ -314,6 +314,11 @@ func SetRequestUrl(MessageId int, URI string) bool {
 	k.Request.Host = Host
 	k.Request.URL = _u
 	k.Request.RequestURI = ""
+
+	k.Request.SetContext(public.Connect_Raw_Address, k.Request.Host)
+	if k.Request.Header.Get("host") != "" {
+		k.Request.Header.Set("host", k.Request.Host)
+	}
 	return true
 }
 
@@ -865,7 +870,7 @@ func SetTcpBody(MessageId, MsgType int, data []byte) bool {
 }
 
 // SetTcpAgent 给当前TCP连接设置S5代理 仅先TCP回调 即将连接时使用
-func SetTcpAgent(MessageId int, ProxyUrl string) bool {
+func SetTcpAgent(MessageId int, ProxyUrl string, outTime int) bool {
 	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
 	if ok == false {
 		return false
@@ -878,11 +883,11 @@ func SetTcpAgent(MessageId int, ProxyUrl string) bool {
 	if k.TCP.Send == nil {
 		return false
 	}
-	proxy, err := SunnyProxy.ParseProxy(ProxyUrl)
+	proxy, err := SunnyProxy.ParseProxy(ProxyUrl, outTime)
 	if err != nil || proxy == nil {
 		return false
 	}
-	k.TCP.Send.Proxy, _ = SunnyProxy.ParseProxy(ProxyUrl, 30000)
+	k.TCP.Send.Proxy = proxy
 	return true
 }
 

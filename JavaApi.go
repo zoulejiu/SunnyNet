@@ -792,9 +792,9 @@ Java_com_SunnyNet_api_SetTcpAgent 给当前TCP连接设置代理 仅限 TCP回�
 */
 //
 //export Java_com_SunnyNet_api_SetTcpAgent
-func Java_com_SunnyNet_api_SetTcpAgent(envObj uintptr, clazz uintptr, MessageId int64, ProxyUrl uintptr) bool {
+func Java_com_SunnyNet_api_SetTcpAgent(envObj uintptr, clazz uintptr, MessageId int64, ProxyUrl uintptr, outTime int) bool {
 	env := Env(envObj)
-	return Api.SetTcpAgent(int(MessageId), env.GetString(ProxyUrl))
+	return Api.SetTcpAgent(int(MessageId), env.GetString(ProxyUrl), outTime)
 }
 
 /*
@@ -1300,6 +1300,15 @@ Java_com_SunnyNet_api_HTTPSetTimeouts HTTP 客户端 设置超时 毫秒
 func Java_com_SunnyNet_api_HTTPSetTimeouts(envObj uintptr, clazz uintptr, Context int64, t1 int64) {
 	//env := Env(envObj)
 	Api.HTTPSetTimeouts(int(Context), int(t1))
+}
+
+// Java_com_SunnyNet_api_HTTPSetServerIP
+// HTTP 客户端 设置真实连接IP地址，
+//
+//export Java_com_SunnyNet_api_HTTPSetServerIP
+func Java_com_SunnyNet_api_HTTPSetServerIP(envObj uintptr, clazz uintptr, Context int64, ServerIP uintptr) {
+	env := Env(envObj)
+	Api.HTTPSetServerIP(int(Context), env.GetString(ServerIP))
 }
 
 /*

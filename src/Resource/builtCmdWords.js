@@ -962,6 +962,20 @@ window.builtCmdWords =  [
         ]
     },
     {
+        name: ['GetFileSize',  "读取文件大小", "取文件大小"],
+        zName: [["dqwjdx","读取文件大小"],["qwjdx","取文件大小"]],
+        insertText: 'GetFileSize(${1:filePath}$0)',
+        detail: "取文件大小",
+        contents: [
+            {value: '**取文件大小**'},
+            {value: '**参数说明**'},
+            {value: '参数1:filePath     字符串类型  [要读取本地文件的全路径]'},
+            {value: '返回值:int64 (返回[-1]:表示读取失败)'},
+            {value: '**示例代码**'},
+            {value: '```go\n\tSize := GetFileSize("c:\\1.txt")\n\tLog("文件大小:",Size)\n```'},
+        ]
+    },
+    {
         name: ['OpenFile', '打开文件', "openFile"],
         zName: [["dkwj","打开文件"]],
         insertText: 'OpenFile(${1:filePath}$0)',
@@ -1233,7 +1247,7 @@ window.builtCmdWords =  [
             {value: '参数1:jsonText       文本型类型'},
             {value: '返回值:JSON对象'},
             {value: '**示例代码**'},
-            {value: '```go\n//解析JSON\nobj := JsonParse(data) \n//设置值\nobj.SetData("data.[0].path", "1111")\nobj.SetData("data.[0].ts", 123456)\n//获取值,无论值是什么类型都是返回字符串\nobj.GetData("data.[0].path")\n//获取成员数量\nobj.GetCount("data")\n```'},
+            {value: '```go\n//解析JSON\nobj := JsonParse(data) \n//设置值\nobj.SetData("data.[0].path", "1111")\nobj.SetData("data.[0].ts", 123456)\n//获取值,无论值是什么类型都是返回字符串\nobj.GetData("data.[0].path")\n//获取成员数量\nobj.GetCount("data")\n//取全部数据-返回字符串\nobj.ToString()\n```'},
         ]
     },
     {

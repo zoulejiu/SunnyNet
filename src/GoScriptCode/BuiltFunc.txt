@@ -40,7 +40,7 @@ import (
 	"errors"
 )
 
- 
+
 var PbToJson = SunnyProtobuf.PbToJson
 var JsonToPB = SunnyProtobuf.JsonToPB
 var JsonParse = SunnyProtobuf.JsonParse
@@ -1294,6 +1294,19 @@ func HexToBase64(a string) string {
 func OpenFile(filePath string) *os.File {
 	file, _ := os.Open(filePath)
 	return file
+}
+
+func GetFileSize(filePath string) int64 {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return -1
+	}
+	defer file.Close()
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return -1
+	}
+	return fileInfo.Size()
 }
 var delSpace=DelSpace
 var trimSpace=TrimSpace
