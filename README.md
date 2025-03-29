@@ -1,5 +1,12 @@
 # Sunny网络中间件
 
+#项目编译
+ 1.  go mod tidy
+ 2.  .\BuildLibrary\Buildx64exe.bat（编译对应的版本）
+
+
+
+
 ---
 
 > Sunny网络中间件 和 Fiddler 类似。 是可跨平台的网络分析组件
