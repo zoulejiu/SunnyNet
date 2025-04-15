@@ -4,6 +4,7 @@
 
 package websocket
 
+import "C"
 import (
 	"bufio"
 	"bytes"
@@ -212,7 +213,7 @@ func (u *Upgrader) Upgrade(w http.ResponseWriter, r *http.Request, responseHeade
 
 	if compress {
 		c.newCompressionWriter = compressNoContextTakeover
-		c.newDecompressionReader = decompressNoContextTakeover2
+		c.newDecompressionReader = decompressNoContextTakeover
 	}
 
 	// Use larger of hijacked buffer and connection write buffer for header.
@@ -371,7 +372,7 @@ func (u *Upgrader) UpgradeSunnyNetWebsocket(w *ReadWriteObject.ReadWriteObject, 
 
 	if compress {
 		c.newCompressionWriter = compressNoContextTakeover
-		c.newDecompressionReader = decompressNoContextTakeover2
+		c.newDecompressionReader = decompressNoContextTakeover
 	}
 
 	// Use larger of hijacked buffer and connection write buffer for header.
@@ -434,14 +435,13 @@ func (u *Upgrader) UpgradeClient(r *http.Request, Response *http.Response, netCo
 	protocol := u.selectSubprotocol(r, Response.Header)
 	c := newConn(netConn, true, u.ReadBufferSize, u.WriteBufferSize, u.WriteBufferPool, nil, nil)
 	c.subprotocol = protocol
-	for _, ext := range ParseExtensions(Response.Header) {
+	extensions := ParseExtensions(Response.Header)
+	for _, ext := range extensions {
 		if ext[""] != "permessage-deflate" {
 			continue
 		}
-		c.window_bytes.Reset()
-		c.window = true
-		c.newCompressionWriter = compressNoContextTakeover
-		c.newDecompressionReader = decompressNoContextTakeover2
+		c.WindowReader.Window_Size_Max = 1 << 15
+		c.newDecompressionReader = decompressNoContextTakeover
 		break
 	}
 	var bs bytes.Buffer

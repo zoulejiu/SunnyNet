@@ -10,6 +10,7 @@ import (
 	"github.com/qtgolang/SunnyNet/src/httpClient"
 	"github.com/qtgolang/SunnyNet/src/public"
 	"io"
+	"net"
 	"sort"
 	"strings"
 	"sync"
@@ -48,7 +49,7 @@ func LoadHTTPClient(Context int) *request {
 func CreateHTTPClient() int {
 	Context := newMessageId()
 	HTTPMapLock.Lock()
-	HTTPMap[Context] = &request{req: &http.Request{}, tlsConfig: &tls.Config{NextProtos: []string{http.H11Proto, http.H2Proto}}}
+	HTTPMap[Context] = &request{req: &http.Request{}, tlsConfig: &tls.Config{NextProtos: public.HTTP2NextProtos}}
 	HTTPMapLock.Unlock()
 	return Context
 }
@@ -92,6 +93,39 @@ func HTTPOpen(Context int, Method, URL string) {
 		}
 	}
 	k.req, _ = http.NewRequest(Method, URL, nil)
+}
+
+// HTTPSetOutRouterIP
+// HTTP 客户端 设置出口IP网关
+func HTTPSetOutRouterIP(Context int, value string) bool {
+	k := LoadHTTPClient(Context)
+	if k == nil {
+		return false
+	}
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	if value == "" {
+		k.req.SetContext(public.OutRouterIPKey, nil)
+		return true
+	}
+	ok, ip := public.IsLocalIP(value)
+	if !ok {
+		return false
+	}
+	if ip.To4() != nil {
+		localAddr, err := net.ResolveTCPAddr("tcp", value+":0")
+		if err != nil {
+			return false
+		}
+		k.req.SetContext(public.OutRouterIPKey, localAddr)
+		return true
+	}
+	localAddr, err := net.ResolveTCPAddr("tcp", "["+value+"]:0")
+	if err != nil {
+		return false
+	}
+	k.req.SetContext(public.OutRouterIPKey, localAddr)
+	return true
 }
 
 // HTTPSetHeader
@@ -152,7 +186,7 @@ func HTTPSetServerIP(Context int, s string) {
 	}
 	k.lock.Lock()
 	defer k.lock.Unlock()
-	k.req.SetContext(public.Connect_Raw_Address, s)
+	k.req.SetContext(public.Connect_Raw_Address, func() string { return s })
 }
 
 // HTTPSendBin
@@ -374,7 +408,7 @@ func HTTPSetCertManager(Context, CertManagerContext int) bool {
 		return false
 	}
 	k.tlsConfig = c.Tls
-	k.tlsConfig.NextProtos = []string{http.H11Proto, http.H2Proto}
+	k.tlsConfig.NextProtos = public.HTTP2NextProtos
 	return true
 }
 

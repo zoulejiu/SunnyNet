@@ -31,18 +31,6 @@ func init() {
 	}
 }
 
-func printAsBinary(bytes []byte) {
-
-	for i := 0; i < len(bytes); i++ {
-		for j := 0; j < 8; j++ {
-			zeroOrOne := bytes[i] >> (7 - j) & 1
-			fmt.Printf("%c", '0'+zeroOrOne)
-		}
-		fmt.Printf(" %p\n", &bytes[i])
-	}
-	fmt.Println()
-}
-
 type INT16 = basetype.INT16
 
 type INT32 = basetype.INT32
@@ -91,6 +79,9 @@ type ProcessInfo struct {
 	UDP_CONN_INFO *NF_UDP_CONN_INFO
 }
 
+func (p *ProcessInfo) String() string {
+	return fmt.Sprintf("id=%d,Pid=%s,RemoteAddress=%s,RemotePort=%d,V6=%v", p.Id, p.Pid, p.RemoteAddress, p.RemotePort, p.V6)
+}
 func (p *ProcessInfo) GetRemoteAddress() string {
 	return p.RemoteAddress
 }
@@ -109,7 +100,7 @@ func (p *ProcessInfo) ID() uint64 {
 func (p *ProcessInfo) Close() {
 	_, _ = Api.NfTcpClose(p.Id)
 }
- 
+
 /**
 *	UDP options UNALIGNED
 **/

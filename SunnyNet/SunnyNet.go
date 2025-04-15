@@ -209,6 +209,7 @@ type proxyRequest struct {
 	_Display              bool //是否允许显示到列表，也就是是否调用Call
 	_isRandomCipherSuites bool
 	_SocksUser            string
+	outRouterIP           *net.TCPAddr
 }
 
 var sUser = make(map[int]string)
@@ -560,19 +561,19 @@ func (s *proxyRequest) isLoop() bool {
 }
 
 // 封装连接逻辑
-func dialTCP(proxyTools *SunnyProxy.Proxy, remoteAddr string) (net.Conn, error) {
-	return proxyTools.DialWithTimeout("tcp", remoteAddr, 2*time.Second)
+func dialTCP(proxyTools *SunnyProxy.Proxy, remoteAddr string, outRouterIP *net.TCPAddr) (net.Conn, error) {
+	return proxyTools.DialWithTimeout("tcp", remoteAddr, 2*time.Second, outRouterIP)
 }
-func connectToTarget(s *proxyRequest, proxyTools *SunnyProxy.Proxy) (net.Conn, string) {
+func connectToTarget(s *proxyRequest, proxyTools *SunnyProxy.Proxy, outRouterIP *net.TCPAddr) (net.Conn, string) {
 	ip := net.ParseIP(s.Target.Host)
 	if ip != nil {
 		remoteAddr := SunnyProxy.FormatIP(ip, fmt.Sprintf("%d", s.Target.Port))
-		conn, _ := proxyTools.Dial("tcp", remoteAddr)
+		conn, _ := proxyTools.Dial("tcp", remoteAddr, outRouterIP)
 		return conn, remoteAddr
 	}
 
 	var ProxyHost string
-	var dial func(network string, addr string) (net.Conn, error)
+	var dial func(network string, addr string, outRouterIP *net.TCPAddr) (net.Conn, error)
 	if proxyTools != nil {
 		ProxyHost = proxyTools.Host
 		dial = proxyTools.Dial
@@ -581,19 +582,19 @@ func connectToTarget(s *proxyRequest, proxyTools *SunnyProxy.Proxy) (net.Conn, s
 	ip = dns.GetFirstIP(s.Target.Host, ProxyHost)
 	if ip != nil {
 		remoteAddr := SunnyProxy.FormatIP(ip, fmt.Sprintf("%d", s.Target.Port))
-		conn, _ := dialTCP(proxyTools, remoteAddr)
+		conn, _ := dialTCP(proxyTools, remoteAddr, outRouterIP)
 		if conn != nil {
 			return conn, remoteAddr
 		}
 	}
 
-	ips, _ := dns.LookupIP(s.Target.Host, ProxyHost, dial)
+	ips, _ := dns.LookupIP(s.Target.Host, ProxyHost, outRouterIP, dial)
 
 	//优先尝试IPV4
 	for _, ip2 := range ips {
 		if ip4 := ip2.To4(); ip4 != nil {
 			remoteAddr := SunnyProxy.FormatIP(ip2, fmt.Sprintf("%d", s.Target.Port))
-			conn, _ := dialTCP(proxyTools, remoteAddr)
+			conn, _ := dialTCP(proxyTools, remoteAddr, outRouterIP)
 			if conn != nil {
 				dns.SetFirstIP(s.Target.Host, ProxyHost, ip2)
 				return conn, remoteAddr
@@ -605,7 +606,7 @@ func connectToTarget(s *proxyRequest, proxyTools *SunnyProxy.Proxy) (net.Conn, s
 	for _, ip2 := range ips {
 		if ip6 := ip2.To16(); ip6 != nil {
 			remoteAddr := SunnyProxy.FormatIP(ip2, fmt.Sprintf("%d", s.Target.Port))
-			conn, _ := dialTCP(proxyTools, remoteAddr)
+			conn, _ := dialTCP(proxyTools, remoteAddr, outRouterIP)
 			if conn != nil {
 				dns.SetFirstIP(s.Target.Host, ProxyHost, ip2)
 				return conn, remoteAddr
@@ -644,7 +645,7 @@ func (s *proxyRequest) MustTcpProcessing(Tag string) {
 			}
 		}
 	}
-	RemoteTCP, RemoteAddr := connectToTarget(s, proxyTools)
+	RemoteTCP, RemoteAddr := connectToTarget(s, proxyTools, s.outRouterIP)
 	if RemoteAddr != s.Target.String() {
 		RemoteAddr = s.Target.String() + " -> " + RemoteAddr
 	}
@@ -787,9 +788,9 @@ func (s *proxyRequest) transparentProcessing() {
 		var certificate *tls.Certificate
 		var er error
 		if s.isLoop() {
-			certificate, _, er = WhoisLoopCache(s.Global, s.Target.String(), s.Global.rootCa, s.Global.rootKey)
+			certificate, _, er = WhoisLoopCache(s.Global, nil, s.Target.String(), s.Global.rootCa, s.Global.rootKey)
 		} else {
-			certificate, _, er = WhoisCache(s.Global, "null", s.Target.String(), s.Global.rootCa, s.Global.rootKey)
+			certificate, _, er = WhoisCache(s.Global, nil, "null", s.Target.String(), s.Global.rootCa, s.Global.rootKey)
 		}
 		//进行生成证书，用于服务器返回握手信息
 		if er != nil {
@@ -827,10 +828,12 @@ func (s *proxyRequest) httpProcessing(aheadData []byte, Tag string) {
 		s.h2Request(aheadData)
 		return
 	}
-	if public.IsHttpMethod(public.GetMethod(hh)) {
+	Method := public.GetMethod(hh)
+	if public.IsHttpMethod(Method) {
 		var buff bytes.Buffer
 		buff.Write(aheadData)
 		var isRules bool
+		var host string
 		for {
 			//找到HOST 进行匹配是否强制走 TCP
 			bs, e := s.RwObj.ReadSlice('\n')
@@ -841,14 +844,24 @@ func (s *proxyRequest) httpProcessing(aheadData []byte, Tag string) {
 			ms := string(bs)
 			arr := strings.SplitN(ms, ":", 2)
 			if len(arr) > 1 && strings.ToLower(strings.TrimSpace(arr[0])) == "host" {
-				host := strings.TrimSpace(arr[1])
+				host = strings.TrimSpace(arr[1])
 				isRules = s.Global.tcpRules(host, s.Target.Host)
 				break
 			}
 		}
-		if isRules {
+		if isRules && Method != public.HttpMethodCONNECT {
 			if s.Global.disableTCP {
 				return
+			}
+			if s.Target.Host == "" {
+				s.Target.Parse(host, 0)
+			}
+			if s.Target.Port == 0 {
+				if Tag == public.TagTcpSSLAgreement {
+					s.Target.Parse("", 443)
+				} else {
+					s.Target.Parse("", 80)
+				}
 			}
 			s.NoRepairHttp = true
 			s.RwObj = ReadWriteObject.NewReadWriteObject(newObjHook(s.RwObj, buff.Bytes()))
@@ -863,7 +876,7 @@ func (s *proxyRequest) httpProcessing(aheadData []byte, Tag string) {
 		s.h1Request(buff.Bytes())
 		return
 	}
-	s.NoRepairHttp = true
+	//s.NoRepairHttp = true
 	if len(aheadData) > 0 {
 		s.RwObj = ReadWriteObject.NewReadWriteObject(newObjHook(s.RwObj, aheadData))
 	}
@@ -1028,6 +1041,7 @@ func (s *proxyRequest) https() {
 		if s.Global.disableTCP {
 			return
 		}
+		s.NoRepairHttp = true
 		//开启了强制走TCP，则按TCP流程处理
 		s.MustTcpProcessing(public.TagMustTCP)
 		return
@@ -1036,7 +1050,7 @@ func (s *proxyRequest) https() {
 	var serverName string
 	var tlsConn *tls.Conn
 	var HelloMsg *tls.ClientHelloMsg
-	tlsConfig := &tls.Config{MaxVersion: tls.VersionTLS13, NextProtos: []string{http.H2Proto, http.H11Proto}, InsecureSkipVerify: true}
+	tlsConfig := &tls.Config{MaxVersion: tls.VersionTLS13, NextProtos: public.HTTP2NextProtos, InsecureSkipVerify: true}
 	var hook bytes.Buffer
 	s.RwObj.Hook = &hook
 	tlsConn = tls.Server(s.RwObj, tlsConfig)
@@ -1061,19 +1075,18 @@ func (s *proxyRequest) https() {
 		//得到握手信息后 恢复30秒的读写超时
 		_ = tlsConn.SetDeadline(time.Now().Add(30 * time.Second))
 		if err == nil {
-			res := ClientIsHttps(s.Target.String())
+			res, cert := ClientIsHttps(s.Target.String())
 			if res == whoisUndefined {
-				res = ClientRequestIsHttps(s.Global, s.Target.String(), hook.Bytes())
+				res, cert = ClientRequestIsHttps(s.Global, s.Target.String(), serverName)
 			}
-			if res == whoisNoHTTPS {
-				_, _ = s.RwObj.WriteString(public.NoHTTPSVerb)
+			if res == whoisNoHTTPS || res == whoisUndefined {
 				_ = s.RwObj.Close()
 				return
 			}
 			if res == whoisHTTPS1 {
-				tlsConfig.NextProtos = []string{http.H11Proto}
+				tlsConfig.NextProtos = public.HTTP1NextProtos
 			} else { //res == whoisHTTPS2
-				tlsConfig.NextProtos = []string{http.H2Proto, http.H11Proto}
+				tlsConfig.NextProtos = public.HTTP2NextProtos
 			}
 			name := ""
 			if serverName != "" {
@@ -1082,9 +1095,9 @@ func (s *proxyRequest) https() {
 			var certificate *tls.Certificate
 			var DNSNames []string
 			if s.isLoop() {
-				certificate, DNSNames, _ = WhoisLoopCache(s.Global, host, s.Global.rootCa, s.Global.rootKey)
+				certificate, DNSNames, _ = WhoisLoopCache(s.Global, cert, host, s.Global.rootCa, s.Global.rootKey)
 			} else {
-				certificate, DNSNames, _ = WhoisCache(s.Global, name, host, s.Global.rootCa, s.Global.rootKey)
+				certificate, DNSNames, _ = WhoisCache(s.Global, cert, name, host, s.Global.rootCa, s.Global.rootKey)
 			}
 			isRules := s.Global.tcpRules(serverName, s.Target.Host, DNSNames...)
 			if isRules {
@@ -1224,7 +1237,7 @@ func (s *proxyRequest) handleWss() bool {
 			dialer = &websocket.Dialer{}
 		}
 		//发送请求
-		Server, r, er := dialer.ConnDialContext(s.Request, s.Proxy)
+		Server, r, er := dialer.ConnDialContext(s.Request, s.Proxy, s.outRouterIP)
 		ip, _ := s.Request.Context().Value(public.SunnyNetServerIpTags).(string)
 		if ip != "" {
 			s.Response.ServerIP = ip
@@ -1249,7 +1262,6 @@ func (s *proxyRequest) handleWss() bool {
 		//将当前客户端的连接升级为Websocket会话
 		upgrade := &websocket.Upgrader{}
 		Client, er := upgrade.UpgradeClient(s.Request, r, s.RwObj)
-
 		if er != nil {
 			return true
 		}
@@ -1652,7 +1664,7 @@ func (s *proxyRequest) CompleteRequest(req *http.Request) {
 			if len(tv) > 0 {
 				s.TlsConfig.CipherSuites = tv
 			}
-			s.TlsConfig.NextProtos = []string{http.H11Proto, http.H2Proto}
+			s.TlsConfig.NextProtos = public.HTTP2NextProtos
 		}
 	}
 	{
@@ -1666,6 +1678,9 @@ func (s *proxyRequest) CompleteRequest(req *http.Request) {
 		//通知回调 即将开始发送请求
 		s.CallbackBeforeRequest()
 		{
+			if s.outRouterIP != nil {
+				req.SetContext(public.OutRouterIPKey, s.outRouterIP)
+			}
 			if s.IsRequestRawBody() {
 				//当回调中处理完毕后,替换为原始Body
 				if s.Request.Body != nil {
@@ -1848,6 +1863,32 @@ func (s *proxyRequest) copyBuffer(Method string, ExpectLen int) {
 		}
 	}
 }
+
+// SetOutRouterIP 设置TCP/HTTP数据出口IP 请传入网卡对应的IP地址,用于指定网卡,例如 192.168.31.11
+func (s *proxyRequest) SetOutRouterIP(RouterIP string) bool {
+	if RouterIP == "" {
+		s.outRouterIP = nil
+		return true
+	}
+	ok, ip := public.IsLocalIP(RouterIP)
+	if !ok {
+		return false
+	}
+	if ip.To4() != nil {
+		localAddr, err := net.ResolveTCPAddr("tcp", RouterIP+":0")
+		if err != nil {
+			return false
+		}
+		s.outRouterIP = localAddr
+		return true
+	}
+	localAddr, err := net.ResolveTCPAddr("tcp", "["+RouterIP+"]:0")
+	if err != nil {
+		return false
+	}
+	s.outRouterIP = localAddr
+	return true
+}
 func (s *proxyRequest) sendHttp(req *http.Request) {
 	if req.URL == nil {
 		return
@@ -1876,7 +1917,6 @@ func (s *proxyRequest) sendHttp(req *http.Request) {
 			return
 		}
 	}
-
 	s.CompleteRequest(req)
 }
 
@@ -2030,16 +2070,17 @@ func resize(slice []byte, newLength int) []byte {
 
 // Sunny  请使用 NewSunny 方法 请不要直接构造
 type Sunny struct {
-	disableTCP            bool                //禁止TCP连接
-	disableUDP            bool                //禁止TCP连接
-	certificates          []byte              //CA证书原始数据
-	rootCa                *x509.Certificate   //中间件CA证书
-	rootKey               *rsa.PrivateKey     // 证书私钥
-	initCertOK            bool                // 是否已经初始化证书
-	port                  int                 //启动的端口号
-	Error                 error               //错误信息
-	tcpSocket             *net.Listener       //TcpSocket服务器
-	udpSocket             *net.UDPConn        //UdpSocket服务器
+	disableTCP            bool              //禁止TCP连接
+	disableUDP            bool              //禁止TCP连接
+	certificates          []byte            //CA证书原始数据
+	rootCa                *x509.Certificate //中间件CA证书
+	rootKey               *rsa.PrivateKey   // 证书私钥
+	initCertOK            bool              // 是否已经初始化证书
+	port                  int               //启动的端口号
+	Error                 error             //错误信息
+	tcpSocket             *net.Listener     //TcpSocket服务器
+	udpSocket             *net.UDPConn      //UdpSocket服务器
+	outRouterIP           *net.TCPAddr
 	connList              map[int64]net.Conn  //会话连接客户端、停止服务器时可以全部关闭
 	lock                  sync.Mutex          //会话连接互斥锁
 	socket5VerifyUser     bool                //S5代理是否需要验证账号密码
@@ -2216,6 +2257,34 @@ func (s *Sunny) MustTcp(open bool) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	s.isMustTcp = open
+}
+
+// SetOutRouterIP 设置TCP/HTTP数据出口IP 请传入网卡对应的IP地址,用于指定网卡,例如 192.168.31.11
+func (s *Sunny) SetOutRouterIP(RouterIP string) bool {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if RouterIP == "" {
+		s.outRouterIP = nil
+		return true
+	}
+	ok, ip := public.IsLocalIP(RouterIP)
+	if !ok {
+		return false
+	}
+	if ip.To4() != nil {
+		localAddr, err := net.ResolveTCPAddr("tcp", RouterIP+":0")
+		if err != nil {
+			return false
+		}
+		s.outRouterIP = localAddr
+		return true
+	}
+	localAddr, err := net.ResolveTCPAddr("tcp", "["+RouterIP+"]:0")
+	if err != nil {
+		return false
+	}
+	s.outRouterIP = localAddr
+	return true
 }
 
 // Socket5VerifyUser S5代理是否需要验证账号密码
@@ -2595,6 +2664,9 @@ func (s *proxyRequest) clone() *proxyRequest {
 		defaultScheme: s.defaultScheme,
 		SendTimeout:   s.SendTimeout,
 	}
+	if s.outRouterIP != nil {
+		req.outRouterIP = &net.TCPAddr{IP: s.outRouterIP.IP}
+	}
 	req.updateSocket5User()
 
 	Theoni := int64(req.Theology)
@@ -2662,13 +2734,17 @@ func (s *proxyRequest) getTLSValues() []uint16 {
 }
 
 func (s *Sunny) handleClientConn(conn net.Conn) {
+	req := &proxyRequest{Global: s, TcpCall: s.tcpCallback, HttpCall: s.httpCallback, wsCall: s.websocketCallback, TcpGoCall: s.goTcpCallback, HttpGoCall: s.goHttpCallback, wsGoCall: s.goWebsocketCallback, SendTimeout: 0} //原始请求对象
+
 	Theoni := atomic.AddInt64(&public.Theology, 1)
 	//存入会话列表 方便停止时，将所以连接断开
 	s.lock.Lock()
 	s.connList[Theoni] = conn
-	s.lock.Unlock()
 	//构造一个请求中间件
-	req := &proxyRequest{Global: s, TcpCall: s.tcpCallback, HttpCall: s.httpCallback, wsCall: s.websocketCallback, TcpGoCall: s.goTcpCallback, HttpGoCall: s.goHttpCallback, wsGoCall: s.goWebsocketCallback, SendTimeout: 0} //原始请求对象
+	if s.outRouterIP != nil {
+		req.outRouterIP = &net.TCPAddr{IP: s.outRouterIP.IP}
+	}
+	s.lock.Unlock()
 
 	defer func() {
 		//当 handleClientConn 函数 即将退出时 从会话列表中删除当前会话

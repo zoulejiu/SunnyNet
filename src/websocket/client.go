@@ -37,7 +37,7 @@ var errInvalidCompression = errors.New("websocket: invalid compression negotiati
 // etc.
 //
 // Deprecated: Use Dialer instead.
-func NewClient(netConn net.Conn, u *url.URL, requestHeader http.Header, readBufSize, writeBufSize int) (c *Conn, response *http.Response, serverIp string, err error) {
+func NewClient(netConn net.Conn, u *url.URL, requestHeader http.Header, readBufSize, writeBufSize int, OutRouterIP *net.TCPAddr) (c *Conn, response *http.Response, serverIp string, err error) {
 	d := Dialer{
 		ReadBufferSize:  readBufSize,
 		WriteBufferSize: writeBufSize,
@@ -45,7 +45,7 @@ func NewClient(netConn net.Conn, u *url.URL, requestHeader http.Header, readBufS
 			return netConn, nil
 		},
 	}
-	return d.Dial(u.String(), requestHeader, nil)
+	return d.Dial(u.String(), requestHeader, nil, OutRouterIP)
 }
 
 // A Dialer contains options for connecting to WebSocket server.
@@ -102,13 +102,13 @@ type Dialer struct {
 	ProxyUrl *SunnyProxy.Proxy
 }
 
-func (d *Dialer) Dial(urlStr string, requestHeader http.Header, ProxyUrl *SunnyProxy.Proxy, outTime ...int) (*Conn, *http.Response, string, error) {
+func (d *Dialer) Dial(urlStr string, requestHeader http.Header, ProxyUrl *SunnyProxy.Proxy, OutRouterIP *net.TCPAddr, outTime ...int) (*Conn, *http.Response, string, error) {
 	d.ProxyUrl = ProxyUrl
 	t := 0
 	if len(outTime) > 0 {
 		t = outTime[0]
 	}
-	return d.DialContext(context.Background(), urlStr, requestHeader, t)
+	return d.DialContext(context.Background(), urlStr, requestHeader, OutRouterIP, t)
 }
 
 var errMalformedURL = errors.New("malformed ws or wss URL")
@@ -150,7 +150,7 @@ var nilDialer = *DefaultDialer
 // non-nil *net.Response so that callers can handle redirects, authentication,
 // etcetera. The response body may not contain the entire response and does not
 // need to be closed by the application.
-func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader http.Header, outTime ...int) (*Conn, *http.Response, string, error) {
+func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader http.Header, OutRouterIP *net.TCPAddr, outTime ...int) (*Conn, *http.Response, string, error) {
 	if d == nil {
 		d = &nilDialer
 	}
@@ -221,18 +221,10 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 		defer cancel()
 	}
 
-	netDialer := &net.Dialer{}
 	_outTime := 3000
 	if len(outTime) > 0 {
-		t := outTime[0]
-		if t > 10 {
-			_outTime = t
-			netDialer.Timeout = time.Duration(t) * time.Millisecond
-		} else {
-			netDialer.Timeout = 30000 * time.Millisecond
-		}
+		_outTime = outTime[0]
 	}
-
 	hostPort, hostNoPort := hostPortNoPort(u)
 	trace := httptrace.ContextClientTrace(ctx)
 	if trace != nil && trace.GetConn != nil {
@@ -244,9 +236,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 	} else {
 		proxy = d.ProxyUrl.Clone()
 	}
-
-	netConn, err := proxy.Dial("tcp", hostPort)
-
+	netConn, err := proxy.DialWithTimeout("tcp", hostPort, time.Duration(_outTime)*time.Millisecond, OutRouterIP)
 	if trace != nil && trace.GotConn != nil {
 		trace.GotConn(httptrace.GotConnInfo{
 			Conn: netConn,
@@ -332,18 +322,14 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 		resp.Body = ioutil.NopCloser(bytes.NewReader(buf[:n]))
 		return nil, resp, "", ErrBadHandshake
 	}
-
-	for _, ext := range ParseExtensions(resp.Header) {
+	extensions := ParseExtensions(resp.Header)
+	for _, ext := range extensions {
 		if ext[""] != "permessage-deflate" {
 			continue
 		}
-		_, snct := ext["server_no_context_takeover"]
-		_, cnct := ext["client_no_context_takeover"]
-		if !snct || !cnct {
-			return nil, resp, "", errInvalidCompression
-		}
-		conn.newCompressionWriter = compressNoContextTakeover
-		conn.newDecompressionReader = decompressNoContextTakeover2
+		//conn.newCompressionWriter = compressNoContextTakeover
+		conn.newDecompressionReader = decompressNoContextTakeover
+		conn.WindowReader.Window_Size_Max = 1 << 15
 		break
 	}
 
@@ -358,7 +344,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 const SunnyNetServerIpTags = "ServerAddr"
 
 // ConnDialContext 自己改写的 返回Websocket.Conn 和httpResponse
-func (d *Dialer) ConnDialContext(request *http.Request, ProxyUrl *SunnyProxy.Proxy) (*Conn, *http.Response, error) {
+func (d *Dialer) ConnDialContext(request *http.Request, ProxyUrl *SunnyProxy.Proxy, OutRouterIP *net.TCPAddr) (*Conn, *http.Response, error) {
 	if d == nil {
 		d = &nilDialer
 	}
@@ -418,7 +404,7 @@ func (d *Dialer) ConnDialContext(request *http.Request, ProxyUrl *SunnyProxy.Pro
 	} else {
 		proxy = d.ProxyUrl.Clone()
 	}
-	netConn, err := proxy.Dial("tcp", hostPort)
+	netConn, err := proxy.Dial("tcp", hostPort, OutRouterIP)
 	defer func() {
 		address, p, _ := net.SplitHostPort(proxy.DialAddr)
 		ip := net.ParseIP(address)
@@ -533,26 +519,21 @@ func (d *Dialer) ConnDialContext(request *http.Request, ProxyUrl *SunnyProxy.Pro
 		resp.Body = ioutil.NopCloser(bytes.NewReader(buf[:n]))
 		return nil, resp, ErrBadHandshake
 	}
-
-	for _, ext := range ParseExtensions(resp.Header) {
+	extensions := ParseExtensions(resp.Header)
+	for _, ext := range extensions {
 		if ext[""] != "permessage-deflate" {
 			continue
 		}
-		conn.newCompressionWriter = compressNoContextTakeover
-		conn.newDecompressionReader = decompressNoContextTakeover2
-		conn.window = true
-		conn.window_bytes.Reset()
+		conn.newDecompressionReader = decompressNoContextTakeover
+		conn.WindowReader.Window_Size_Max = 1 << 15
 		break
 	}
-
 	resp.Body = ioutil.NopCloser(bytes.NewReader([]byte{}))
 	conn.subprotocol = resp.Header.Get("Sec-Websocket-Protocol")
-
 	netConn.SetDeadline(time.Time{})
 	netConn = nil // to avoid close in defer.
 	return conn, resp, nil
 }
-
 func doHandshake(tlsConn *tls.Conn, cfg *tls.Config) error {
 	if err := tlsConn.Handshake(); err != nil {
 		return err

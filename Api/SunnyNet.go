@@ -123,7 +123,7 @@ func SetRequestHTTP2Config(MessageId int, h2Config string) bool {
 	}
 	k.Lock.Lock()
 	defer k.Lock.Unlock()
-	k.TlsConfig.NextProtos = []string{http.H11Proto, http.H2Proto}
+	k.TlsConfig.NextProtos = public.HTTP2NextProtos
 	if h2Config != "" {
 		c, e := http.StringToH2Config(h2Config)
 		if e != nil {
@@ -315,7 +315,7 @@ func SetRequestUrl(MessageId int, URI string) bool {
 	k.Request.URL = _u
 	k.Request.RequestURI = ""
 
-	k.Request.SetContext(public.Connect_Raw_Address, k.Request.Host)
+	k.Request.SetContext(public.Connect_Raw_Address, func() string { return Host })
 	if k.Request.Header.Get("host") != "" {
 		k.Request.Header.Set("host", k.Request.Host)
 	}
@@ -1270,6 +1270,31 @@ func CompileProxyRegexp(SunnyContext int, Regexp string) bool {
 		return false
 	}
 	return w.CompileProxyRegexp(Regexp) == nil
+}
+
+// SetOutRouterIP 设置数据出口IP 请传入网卡对应的IP地址,用于指定网卡,例如 192.168.31.11（全局）
+func SetOutRouterIP(SunnyContext int, ip string) bool {
+	SunnyNet.SunnyStorageLock.Lock()
+	w := SunnyNet.SunnyStorage[SunnyContext]
+	SunnyNet.SunnyStorageLock.Unlock()
+	if w == nil {
+		return false
+	}
+	return w.SetOutRouterIP(ip)
+}
+
+// RequestSetOutRouterIP 设置数据出口IP 请传入网卡对应的IP地址,用于指定网卡,例如 192.168.31.11（TCP/HTTP请求共用这个函数）
+func RequestSetOutRouterIP(MessageId int, ip string) bool {
+	k, ok := SunnyNet.GetSceneProxyRequest(MessageId)
+	if ok == false {
+		return false
+	}
+	if k == nil {
+		return false
+	}
+	k.Lock.Lock()
+	defer k.Lock.Unlock()
+	return k.SetOutRouterIP(ip)
 }
 
 // SetMustTcpRegexp 设置强制走TCP规则,如果 打开了全部强制走TCP状态,本功能则无效

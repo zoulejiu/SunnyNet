@@ -32,6 +32,18 @@ type httpConn struct {
 	_tls                  *tls.Config
 	_serverIP             string
 	_isRandomCipherSuites bool
+	_localAddress         string
+	_OutRouterIPFunc      func(string) bool
+}
+
+func (k *httpConn) SetOutRouterIP(way string) bool {
+	if k._OutRouterIPFunc != nil {
+		return k._OutRouterIPFunc(way)
+	}
+	return false
+}
+func (h *httpConn) LocalAddress() string {
+	return h._localAddress
 }
 
 func (h *httpConn) GetSocket5User() string {
@@ -69,7 +81,7 @@ func (h *httpConn) UpdateURL(NewUrl string) bool {
 	h._request.URL = a
 	h._request.Host = h._request.URL.Host
 	h._request.RequestURI = ""
-	h._request.SetContext(public.Connect_Raw_Address, h._request.URL.Host)
+	h._request.SetContext(public.Connect_Raw_Address, func() string { return a.Host })
 	if h._request.Header.Get("host") != "" {
 		h._request.Header.Set("host", h._request.URL.Host)
 	}
@@ -90,7 +102,7 @@ func (h *httpConn) SetHTTP2Config(h2Config string) bool {
 		h._request.SetHTTP2Config(nil)
 		return false
 	}
-	h._tls.NextProtos = []string{http.H11Proto, http.H2Proto}
+	h._tls.NextProtos = public.HTTP2NextProtos
 	if h2Config != "" {
 		c, e := http.StringToH2Config(h2Config)
 		if e != nil {

@@ -10,6 +10,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -56,7 +57,8 @@ func (s *proxyRequest) httpCall(rw http.ResponseWriter, req *http.Request) {
 	}
 	r := s.clone()
 	defer r.free()
-	ctx, ch := context.WithCancel(context.WithValue(context.Background(), public.Connect_Raw_Address, r.Target.String()))
+	Target := r.Target.Clone()
+	ctx, ch := context.WithCancel(context.WithValue(context.Background(), public.Connect_Raw_Address, Target.String))
 	defer ch()
 	res := req.Clone(ctx)
 	if res.GetIsNullBody() {
@@ -80,6 +82,30 @@ func (s *proxyRequest) httpCall(rw http.ResponseWriter, req *http.Request) {
 			} else {
 				res.URL.Scheme = r.defaultScheme
 			}
+
+			if r.Target.Port == 0 {
+				if req.URL.Scheme == "https" {
+					r.Target.Parse("", 443)
+				} else {
+					r.Target.Parse("", 80)
+				}
+			}
+
+			if r.Target.Host == "" {
+				if res.Host != "" {
+					r.Target.Parse(res.Host, 0)
+				} else if req.Header.Get("host") != "" {
+					r.Target.Parse(req.Header.Get("host"), 0)
+				}
+				if r.Target.IsDomain() {
+					res.Host = r.Target.String()
+					res.URL.Host = res.Host
+				} else if req.Header.Get("host") != "" {
+					res.Host = req.Header.Get("host")
+					res.URL.Host = res.Host
+				}
+			}
+
 			if res.Host == "" && req.Header.Get("host") != "" {
 				res.URL.Host = req.Header.Get("host")
 				u, _ := url.Parse(res.URL.String())
@@ -98,9 +124,6 @@ func (s *proxyRequest) httpCall(rw http.ResponseWriter, req *http.Request) {
 					res.Host = u.Host
 				}
 			} else {
-				if r.Target.Host == "" && r.Target.Port == 0 {
-					r.Target.Parse(res.Host, 0)
-				}
 				aIP := TargetInfo{}
 				aIP.Parse(res.Host, 0)
 				if !aIP.IsDomain() && aIP.Host != s.Target.Host {
@@ -109,12 +132,29 @@ func (s *proxyRequest) httpCall(rw http.ResponseWriter, req *http.Request) {
 					res.URL.Host = res.Host
 				}
 			}
-
 			p := res.URL.Port()
 			if (p == "443" && res.URL.Scheme == "https") || (p == "80" && res.URL.Scheme == "http") {
 				host, _, _ := net.SplitHostPort(res.Host)
-				res.URL.Host = host
-				res.Host = host
+				if host != "" {
+					res.URL.Host = host
+					res.Host = host
+				} else {
+					res.URL.Host = res.Host
+				}
+			}
+			_p, _ := strconv.Atoi(res.URL.Port())
+			if _p != int(r.Target.Port) {
+				if !((_p != 443 && r.Target.Port == 443) || (_p != 80 && r.Target.Port == 80)) {
+					res.URL.Host = r.Target.String()
+					u, _ := url.Parse(res.URL.String())
+					if u != nil {
+						res.URL = u
+						res.Host = u.Host
+						if res.Header.Get("host") != "" {
+							res.Header.Set("host", u.Host)
+						}
+					}
+				}
 			}
 			ip := net.ParseIP(res.Host)
 			if ip4 := ip.To4(); ip4 == nil && len(ip) == net.IPv6len {
@@ -141,6 +181,7 @@ func (s *proxyRequest) httpCall(rw http.ResponseWriter, req *http.Request) {
 		}
 		res.Header = reHeader
 	}
+	Target.Parse(r.Target.String(), 0)
 	r.sendHttp(res)
 }
 

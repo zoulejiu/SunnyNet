@@ -5,8 +5,11 @@ package NFapi
 
 import "C"
 import (
+	"fmt"
 	. "github.com/qtgolang/SunnyNet/src/ProcessDrv/Info"
+	net2 "github.com/qtgolang/SunnyNet/src/iphlpapi/net"
 	"github.com/qtgolang/SunnyNet/src/public"
+	"github.com/shirou/gopsutil/process"
 	"net"
 	"regexp"
 	"strconv"
@@ -14,6 +17,16 @@ import (
 	"sync/atomic"
 	"syscall"
 )
+
+func getTcpInfoPID(tcpInfo string) string {
+	connections, _ := net2.Connections("tcp")
+	for _, conn := range connections {
+		if conn.Laddr.String() == tcpInfo {
+			return strconv.Itoa(int(conn.Pid))
+		}
+	}
+	return ""
+}
 
 var Api = new(NFApi)
 
@@ -51,6 +64,25 @@ func getIPV6Lan() string {
 	}
 	return ""
 }
+func isLocalNetRequest(pConnInfo *NF_TCP_CONN_INFO) bool {
+	if strings.Contains(pConnInfo.RemoteAddress.String(), "127.0.0.1") || strings.Contains(pConnInfo.RemoteAddress.String(), "[::1]") {
+		if strings.Contains(pConnInfo.LocalAddress.String(), "0.0.0.0") {
+			__localNetInfo := fmt.Sprintf("127.0.0.1:%d", int(pConnInfo.RemoteAddress.GetPort()))
+			__pid := getTcpInfoPID(__localNetInfo)
+			__ProcessId := strconv.Itoa(int(pConnInfo.ProcessId.Get()))
+			if __pid == __ProcessId {
+				return true
+			}
+			__localNetInfo = fmt.Sprintf("[::1]:%d", int(pConnInfo.RemoteAddress.GetPort()))
+			__pid = getTcpInfoPID(__localNetInfo)
+			__ProcessId = strconv.Itoa(int(pConnInfo.ProcessId.Get()))
+			if __pid == __ProcessId {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // 实现 tcpConnectRequest 函数，用于处理 TCP 连接请求
 func tcpConnectRequest(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
@@ -65,9 +97,20 @@ func tcpConnectRequest(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 	if pConnInfo.ProcessId.Get() == uint32(ExePid) {
 		return
 	}
-
 	// 获取进程名，并检查是否在代理名单中
 	_, _, ProcessName := Api.NfgetProcessNameA(pConnInfo.ProcessId.Get())
+	if ProcessName == "" {
+		_pid := int32(pConnInfo.ProcessId.Get())
+		arr, e := process.Processes()
+		if e == nil {
+			for _, v := range arr {
+				if v.Pid == _pid {
+					ProcessName, _ = v.Name()
+					break
+				}
+			}
+		}
+	}
 	Lock.Lock()
 	if HookProcess == false {
 		if Name[strings.ToLower(ProcessName)] == false {
@@ -80,6 +123,9 @@ func tcpConnectRequest(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 	}
 	Lock.Unlock()
 	if IsFilterRequests(ProcessName, pConnInfo.RemoteAddress.String()) {
+		return
+	}
+	if isLocalNetRequest(pConnInfo) {
 		return
 	}
 	// 如果连接是 IPv6 的，则将连接的远程地址改为本地 IPv6 地址，并保存到代理列表中
@@ -115,7 +161,6 @@ func tcpConnectRequest(id uint64, pConnInfo *NF_TCP_CONN_INFO) {
 	// 如果连接是 IPv4 的，则将连接的远程地址改为本地 IPv4 地址，并保存到代理列表中
 	_, i := pConnInfo.RemoteAddress.GetIP()
 	Process := &ProcessInfo{Pid: strconv.Itoa(int(pConnInfo.ProcessId.Get())), RemoteAddress: i.String(), RemotePort: pConnInfo.RemoteAddress.GetPort(), Id: id}
-
 	Lock.Lock()
 	Proxy[pConnInfo.LocalAddress.GetPort()] = Process
 	Lock.Unlock()
